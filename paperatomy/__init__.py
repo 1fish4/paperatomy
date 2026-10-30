@@ -37,9 +37,20 @@ from .model import (
     validate_extraction,
 )
 from .parse import Page, Paper, Section, parse
-from .render import to_json, to_markdown
+from .render import to_html, to_json, to_markdown, visuals_from_json
+from .visuals import (
+    PRIMITIVES,
+    Visual,
+    build_visual_messages,
+    extract_visuals,
+    list_primitives,
+    parse_visual_response,
+    validate_visual,
+    validate_visuals,
+    visual_warnings,
+)
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
     # 数据模型
@@ -50,8 +61,12 @@ __all__ = [
     "parse", "Paper", "Page", "Section",
     # 抽取
     "extract", "build_messages", "parse_response",
+    # 可视化
+    "Visual", "PRIMITIVES", "list_primitives",
+    "extract_visuals", "build_visual_messages", "parse_visual_response",
+    "validate_visual", "validate_visuals", "visual_warnings",
     # 大模型
     "LLMConfig", "LLMError", "load_config", "save_config", "chat", "CONFIG_PATH",
     # 渲染
-    "to_markdown", "to_json",
+    "to_markdown", "to_json", "to_html", "visuals_from_json",
 ]
