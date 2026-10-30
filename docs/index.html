@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>paperatomy · 论文解剖</title>
+<meta name="description" content="把一篇论文拆成固定骨架的结构图：研究问题、背景、方法、数据、结论、局限，每块带页码与原文摘录。">
+<style>
+  :root {
+    --bg: #FAF8F4; --card: #FFFFFF;
+    --ink: #1B2430; --ink2: #56616F; --ink3: #8A94A2;
+    --line: #E7E2D8; --line2: #F1EDE5;
+    --accent: #2E6F8E; --soft: #E7F1F6;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+            "Hiragino Sans GB", "Microsoft YaHei", "Source Han Sans SC", sans-serif;
+    --mono: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: var(--sans); font-size: 15px; line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 72px 32px 96px; }
+
+  .kicker {
+    font-family: var(--mono); font-size: 12px; letter-spacing: .12em;
+    color: var(--accent); text-transform: uppercase; margin-bottom: 18px;
+  }
+  h1 {
+    margin: 0 0 18px; font-size: 38px; line-height: 1.25;
+    letter-spacing: -.02em; font-weight: 600;
+  }
+  .lede {
+    font-size: 18px; color: var(--ink2); margin: 0 0 10px; max-width: 46ch;
+  }
+  .sub { font-size: 14px; color: var(--ink3); margin: 0 0 44px; }
+
+  h2 {
+    font-size: 15px; font-weight: 600; margin: 0 0 16px;
+    padding-bottom: 10px; border-bottom: 1px solid var(--line);
+  }
+
+  .demos { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 48px; }
+  @media (max-width: 720px) { .demos { grid-template-columns: 1fr; } }
+  a.demo {
+    display: block; text-decoration: none; color: inherit;
+    background: var(--card); border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: 12px; padding: 22px 24px;
+    transition: border-color .18s, box-shadow .18s, transform .18s;
+  }
+  a.demo:hover {
+    border-color: #D8D1C3; box-shadow: 0 6px 22px rgba(27,36,48,.07);
+    transform: translateY(-2px);
+  }
+  a.demo .tag {
+    font-family: var(--mono); font-size: 11px; letter-spacing: .08em;
+    color: var(--accent); text-transform: uppercase;
+  }
+  a.demo h3 { margin: 8px 0 8px; font-size: 17px; font-weight: 600; }
+  a.demo p { margin: 0; font-size: 13.5px; color: var(--ink3); line-height: 1.65; }
+
+  .shot {
+    border: 1px solid var(--line); border-radius: 12px; overflow: hidden;
+    margin-bottom: 14px; background: var(--card);
+  }
+  /* 只露出报告的上半部分：整张截图缩到 810 宽后文字太小，看不清 */
+  .shot img {
+    display: block; width: 100%; max-height: 560px; object-fit: cover;
+    object-position: top center;
+  }
+  .cap { font-size: 12.5px; color: var(--ink3); margin: 0 0 40px; }
+
+  .facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 44px; }
+  @media (max-width: 720px) { .facts { grid-template-columns: 1fr; } }
+  .fact {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 10px; padding: 16px 18px;
+  }
+  .fact b { display: block; font-size: 22px; font-weight: 600; letter-spacing: -.02em; }
+  .fact span { font-size: 12.5px; color: var(--ink3); }
+
+  code {
+    font-family: var(--mono); font-size: 13px;
+    background: var(--line2); padding: 2px 6px; border-radius: 5px;
+  }
+  pre {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 10px; padding: 16px 18px; overflow-x: auto;
+    font-family: var(--mono); font-size: 13px; line-height: 1.7;
+  }
+  pre code { background: none; padding: 0; }
+
+  .note {
+    background: var(--soft); border-radius: 10px; padding: 14px 18px;
+    font-size: 13px; color: var(--ink2); margin: 32px 0;
+  }
+
+  footer {
+    margin-top: 56px; padding-top: 22px; border-top: 1px solid var(--line);
+    font-size: 12.5px; color: var(--ink3);
+    display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+  }
+  footer a { color: var(--accent); text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="kicker">paperatomy · 论文解剖</div>
+  <h1>把一篇论文拆成一张结构图</h1>
+  <p class="lede">不是和它聊天，是让它自己交代清楚：研究问题、背景、方法、数据、结论、局限。</p>
+  <p class="sub">每块都附页码与原文摘录，可以逐条核对。</p>
+
+  <h2>在线示例</h2>
+  <div class="demos">
+    <a class="demo" href="examples/survey.html">
+      <div class="tag">survey · 8 块</div>
+      <h3>资源高效基础模型综述</h3>
+      <p>35 页 ACM 综述。看分类框架怎么被拆成三层，开放问题保留原始 5 条。</p>
+    </a>
+    <a class="demo" href="examples/skim.html">
+      <div class="tag">skim · 6 块</div>
+      <h3>同一篇论文的速读版</h3>
+      <p>五分钟判断值不值得细读：结论、问题、缺口、方法、结果、可用性。</p>
+    </a>
+  </div>
+
+  <h2>它长什么样</h2>
+  <div class="shot"><img src="images/report-survey.png" alt="综述报告效果"></div>
+  <p class="cap">每一块底部列出原文页码与摘录；低置信度的判断会单独标出。</p>
+
+  <h2>这台机器上跑出来的数</h2>
+  <div class="facts">
+    <div class="fact"><b>35 页</b><span>单篇综述，8 个章节全部识别</span></div>
+    <div class="fact"><b>23–29 秒</b><span>一次完整抽取（DeepSeek）</span></div>
+    <div class="fact"><b>38%</b><span>参考文献占比，压缩时整节剔除</span></div>
+  </div>
+
+  <h2>为什么不是「和 PDF 聊天」</h2>
+  <p style="color:var(--ink2);margin:0 0 24px">
+    聊天工具要求你先知道该问什么 —— 而「不知道该问什么」正是读不懂的状态。
+    这里骨架是预设的，打开即完整，不需要你提问。
+    另外每句话都有出处：聊天给你一段话，你不知道它从哪来。
+  </p>
+
+  <h2>自己跑</h2>
+  <pre><code>git clone https://github.com/1fish4/paperatomy.git
+cd paperatomy
+pip install -e ".[dev]"
+
+paperatomy config set --api-key sk-xxx --model deepseek-chat
+paperatomy extract paper.pdf -t survey -l zh -o out/paper</code></pre>
+  <p style="font-size:13.5px;color:var(--ink3)">
+    产出三个文件：<code>.json</code>（结构化）、<code>.md</code>（贴笔记）、
+    <code>.html</code>（单文件报告）。
+  </p>
+
+  <div class="note">
+    <b>关于示例</b>：两份示例报告的内容由大模型从论文原文抽取，引用为英文原句的短摘录，
+    版权归原作者所有，此处仅用于演示工具效果。论文原文不在本仓库内。
+  </div>
+
+  <footer>
+    <span>MIT 协议 · 36 项测试</span>
+    <span>
+      <a href="https://github.com/1fish4/paperatomy">GitHub</a> ·
+      <a href="https://gitee.com/not-even-xianyu-can-handle-it/paperatomy">Gitee</a>
+    </span>
+  </footer>
+</div>
+</body>
+</html>

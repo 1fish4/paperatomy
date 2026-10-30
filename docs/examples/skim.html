@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>paperatomy · 论文解剖</title>
+<style>
+  :root {
+    --bg:       #FAF8F4;
+    --card:     #FFFFFF;
+    --ink:      #1B2430;
+    --ink2:     #56616F;
+    --ink3:     #8A94A2;
+    --line:     #E7E2D8;
+    --line2:    #F1EDE5;
+    --accent:   #2E6F8E;
+    --accent2:  #4A9BBF;
+    --soft:     #E7F1F6;
+    --warn:     #B8703F;
+    --warnSoft: #FBF1E6;
+    --ok:       #4E9A72;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+            "Hiragino Sans GB", "Microsoft YaHei", "Source Han Sans SC", sans-serif;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Consolas,
+            "Liberation Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: var(--sans); font-size: 15px; line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 32px 96px; }
+
+  header.top { padding: 56px 0 28px; border-bottom: 1px solid var(--line); }
+  .kicker {
+    font-family: var(--mono); font-size: 12px; letter-spacing: .12em;
+    color: var(--accent); text-transform: uppercase; margin-bottom: 14px;
+  }
+  h1 {
+    margin: 0 0 14px; font-size: 30px; line-height: 1.3;
+    letter-spacing: -.015em; font-weight: 600; max-width: 40ch;
+  }
+  .meta { font-size: 13px; color: var(--ink3); display: flex; flex-wrap: wrap; gap: 6px 14px; }
+  .meta span { display: inline-flex; align-items: center; gap: 5px; }
+  .meta b { font-weight: 600; color: var(--ink2); }
+
+  nav.jump {
+    position: sticky; top: 0; z-index: 20;
+    background: rgba(250,248,244,.92); backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 0; margin-bottom: 34px;
+  }
+  .jump-links { display: flex; gap: 4px; overflow-x: auto; flex: 1; min-width: 0; }
+  nav.jump a {
+    font-size: 13px; color: var(--ink2); text-decoration: none;
+    padding: 5px 12px; border-radius: 7px; white-space: nowrap;
+    transition: background .15s, color .15s;
+  }
+  nav.jump a:hover { background: var(--line2); color: var(--ink); }
+  .jump-toggle {
+    flex: none; font-size: 12px; font-family: inherit;
+    color: var(--ink2); background: var(--card);
+    border: 1px solid var(--line); border-radius: 7px;
+    padding: 5px 12px; cursor: pointer;
+    transition: border-color .15s, color .15s;
+  }
+  .jump-toggle:hover { border-color: var(--accent2); color: var(--accent); }
+
+  .hero {
+    background: var(--card); border: 1px solid var(--line);
+    border-left: 4px solid var(--accent);
+    border-radius: 14px; padding: 30px 34px; margin-bottom: 42px;
+    box-shadow: 0 1px 2px rgba(27,36,48,.03), 0 8px 28px rgba(27,36,48,.045);
+  }
+  .hero .label {
+    font-size: 11.5px; font-weight: 700; letter-spacing: .1em;
+    color: var(--accent); text-transform: uppercase; margin-bottom: 12px;
+  }
+  .hero p { margin: 0; font-size: 20px; line-height: 1.72; letter-spacing: -.01em; }
+
+  section.group { margin-bottom: 52px; scroll-margin-top: 68px; }
+  .g-head {
+    display: flex; align-items: baseline; gap: 12px;
+    margin-bottom: 18px; padding-bottom: 10px; border-bottom: 1px solid var(--line);
+  }
+  .g-head h2 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -.01em; }
+  .g-head .count { font-size: 12px; color: var(--ink3); font-family: var(--mono); }
+
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 16px; align-items: start;
+  }
+
+  article.card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--gc, var(--line));
+    border-radius: 12px; padding: 0; overflow: hidden;
+    transition: border-color .18s, box-shadow .18s;
+  }
+  article.card:hover { border-color: #D8D1C3; box-shadow: 0 4px 18px rgba(27,36,48,.05); }
+  .c-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 16px 20px; cursor: pointer; user-select: none;
+  }
+  .c-head h3 { margin: 0; font-size: 14.5px; font-weight: 600; flex: 1; }
+  .badge {
+    font-size: 11px; padding: 1px 8px; border-radius: 999px;
+    border: 1px solid var(--line); color: var(--ink3); white-space: nowrap;
+  }
+  .badge.low { color: var(--warn); border-color: var(--warn); background: var(--warnSoft); }
+  .chev {
+    width: 16px; height: 16px; flex: none; color: var(--ink3);
+    transition: transform .2s;
+  }
+  article.open .chev { transform: rotate(90deg); }
+
+  .c-body { display: none; padding: 0 20px 18px; }
+  article.open .c-body { display: block; }
+  .c-body .txt { font-size: 14.5px; line-height: 1.8; color: var(--ink2); }
+  .c-body .txt p { margin: 0 0 12px; }
+  .c-body .txt p:last-child { margin-bottom: 0; }
+
+  .txt ul { margin: 0 0 12px; padding-left: 20px; }
+  .txt li { margin-bottom: 5px; }
+  .txt ul ul { margin-top: 5px; margin-bottom: 0; }
+  .txt li::marker { color: var(--accent2); }
+
+  .ev { margin-top: 16px; border-top: 1px dashed var(--line); padding-top: 14px; }
+  .ev-title {
+    font-size: 11.5px; font-weight: 700; letter-spacing: .08em;
+    color: var(--ink3); text-transform: uppercase; margin-bottom: 9px;
+  }
+  .ev-item { display: flex; gap: 10px; margin-bottom: 9px; font-size: 13px; line-height: 1.65; }
+  .ev-item:last-child { margin-bottom: 0; }
+  .ev-page {
+    flex: none; font-family: var(--mono); font-size: 11px;
+    color: var(--accent); background: var(--soft);
+    border-radius: 5px; padding: 1px 7px; height: fit-content;
+    min-width: 40px; text-align: center;
+  }
+  .ev-quote { color: var(--ink3); font-style: italic; }
+
+  .empty { color: var(--ink3); font-style: italic; }
+
+  footer {
+    margin-top: 64px; padding-top: 22px; border-top: 1px solid var(--line);
+    font-size: 12.5px; color: var(--ink3);
+    display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px;
+  }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media print {
+    nav.jump, .chev { display: none; }
+    article.card { break-inside: avoid; border-color: #ccc; }
+    .c-body { display: block !important; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="kicker">paperatomy · 论文解剖</div>
+    <h1 id="title"></h1>
+    <div class="meta" id="meta"></div>
+  </header>
+
+  <nav class="jump">
+    <div class="jump-links" id="jump"></div>
+    <button class="jump-toggle" id="toggleAll">全部折叠</button>
+  </nav>
+  <main id="main"></main>
+
+  <footer>
+    <span id="stat"></span>
+    <span>由 <a href="https://github.com/1fish4/paperatomy">paperatomy</a> 生成 · 每块内容均附原文页码与摘录</span>
+  </footer>
+</div>
+
+<script id="paper-data" type="application/json">{"paper_title":"Resource-efficient Algorithms and Systems of Foundation Models: A Survey","template_name":"速读","model":"deepseek-chat","lang":"zh","pages":35,"blocks":6,"groups":[{"name":"概览","blocks":[{"id":"tl_dr","title":"一句话结论","content":"本文是一篇综述，系统梳理了面向大基础模型（LLMs、ViTs、扩散模型、多模态模型）的资源高效算法与系统研究，涵盖高效架构、训练/微调/推理算法、模型压缩以及分布式训练与云边服务系统，并指出未来方向。论文未给出统一的量化结果，仅归纳各方法的报告数据（如Mamba 5×加速、RetNet 25-50%内存节省、H2O延迟降低1.9×等）。","confidence":"high","empty":false,"evidence":[{"page":1,"quote":"This survey delves into the critical importance of such research, examining both algorithmic and systemic aspects."}]},{"id":"problem","title":"研究问题","content":"研究问题：大基础模型（FMs）在通用性和性能上的巨大进步以显著的硬件资源消耗为代价，如何以可扩展且环境可持续的方式支撑这些大模型的增长？论文指出，可扩展性带来巨大资源需求，且截至2023年底只有少数主要机构能训练和部署最先进FMs，模型多部署在云端而非设备端，使数据隐私保护几乎不可能；设备端模型规模仍有限（如<10B）且尚未实际部署。因此需要系统梳理资源高效策略。","confidence":"high","empty":false,"evidence":[{"page":1,"quote":"However, the substantial advancements in versatility and performance these models offer come at a significant cost in terms of hardware resources."},{"page":2,"quote":"Till the end of 2023, there are only a few major players capable of training and deploying the state-of-the-art FMs, who thereby have powerful control over the public and can potentially manipulate them in a way they prefer."}]}]},{"name":"背景","blocks":[{"id":"gap","title":"前人为什么没解决","content":"已有工作：同期存在若干（尚未同行评审的）关于高效大语言模型的综述，覆盖压缩、算法、系统-算法和硬件等方向。已有方法的缺陷：这些综述主要聚焦大语言模型，未覆盖同样重要的多模态模型（如扩散模型和ViT模型）。本文的新想法/切入点：据作者所述，本文是首个面向资源高效基础模型的全面综述，不仅包括大语言模型，还包括扩散和ViT等多模态模型；同时从算法与系统两个层面、从云到边缘和设备进行覆盖。","confidence":"high","empty":false,"evidence":[{"page":3,"quote":"As comparison, this work is the first comprehensive survey towards resource-efficient foundation models, including not only large language models, but also multimodal ones that are equally important such as diffusion and ViT models."},{"page":3,"quote":"Concurrent to this work, there are a few (not yet peer-reviewed) surveys about efficient large language models, spanning from compression [318], algorithms [56], system-algorithm [184, 248], and hardware [125]."}]}]},{"name":"方法","blocks":[{"id":"method","title":"方法核心","content":"方法核心：作为综述，本文按基础模型生命周期组织文献。首先概述语言、视觉和多模态FMs及其运行时成本（FLOPs与存储分析）；然后从三个层面归纳资源高效技术：(1) 高效架构，包括稀疏/近似/无注意力机制、动态神经网络（MoE、早退出）、扩散模型优化和ViT专用优化；(2) 高效算法，覆盖预训练（数据质量控制/削减、渐进学习、混合精度）、微调（加性、选择性、重参数化调优）、推理（投机解码、输入过滤与压缩、KV cache、长上下文）和模型压缩（剪枝、知识蒸馏、量化、低秩分解）；(3) 高效系统，包括分布式训练（容错、并行、通信、存储、异构GPU、MoE）、硬件感知优化、云端服务和边缘端服务。最后总结未来方向。","confidence":"high","empty":false,"evidence":[{"page":3,"quote":"Section 2 overviews the classical foundation models and their runtime cost. Section 3 investigates the architectural innovations that revise or replace the existing foundation model architectures. Section 4 and Section 5 examine the algorithm-level and system-level literature towards more resource-efficient foundation models. Section 6 concludes the survey and presents potential future directions."}]}]},{"name":"结果","blocks":[{"id":"result","title":"主要结果","content":"主要结果：本文为综述，未在统一数据集上报告自身实验对比，而是归纳各被引方法的报告数字。例如：Mamba相比传统Transformer实现5×加速并随序列长度线性扩展；RetNet训练时相比标准Transformer节省25-50%内存并加速7×；投机解码在T5X上带来2–3×性能提升，在70B Chinchilla上类似加速；SpecTr实现2.13×墙钟加速并额外1.37×加速；H2O降低延迟最高1.9×、吞吐提升29×；Scissorhands减少KV cache推理内存最高5×；TensorGPT将embedding层压缩最高38.40×；GPTQ将每个权重降至3或4 bit，可在1750亿参数GPT模型上以极小精度损失量化；DPM-Solver仅需10-20步去噪；SnapFusion在移动设备上不到2秒生成512×512图像；ERNIE-ViLG在MS-COCO上零样本FID-30k为6.75。论文未给出跨方法的统一基准对比。","confidence":"medium","empty":false,"evidence":[{"page":6,"quote":"This model achieves a notable 5× speed increase over traditional transformers and exhibits linear scaling with sequence length."},{"page":6,"quote":"During training, RetNet demonstrates a 25-50% memory saving and a 7× acceleration compared to the standard Transformer."},{"page":13,"quote":"Yaniv et al. [141] report a 2–3× improvement in performance using speculative decoding on the T5X model, while a concurrent study [36] demonstrates similar speedups on a 70B Chinchilla model."},{"page":14,"quote":"H2O demonstrates the capability to reduce latency by up to 1.9× and increase throughput by 29×."},{"page":15,"quote":"Scissorhands utilizes an innovative compact KV cache and results in a notable reduction in KV cache inference memory usage, achieving up to a 5× reducation while maintaining model quality."},{"page":18,"quote":"GPTQ reduces the bit-width of each weight to 3 or 4 bits, allowing quantization of GPT models with 175 billion parameters with minimal accuracy loss."}]},{"id":"limits","title":"能不能用","content":"作者自述的局限：论文明确限定了综述范围——(i) 只综述算法与系统创新，排除大量硬件设计工作；(ii) 资源定义主要限于物理资源（计算、内存、存储、带宽等），排除训练数据（标签）和隐私；(iii) 主要综述CSRankings收录的顶级CS会议论文，并手动挑选arXiv上相关且可能高影响力的论文；(iv) 主要综述2020年之后发表的论文。作者未提但存在的适用边界/风险：作为综述，论文未提供统一的实验基准或跨方法公平对比，各方法报告的数字来自不同设置，不能直接横向比较；覆盖范围排除硬件和数据/隐私，因此对端到端部署成本或隐私敏感场景的指导有限；文献筛选偏向顶会和2020年后，可能遗漏其他来源或更早的重要工作。","confidence":"high","empty":false,"evidence":[{"page":2,"quote":"(i) We survey only algorithm and system innovations; we exclude a huge body of work at hardware design; (ii) The definition of resource in this survey is limited to mainly physical ones, including computing, memory, storage, bandwidth, etc; we exclude training data (labels) and privacy that can also be regarded as resources; (iii) We mainly survey papers published on top-tier CS conferences, i.e., those included in CSRankings."},{"page":2,"quote":"(iv) We mainly survey papers published after the year of 2020, since the innovation of AI is going fast with old knowledge and methods being overturned frequently."}]}]}]}</script>
+<script>
+(function () {
+  var D = JSON.parse(document.getElementById("paper-data").textContent);
+
+  // 每个分组一个色调，卡片左侧色条用它，视觉上能一眼分清「概览 / 框架 / 结论 / 判断」
+  var GROUP_COLORS = ["#2E6F8E", "#4A9BBF", "#7A9E7E", "#B8703F"];
+
+  document.getElementById("title").textContent = D.paper_title || "（未识别标题）";
+  document.title = (D.paper_title || "论文解剖") + " · paperatomy";
+
+  var meta = [];
+  if (D.template_name) { meta.push("<span>模板 <b>" + esc(D.template_name) + "</b></span>"); }
+  if (D.pages)        { meta.push("<span><b>" + D.pages + "</b> 页</span>"); }
+  if (D.blocks)       { meta.push("<span><b>" + D.blocks + "</b> 个板块</span>"); }
+  if (D.model)        { meta.push("<span>模型 <b>" + esc(D.model) + "</b></span>"); }
+  document.getElementById("meta").innerHTML = meta.join("");
+
+  var jump = [];
+  var main = [];
+
+  // 「一句话结论」单独抽出来做页首大卡：它是整篇最该被先看到的一句，
+  // 混在卡片堆里会被淹掉。
+  var hero = null;
+  D.groups.forEach(function (g) {
+    g.blocks = g.blocks.filter(function (b) {
+      if (!hero && b.id === "tl_dr") { hero = b; return false; }
+      return true;
+    });
+  });
+  D.groups = D.groups.filter(function (g) { return g.blocks.length; });
+
+  if (hero) {
+    var hh = ['<div class="hero"><div class="label">' + esc(hero.title) + "</div>"];
+    hh.push("<p>" + esc(hero.content || "论文未提及。") + "</p>");
+    if (hero.evidence && hero.evidence.length) {
+      hh.push('<div class="ev"><div class="ev-title">原文依据</div>');
+      hero.evidence.forEach(function (e) {
+        hh.push('<div class="ev-item"><span class="ev-page">' +
+                esc(e.page ? "p." + e.page : "页?") + "</span>");
+        hh.push('<span class="ev-quote">' + esc(e.quote) + "</span></div>");
+      });
+      hh.push("</div>");
+    }
+    hh.push("</div>");
+    main.push(hh.join(""));
+  }
+
+  D.groups.forEach(function (g, gi) {
+    var anchor = "g" + gi;
+    jump.push('<a href="#' + anchor + '">' + esc(g.name) + "</a>");
+
+    var gc = GROUP_COLORS[gi % GROUP_COLORS.length];
+    main.push('<section class="group" id="' + anchor + '" style="--gc:' + gc + '">');
+    main.push('<div class="g-head"><h2>' + esc(g.name) + "</h2>");
+    main.push('<span class="count">' + g.blocks.length + " 块</span></div>");
+
+    var single = g.blocks.length === 1;
+    main.push('<div class="cards' + (single ? " single" : "") + '">');
+
+    g.blocks.forEach(function (b, bi) {
+      // 默认全部展开：这是给人读的报告，不是目录。
+      // 折叠是「太长时收起来」的手段，不该是打开时的默认状态。
+      var open = " open";
+      main.push('<article class="card' + open + '">');
+      main.push('<div class="c-head">');
+      main.push('<h3>' + esc(b.title) + "</h3>");
+      if (b.confidence === "low") {
+        main.push('<span class="badge low">低置信</span>');
+      }
+      main.push('<svg class="chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" ' +
+                'stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">' +
+                '<path d="M6 4l4 4-4 4"/></svg>');
+      main.push("</div>");
+
+      main.push('<div class="c-body">');
+      if (b.empty) {
+        main.push('<div class="txt"><p class="empty">论文未提及，或材料不足未抽取到内容。</p></div>');
+      } else {
+        main.push('<div class="txt">' + formatText(b.content) + "</div>");
+      }
+      if (b.evidence && b.evidence.length) {
+        main.push('<div class="ev"><div class="ev-title">原文依据</div>');
+        b.evidence.forEach(function (e) {
+          var page = e.page ? "p." + e.page : "页码未标注";
+          main.push('<div class="ev-item"><span class="ev-page">' + esc(page) + "</span>");
+          main.push('<span class="ev-quote">' + esc(e.quote) + "</span></div>");
+        });
+        main.push("</div>");
+      }
+      main.push("</div></article>");
+    });
+
+    main.push("</div></section>");
+  });
+
+  document.getElementById("jump").innerHTML = jump.join("");
+  document.getElementById("main").innerHTML = main.join("");
+
+  document.getElementById("stat").textContent =
+    (D.blocks || 0) + " 个板块 · 全部内容均来自原文抽取";
+
+  // 折叠交互
+  document.getElementById("main").addEventListener("click", function (e) {
+    var head = e.target.closest(".c-head");
+    if (!head) { return; }
+    head.parentElement.classList.toggle("open");
+  });
+
+  // 一键全部折叠 / 展开
+  document.getElementById("toggleAll").addEventListener("click", function () {
+    var cards = document.querySelectorAll("article.card");
+    var anyOpen = Array.prototype.some.call(cards, function (c) {
+      return c.classList.contains("open");
+    });
+    Array.prototype.forEach.call(cards, function (c) {
+      c.classList.toggle("open", !anyOpen);
+    });
+    this.textContent = anyOpen ? "全部展开" : "全部折叠";
+  });
+
+  // 把带缩进的纯文本转成层级列表，让「分类框架」这类内容能看出结构
+  function formatText(text) {
+    if (!text) { return ""; }
+    var lines = text.split(/\n/);
+    var hasList = lines.some(function (l) { return /^\s*(\d+[.)]|[-*•])\s+/.test(l); });
+    if (!hasList) {
+      return text.split(/\n{2,}/).map(function (p) {
+        return "<p>" + esc(p.trim()).replace(/\n/g, "<br>") + "</p>";
+      }).join("");
+    }
+
+    var html = [];
+    var stack = [];   // 每层的缩进宽度
+    lines.forEach(function (raw) {
+      if (!raw.trim()) { return; }
+      var m = raw.match(/^(\s*)(\d+[.)]|[-*•])\s+(.*)$/);
+      if (!m) {
+        if (html.length && stack.length) {
+          html[html.length - 1] = html[html.length - 1].replace(/<\/li>$/, " " + esc(raw.trim()) + "</li>");
+        } else {
+          html.push("<p>" + esc(raw.trim()) + "</p>");
+        }
+        return;
+      }
+      var indent = m[1].replace(/\t/g, "    ").length;
+      var body = esc(m[3]);
+      if (m[2].match(/^\d/)) { body = "<b>" + body + "</b>"; }
+
+      while (stack.length && indent < stack[stack.length - 1]) {
+        html.push("</li></ul>"); stack.pop();
+      }
+      if (!stack.length || indent > stack[stack.length - 1]) {
+        html.push("<ul>"); stack.push(indent);
+      } else {
+        html.push("</li>");
+      }
+      html.push("<li>" + body);
+    });
+    while (stack.length) { html.push("</li></ul>"); stack.pop(); }
+    return html.join("");
+  }
+
+  function esc(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+})();
+</script>
+</body>
+</html>

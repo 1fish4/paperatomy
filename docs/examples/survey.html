@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>paperatomy · 论文解剖</title>
+<style>
+  :root {
+    --bg:       #FAF8F4;
+    --card:     #FFFFFF;
+    --ink:      #1B2430;
+    --ink2:     #56616F;
+    --ink3:     #8A94A2;
+    --line:     #E7E2D8;
+    --line2:    #F1EDE5;
+    --accent:   #2E6F8E;
+    --accent2:  #4A9BBF;
+    --soft:     #E7F1F6;
+    --warn:     #B8703F;
+    --warnSoft: #FBF1E6;
+    --ok:       #4E9A72;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+            "Hiragino Sans GB", "Microsoft YaHei", "Source Han Sans SC", sans-serif;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Consolas,
+            "Liberation Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: var(--sans); font-size: 15px; line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 32px 96px; }
+
+  header.top { padding: 56px 0 28px; border-bottom: 1px solid var(--line); }
+  .kicker {
+    font-family: var(--mono); font-size: 12px; letter-spacing: .12em;
+    color: var(--accent); text-transform: uppercase; margin-bottom: 14px;
+  }
+  h1 {
+    margin: 0 0 14px; font-size: 30px; line-height: 1.3;
+    letter-spacing: -.015em; font-weight: 600; max-width: 40ch;
+  }
+  .meta { font-size: 13px; color: var(--ink3); display: flex; flex-wrap: wrap; gap: 6px 14px; }
+  .meta span { display: inline-flex; align-items: center; gap: 5px; }
+  .meta b { font-weight: 600; color: var(--ink2); }
+
+  nav.jump {
+    position: sticky; top: 0; z-index: 20;
+    background: rgba(250,248,244,.92); backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 0; margin-bottom: 34px;
+  }
+  .jump-links { display: flex; gap: 4px; overflow-x: auto; flex: 1; min-width: 0; }
+  nav.jump a {
+    font-size: 13px; color: var(--ink2); text-decoration: none;
+    padding: 5px 12px; border-radius: 7px; white-space: nowrap;
+    transition: background .15s, color .15s;
+  }
+  nav.jump a:hover { background: var(--line2); color: var(--ink); }
+  .jump-toggle {
+    flex: none; font-size: 12px; font-family: inherit;
+    color: var(--ink2); background: var(--card);
+    border: 1px solid var(--line); border-radius: 7px;
+    padding: 5px 12px; cursor: pointer;
+    transition: border-color .15s, color .15s;
+  }
+  .jump-toggle:hover { border-color: var(--accent2); color: var(--accent); }
+
+  .hero {
+    background: var(--card); border: 1px solid var(--line);
+    border-left: 4px solid var(--accent);
+    border-radius: 14px; padding: 30px 34px; margin-bottom: 42px;
+    box-shadow: 0 1px 2px rgba(27,36,48,.03), 0 8px 28px rgba(27,36,48,.045);
+  }
+  .hero .label {
+    font-size: 11.5px; font-weight: 700; letter-spacing: .1em;
+    color: var(--accent); text-transform: uppercase; margin-bottom: 12px;
+  }
+  .hero p { margin: 0; font-size: 20px; line-height: 1.72; letter-spacing: -.01em; }
+
+  section.group { margin-bottom: 52px; scroll-margin-top: 68px; }
+  .g-head {
+    display: flex; align-items: baseline; gap: 12px;
+    margin-bottom: 18px; padding-bottom: 10px; border-bottom: 1px solid var(--line);
+  }
+  .g-head h2 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -.01em; }
+  .g-head .count { font-size: 12px; color: var(--ink3); font-family: var(--mono); }
+
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 16px; align-items: start;
+  }
+
+  article.card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--gc, var(--line));
+    border-radius: 12px; padding: 0; overflow: hidden;
+    transition: border-color .18s, box-shadow .18s;
+  }
+  article.card:hover { border-color: #D8D1C3; box-shadow: 0 4px 18px rgba(27,36,48,.05); }
+  .c-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 16px 20px; cursor: pointer; user-select: none;
+  }
+  .c-head h3 { margin: 0; font-size: 14.5px; font-weight: 600; flex: 1; }
+  .badge {
+    font-size: 11px; padding: 1px 8px; border-radius: 999px;
+    border: 1px solid var(--line); color: var(--ink3); white-space: nowrap;
+  }
+  .badge.low { color: var(--warn); border-color: var(--warn); background: var(--warnSoft); }
+  .chev {
+    width: 16px; height: 16px; flex: none; color: var(--ink3);
+    transition: transform .2s;
+  }
+  article.open .chev { transform: rotate(90deg); }
+
+  .c-body { display: none; padding: 0 20px 18px; }
+  article.open .c-body { display: block; }
+  .c-body .txt { font-size: 14.5px; line-height: 1.8; color: var(--ink2); }
+  .c-body .txt p { margin: 0 0 12px; }
+  .c-body .txt p:last-child { margin-bottom: 0; }
+
+  .txt ul { margin: 0 0 12px; padding-left: 20px; }
+  .txt li { margin-bottom: 5px; }
+  .txt ul ul { margin-top: 5px; margin-bottom: 0; }
+  .txt li::marker { color: var(--accent2); }
+
+  .ev { margin-top: 16px; border-top: 1px dashed var(--line); padding-top: 14px; }
+  .ev-title {
+    font-size: 11.5px; font-weight: 700; letter-spacing: .08em;
+    color: var(--ink3); text-transform: uppercase; margin-bottom: 9px;
+  }
+  .ev-item { display: flex; gap: 10px; margin-bottom: 9px; font-size: 13px; line-height: 1.65; }
+  .ev-item:last-child { margin-bottom: 0; }
+  .ev-page {
+    flex: none; font-family: var(--mono); font-size: 11px;
+    color: var(--accent); background: var(--soft);
+    border-radius: 5px; padding: 1px 7px; height: fit-content;
+    min-width: 40px; text-align: center;
+  }
+  .ev-quote { color: var(--ink3); font-style: italic; }
+
+  .empty { color: var(--ink3); font-style: italic; }
+
+  footer {
+    margin-top: 64px; padding-top: 22px; border-top: 1px solid var(--line);
+    font-size: 12.5px; color: var(--ink3);
+    display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px;
+  }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media print {
+    nav.jump, .chev { display: none; }
+    article.card { break-inside: avoid; border-color: #ccc; }
+    .c-body { display: block !important; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="kicker">paperatomy · 论文解剖</div>
+    <h1 id="title"></h1>
+    <div class="meta" id="meta"></div>
+  </header>
+
+  <nav class="jump">
+    <div class="jump-links" id="jump"></div>
+    <button class="jump-toggle" id="toggleAll">全部折叠</button>
+  </nav>
+  <main id="main"></main>
+
+  <footer>
+    <span id="stat"></span>
+    <span>由 <a href="https://github.com/1fish4/paperatomy">paperatomy</a> 生成 · 每块内容均附原文页码与摘录</span>
+  </footer>
+</div>
+
+<script id="paper-data" type="application/json">{"paper_title":"Resource-efficient Algorithms and Systems of Foundation Models: A Survey","template_name":"综述","model":"deepseek-chat","lang":"zh","pages":35,"blocks":8,"groups":[{"name":"概览","blocks":[{"id":"tl_dr","title":"一句话结论","content":"该综述覆盖大基础模型（LLM、ViT、扩散模型、多模态模型）的资源高效算法与系统，按模型架构、算法（预训练/微调/推理/压缩）、系统（分布式训练/云边服务）三条主线组织，旨在降低训练与部署的算力、内存、存储和带宽开销而不牺牲性能。","confidence":"high","empty":false,"evidence":[{"page":1,"quote":"This survey delves into the critical importance of such research, examining both algorithmic and systemic aspects."}]},{"id":"scope","title":"收录范围","content":"领域边界：仅涵盖算法与系统创新，明确排除硬件设计；资源定义限于物理资源（计算、内存、存储、带宽等），排除训练数据（标签）与隐私；文献主要来自CSRankings顶会及arXiv高影响力论文；时间上主要收录2020年之后的论文。未给出具体文献数量统计。","confidence":"high","empty":false,"evidence":[{"page":2,"quote":"We survey only algorithm and system innovations; we exclude a huge body of work at hardware design;"},{"page":2,"quote":"The definition of resource in this survey is limited to mainly physical ones, including computing, memory, storage, bandwidth, etc; we exclude training data (labels) and privacy that can also be regarded as resources;"},{"page":2,"quote":"We mainly survey papers published on top-tier CS conferences, i.e., those included in CSRankings. We also manually pick related and potentially high-impact papers from arXiv."},{"page":2,"quote":"We mainly survey papers published after the year of 2020, since the innovation of AI is going fast with old knowledge and methods being overturned frequently."}]},{"id":"problem","title":"领域要解决的问题","content":"整个领域的问题：基础模型的可扩展性带来巨大资源需求（算力、内存、存储、带宽），且训练与部署集中在少数大厂云端，导致隐私难以保护、设备端难以运行大模型。领域卡在如何在不牺牲性能的前提下降低资源足迹，并推动模型向边缘/设备下沉。具体到方法层面：注意力机制二次复杂度导致长序列训练/推理瓶颈；预训练需万亿级token与巨大算力；微调全参数成本高；自回归解码效率低；KV cache内存开销大；量化中激活异常值导致精度下降；分布式训练面临故障、通信、存储与异构GPU挑战；端侧推理受内存墙与I/O限制。","confidence":"high","empty":false,"evidence":[{"page":1,"quote":"However, the scalability comes at a cost of huge resource demand."},{"page":2,"quote":"Till the end of 2023, there are only a few major players capable of training and deploying the state-of-the-art FMs, who thereby have powerful control over the public and can potentially manipulate them in a way they prefer."},{"page":4,"quote":"The attention mechanism in large FMs faces significant computational bottlenecks primarily due to its quadratic complexity."},{"page":10,"quote":"Pre-training for large FMs relies on a substantial amount of computation resources. For instance, GPT-3-175B consumes 3.14×10^23 FLOPs and LLaMA-70B takes 1.7×10^6 GPU hours."},{"page":18,"quote":"Compared to traditional DNNs, LLMs exhibit a higher frequency of activation outliers, which are crucial for maintaining model accuracy. Standard quantization often removes these outliers, leading to a significant performance drop."}]}]},{"name":"框架","blocks":[{"id":"taxonomy","title":"分类框架","content":"作者按“架构→算法→系统”三层组织，每层再细分。\n\n一、资源高效架构（第3节）：\n1. 高效注意力：稀疏注意力（Longformer、ETC、BIGBIRD、HEPOS、MATE、TDANet）；近似注意力（Linformer、Reformer、Katharopoulos等、Polysketchformer、Mega、Deformable Attention、CrossViT）；无注意力方法（Hyena、SSM/Mamba、Recurrent-Style Transformers、RWKV、RetNet）。\n2. 动态神经网络：Mixture-of-Experts（Switch Transformer、GLaM、V-MoE、LIMoE、Mistral1、MoEfication、Sparse upcycling、FFF）；Early Exiting（He et al.等）。\n3. 扩散模型优化：高效扩散（DDIM、PNDM、DPM-Solver）；潜空间扩散（LDM/Stable Diffusion、LD-ZNet、SALAD）；扩散架构变体（SnapFusion、ScaleCrafter、ERNIE-ViLG、Mobile diffusion）。\n4. ViT专用优化（LeViT、MobileViT、EfficientFormer、EfficientViT、FastViT、LightViT、EdgeViT）。\n\n二、资源高效算法（第4节，按生命周期分）：\n1. 预训练算法：训练数据质量控制（DataComp、DFN、DataCompDR）、训练数据缩减（去重、图像块移除：TRIPS、MAE、MixMAE、COPA、PatchDropout）、渐进学习（Stacking BERT、CompoundGrow、Staged training、Knowledge inheritance、AutoProg、LiGO）、混合精度训练（Mesa、GACT）。\n2. 微调算法：加性调优（Adapter tuning：ADA、MetaTroll、ST-Adapter、HiWi、AdaMix、MEFT、Residual Adapters；Prompt tuning：PromptTuning、ATTEMPT、BioInstruct、DualPL、MPrompt；Prefix tuning：UAPT、Prefix-diffusion、DOP、DAPA、PIP）；选择性调优（SAM、SmartFRZ、FiSH-DiP、Token Mixing、VL-PET）；重参数调优（LoRA及其变体：QLoRA、PEQA、QALoRA、LoftQ、GLoRA、PELA、LongLoRA、LBP-WHT、DSEE、Delta-LoRA、PiSSA、DoRA、LoRA+）。\n3. 推理算法：机会解码（Speculative decoding、SpecTr、ProphetNet、Draft & Verify、Medusa、Look-ahead decoding、SpecInfer、LLMCad）；输入过滤与压缩（Prompt压缩：LLMLingua、EntropyRank、LLMZip、AutoCompressors、ICAE、Nugget 2D、CoT-Max；Token剪枝：PoWER-BERT、Length-Adaptive Transformer、TR-BERT、DynamicViT、AdaViT、A-ViT、SPViT、PuMer）；KV cache（H2O、Dynamic Context Pruning、Scissorhands、Landmark Attention）；长上下文（LM-Infinite、StreamingLLM、PCW、LongNet、SLED）。\n4. 模型压缩：剪枝（结构化/非结构化/上下文剪枝）、知识蒸馏（白盒KD：MiniLLM、GKD、TED；黑盒KD：Meta-ICL、Metal-ICL、Multitask-ICT、Fine-tune-CoT等）、量化（QAT：LLM-QAT、QuantGPT、BitNet；PTQ：仅权重量化如SpQR、LLM.int8()、AWQ、OWQ、SqueezeLLM、GPTQ、QuIP；权重-激活联合量化如SmoothQuant、RPTQ、OliVe、Outlier Suppression+、QLLM、LLM-FP4、ZeroQuant、FlexRound、ATOM）、低秩分解（TensorGPT、LoSparse、ViTALiTy等）。\n\n三、资源高效系统（第5节）：\n1. 分布式训练：容错（Varuna、Gemini、Bamboo、activation checkpointing、Oobleck）、并行（数据并行/DeepSpeed ZeRO、模型并行/张量并行与流水线并行、序列并行、Galvatron）、通信优化、存储优化（ZeRO-Offload、FlashNeuron、Behemoth）、异构GPU（Hetpipe、Whale）、MoE训练系统（MegaBlocks、Brainstorm、FlexMoE、Tutel、SmartMoE、Janus、MoE-Mamba）。\n2. 硬件感知优化（EdgeBERT、FlightLLM、SpAtten、A3）。\n3. 云端服务：调度（Sarathi-Serve、dLoRA）、内存节省（DeepSpeed-Inference、FlexGen、vLLM/PagedAttention、S-LoRA、SGLang）、新兴平台（SpotServe、HexGen）。\n4. 边缘服务：边云协同（EdgeFM）、端侧MoE（EdgeMoe、PC-MoE）、内存优化（LLMCad、PowerInfer）、I/O优化（STI、LLM in a flash）、内核优化（llm.npu等）。","confidence":"high","empty":false,"evidence":[{"page":5,"quote":"As summarized in Fig. 3, numerous efforts have been invested to mitigate the huge resource cost of attention-based transformer architecture."},{"page":9,"quote":"This section focuses on resoruce-efficient large FMs techniques at the algorithm level. Compared to traditional DNNs, large FMs exhibit new characteristics such as its huge parameter set and autoregressive inference. This disparity has led to the emergence of numerous resource-efficient algorithms, which are categorized based on the lifecycle of FMs: pre-training, fine-tuning, serving algorithms, and model compression."},{"page":20,"quote":"This section investigates the system research to enable resource-efficient large FMs, notable at four aspects: (1) distributed training; (2) hardware-aware optimizations; (3) serving in cloud, and (4) serving in edge."}]},{"id":"comparison","title":"各类方法对比","content":"论文未提供统一的实验对比表格，各方法结果来自不同论文、不同设置，不可直接比较。以下按类归纳核心思路、优势、局限与适用场景（基于原文描述）。\n\n1. 高效注意力：稀疏注意力降低复杂度至线性，但可能损失精度；近似注意力（低秩、核方法）减少内存但引入近似误差；无注意力架构（Mamba、RWKV、RetNet）实现线性复杂度，Mamba比Transformer快5倍，RetNet训练内存节省25-50%、加速7倍，但可能牺牲通用性。适用长序列场景。\n2. 动态神经网络：MoE以稀疏激活扩展参数，Switch Transformer达万亿参数、2048专家；V-MoE 15B参数匹配稠密模型且训练时间更少；Sparse upcycling减少约50%预训练成本；FFF比原FFN快220倍但约5%精度损失。局限：路由与负载均衡开销。Early exiting在置信度高时提前终止，但需设计退出策略。\n3. 扩散优化：DDIM加速采样；DPM-Solver仅需10-20步去噪；LDM在潜空间扩散大幅降低内存；SnapFusion在移动端2秒内生成512×512图像。局限：生成质量与步数权衡。\n4. ViT专用：LeViT、MobileViT、EfficientFormer等混合CNN-Transformer实现轻量；EfficientViT线性注意力在超分任务比Restormer快6.4倍。局限：针对视觉任务定制。\n5. 预训练算法：数据去重减少训练步数；渐进学习复用计算；混合精度减半内存。局限：需调整训练流程。\n6. 微调算法：加性调优（Adapter/Prompt/Prefix）冻结主干，成本低但可能不如全微调；选择性调优更新少量参数；重参数调优（LoRA）最流行，但存在性能差距，Delta-LoRA、PiSSA、DoRA、LoRA+等改进收敛与性能。\n7. 推理算法：投机解码在T5X上提升2-3倍，SpecTr壁钟时间提升2.13倍；Token剪枝动态减少计算；KV cache驱逐策略H2O降低延迟1.9倍、吞吐提升29倍，Scissorhands减少5倍KV内存；长上下文方法支持128k至1B token。局限：可能影响生成质量。\n8. 模型压缩：剪枝需重训练；蒸馏分白盒/黑盒，黑盒依赖API；量化中QAT成本高，PTQ易部署但无反馈调整，GPTQ可将175B模型量化至3-4比特而精度损失小；低秩分解压缩率高（TensorGPT嵌入层压缩38.40倍）。\n9. 系统：分布式训练并行策略混合使用，Galvatron自动选择；容错方法各有开销；云端服务vLLM的PagedAttention优化KV内存；边缘服务受内存墙限制，PowerInfer利用稀疏性。","confidence":"medium","empty":false,"evidence":[{"page":5,"quote":"The time and space complexity comparison is shown in Table 1."},{"page":6,"quote":"Mamba seamlessly integrates selective SSMs into a streamlined neural network architecture, eliminating attention and MLP blocks. This model achieves a notable 5× speed increase over traditional transformers and exhibits linear scaling with sequence length."},{"page":6,"quote":"RetNet introduces an architecture that replaces multi-head attention with a multi-scale retention mechanism. During training, RetNet demonstrates a 25-50% memory saving and a 7× acceleration compared to the standard Transformer."},{"page":13,"quote":"Yaniv et al. [141] report a 2–3× improvement in performance using speculative decoding on the T5X model, while a concurrent study [36] demonstrates similar speedups on a 70B Chinchilla model."},{"page":14,"quote":"H2O demonstrates the capability to reduce latency by up to 1.9× and increase throughput by 29×."},{"page":15,"quote":"Scissorhands utilizes an innovative compact KV cache and results in a notable reduction in KV cache inference memory usage, achieving up to a 5× reducation while maintaining model quality."},{"page":18,"quote":"GPTQ reduces the bit-width of each weight to 3 or 4 bits, allowing quantization of GPT models with 175 billion parameters with minimal accuracy loss."}]}]},{"name":"结论","blocks":[{"id":"consensus","title":"领域现状与共同前提","content":"论文未集中汇总领域共识，但从多处可归纳出以下共享前提与默认做法：(1) 大多数基础模型基于Transformer架构，其注意力二次复杂度是主要瓶颈，因此大量工作围绕降低注意力成本展开；(2) 资源效率研究普遍以不牺牲性能为前提，追求在同等精度下降低算力/内存/存储/带宽；(3) 模型压缩（剪枝、蒸馏、量化、低秩分解）是部署阶段的通用手段，其中量化因部署成本低而被广泛采用；(4) 微调阶段普遍采用参数高效微调（PEFT），LoRA被视为最流行的参数高效微调方法；(5) 系统层面普遍采用混合并行策略训练大模型，云端服务普遍关注KV cache内存管理；(6) 领域普遍承认端侧部署受内存墙和I/O限制，边云协同是常见思路。以上归纳依据分散于第3-5节及结论。","confidence":"medium","empty":false,"evidence":[{"page":4,"quote":"Since most FMs are based on transformer architecture, we briefly analyze the resource cost of it."},{"page":13,"quote":"LoRA, as the most popular parameter-efficient fine-tuning method, still exhibits performance gaps when compared to full fine-tuning."},{"page":18,"quote":"Due to its low deployment cost, PTQ is also the most easily deployable and widely applicable technique in model compression."},{"page":21,"quote":"In practice, these parallelisms are usually used in a hybrid way."},{"page":23,"quote":"Since large FMs often rely on large parameter sizes and on-device memory resources are scarce (e.g., 8GB), inferring large FMs on devices faces the challenge of “memory wall”."}]},{"id":"open","title":"开放问题与方向","content":"作者在结论中列出5条未来方向：(1) 云边混合部署：使基础模型下沉到近用户设备，实现泛在、隐私保护、高可用的通用智能；尚未解决因为模型规模与设备资源矛盾，目前仅初步将LLaMA-7B带到手机/PC，杀手级应用待探索。(2) 利用模型稀疏性：模型越大，给定任务激活比例越小，即使稠密训练的非MoE模型也存在运行时激活稀疏性；尚未解决因为需要更高效的稀疏架构（超越MoE）来利用激活稀疏性降低推理时间与内存。(3) 基础模型即服务：模型成为像Web和数据库一样的通用服务；尚未解决因为对调度、负载均衡、安全与隔离的系统基础设施提出新挑战，同时带来软硬件协同设计机会。(4) 以Agent为整体系统优化：LLM作为构建Agent的关键模块，其效率不应孤立考虑，需适配Agent工作流；尚未解决因为多模型协作存在逻辑依赖，为每个任务选择合适模型并在给定硬件上调度以最大化Agent性能的设计空间巨大。(5) 实用隐私保护基础模型：用户数据上云增加隐私担忧，现有方法包括联邦学习等；尚未解决因为隐私保护与资源效率的联合优化仍不成熟。","confidence":"high","empty":false,"evidence":[{"page":24,"quote":"(1) Cloud-edge hybrid deployment. To enable ubiquitous, privacy-preserving, and highly available general intelligence, many FMs will ultimately sink to near-user devices."},{"page":24,"quote":"(2) Exploiting the model sparsity. With model being larger, the activated ratio of model will go smaller for a given task."},{"page":24,"quote":"(3) Large FM as a service. On both clouds and devices, large FMs are unifying the DNN ecosystem [293]. Ultimately, it becomes a universal service to be invoked just as today’s Web and Database."},{"page":24,"quote":"(4) Agent as a holistic system to optimize. In the future, FMs especially LLMs will be used as a key building block for establishing agents [151, 262]."},{"page":24,"quote":"(5) Practical privacy-preserving FM. As the volume of user data uploaded to the cloud for FM processing continues to increase, the severity of privacy concerns correspondingly escalates."}]}]},{"name":"判断","blocks":[{"id":"questions","title":"值得追问的问题","content":"1. 分类框架中“架构优化”与“算法优化”存在重叠（如动态神经网络中的MoE既属架构又涉及系统训练优化，LoRA既属微调又属低秩分解压缩），作者如何保证分类互斥且完备？是否遗漏了“数据高效”这一角度（如数据选择、合成数据）？2. 综述明确排除硬件设计，但硬件感知优化（如FlightLLM、SpAtten）又被纳入系统章节，边界是否一致？排除硬件是否导致对能效（energy）这一关键资源的讨论不足？3. 结论中提出“利用模型稀疏性”作为方向，但正文对激活稀疏性的讨论仅零星提及（如PowerInfer），是否低估了稀疏性在训练和推理中的潜力？后续工作（如MoE与Mamba结合）是否已部分回应？","confidence":"low","empty":false,"evidence":[{"page":2,"quote":"We survey only algorithm and system innovations; we exclude a huge body of work at hardware design;"},{"page":21,"quote":"Some hardware-aware methods are also proposed to optimize FM."},{"page":24,"quote":"Recent literature [175] finds that even a densely trained non-MoE model exhibits runtime activation sparsity, which can be exploited to reduce inference time and memory footprint."}]}]}]}</script>
+<script>
+(function () {
+  var D = JSON.parse(document.getElementById("paper-data").textContent);
+
+  // 每个分组一个色调，卡片左侧色条用它，视觉上能一眼分清「概览 / 框架 / 结论 / 判断」
+  var GROUP_COLORS = ["#2E6F8E", "#4A9BBF", "#7A9E7E", "#B8703F"];
+
+  document.getElementById("title").textContent = D.paper_title || "（未识别标题）";
+  document.title = (D.paper_title || "论文解剖") + " · paperatomy";
+
+  var meta = [];
+  if (D.template_name) { meta.push("<span>模板 <b>" + esc(D.template_name) + "</b></span>"); }
+  if (D.pages)        { meta.push("<span><b>" + D.pages + "</b> 页</span>"); }
+  if (D.blocks)       { meta.push("<span><b>" + D.blocks + "</b> 个板块</span>"); }
+  if (D.model)        { meta.push("<span>模型 <b>" + esc(D.model) + "</b></span>"); }
+  document.getElementById("meta").innerHTML = meta.join("");
+
+  var jump = [];
+  var main = [];
+
+  // 「一句话结论」单独抽出来做页首大卡：它是整篇最该被先看到的一句，
+  // 混在卡片堆里会被淹掉。
+  var hero = null;
+  D.groups.forEach(function (g) {
+    g.blocks = g.blocks.filter(function (b) {
+      if (!hero && b.id === "tl_dr") { hero = b; return false; }
+      return true;
+    });
+  });
+  D.groups = D.groups.filter(function (g) { return g.blocks.length; });
+
+  if (hero) {
+    var hh = ['<div class="hero"><div class="label">' + esc(hero.title) + "</div>"];
+    hh.push("<p>" + esc(hero.content || "论文未提及。") + "</p>");
+    if (hero.evidence && hero.evidence.length) {
+      hh.push('<div class="ev"><div class="ev-title">原文依据</div>');
+      hero.evidence.forEach(function (e) {
+        hh.push('<div class="ev-item"><span class="ev-page">' +
+                esc(e.page ? "p." + e.page : "页?") + "</span>");
+        hh.push('<span class="ev-quote">' + esc(e.quote) + "</span></div>");
+      });
+      hh.push("</div>");
+    }
+    hh.push("</div>");
+    main.push(hh.join(""));
+  }
+
+  D.groups.forEach(function (g, gi) {
+    var anchor = "g" + gi;
+    jump.push('<a href="#' + anchor + '">' + esc(g.name) + "</a>");
+
+    var gc = GROUP_COLORS[gi % GROUP_COLORS.length];
+    main.push('<section class="group" id="' + anchor + '" style="--gc:' + gc + '">');
+    main.push('<div class="g-head"><h2>' + esc(g.name) + "</h2>");
+    main.push('<span class="count">' + g.blocks.length + " 块</span></div>");
+
+    var single = g.blocks.length === 1;
+    main.push('<div class="cards' + (single ? " single" : "") + '">');
+
+    g.blocks.forEach(function (b, bi) {
+      // 默认全部展开：这是给人读的报告，不是目录。
+      // 折叠是「太长时收起来」的手段，不该是打开时的默认状态。
+      var open = " open";
+      main.push('<article class="card' + open + '">');
+      main.push('<div class="c-head">');
+      main.push('<h3>' + esc(b.title) + "</h3>");
+      if (b.confidence === "low") {
+        main.push('<span class="badge low">低置信</span>');
+      }
+      main.push('<svg class="chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" ' +
+                'stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">' +
+                '<path d="M6 4l4 4-4 4"/></svg>');
+      main.push("</div>");
+
+      main.push('<div class="c-body">');
+      if (b.empty) {
+        main.push('<div class="txt"><p class="empty">论文未提及，或材料不足未抽取到内容。</p></div>');
+      } else {
+        main.push('<div class="txt">' + formatText(b.content) + "</div>");
+      }
+      if (b.evidence && b.evidence.length) {
+        main.push('<div class="ev"><div class="ev-title">原文依据</div>');
+        b.evidence.forEach(function (e) {
+          var page = e.page ? "p." + e.page : "页码未标注";
+          main.push('<div class="ev-item"><span class="ev-page">' + esc(page) + "</span>");
+          main.push('<span class="ev-quote">' + esc(e.quote) + "</span></div>");
+        });
+        main.push("</div>");
+      }
+      main.push("</div></article>");
+    });
+
+    main.push("</div></section>");
+  });
+
+  document.getElementById("jump").innerHTML = jump.join("");
+  document.getElementById("main").innerHTML = main.join("");
+
+  document.getElementById("stat").textContent =
+    (D.blocks || 0) + " 个板块 · 全部内容均来自原文抽取";
+
+  // 折叠交互
+  document.getElementById("main").addEventListener("click", function (e) {
+    var head = e.target.closest(".c-head");
+    if (!head) { return; }
+    head.parentElement.classList.toggle("open");
+  });
+
+  // 一键全部折叠 / 展开
+  document.getElementById("toggleAll").addEventListener("click", function () {
+    var cards = document.querySelectorAll("article.card");
+    var anyOpen = Array.prototype.some.call(cards, function (c) {
+      return c.classList.contains("open");
+    });
+    Array.prototype.forEach.call(cards, function (c) {
+      c.classList.toggle("open", !anyOpen);
+    });
+    this.textContent = anyOpen ? "全部展开" : "全部折叠";
+  });
+
+  // 把带缩进的纯文本转成层级列表，让「分类框架」这类内容能看出结构
+  function formatText(text) {
+    if (!text) { return ""; }
+    var lines = text.split(/\n/);
+    var hasList = lines.some(function (l) { return /^\s*(\d+[.)]|[-*•])\s+/.test(l); });
+    if (!hasList) {
+      return text.split(/\n{2,}/).map(function (p) {
+        return "<p>" + esc(p.trim()).replace(/\n/g, "<br>") + "</p>";
+      }).join("");
+    }
+
+    var html = [];
+    var stack = [];   // 每层的缩进宽度
+    lines.forEach(function (raw) {
+      if (!raw.trim()) { return; }
+      var m = raw.match(/^(\s*)(\d+[.)]|[-*•])\s+(.*)$/);
+      if (!m) {
+        if (html.length && stack.length) {
+          html[html.length - 1] = html[html.length - 1].replace(/<\/li>$/, " " + esc(raw.trim()) + "</li>");
+        } else {
+          html.push("<p>" + esc(raw.trim()) + "</p>");
+        }
+        return;
+      }
+      var indent = m[1].replace(/\t/g, "    ").length;
+      var body = esc(m[3]);
+      if (m[2].match(/^\d/)) { body = "<b>" + body + "</b>"; }
+
+      while (stack.length && indent < stack[stack.length - 1]) {
+        html.push("</li></ul>"); stack.pop();
+      }
+      if (!stack.length || indent > stack[stack.length - 1]) {
+        html.push("<ul>"); stack.push(indent);
+      } else {
+        html.push("</li>");
+      }
+      html.push("<li>" + body);
+    });
+    while (stack.length) { html.push("</li></ul>"); stack.pop(); }
+    return html.join("");
+  }
+
+  function esc(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+})();
+</script>
+</body>
+</html>
