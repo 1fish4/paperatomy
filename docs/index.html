@@ -110,21 +110,28 @@
   <div class="kicker">paperatomy · 论文解剖</div>
   <h1>把一篇论文拆成一张结构图</h1>
   <p class="lede">不是和它聊天，是让它自己交代清楚：研究问题、背景、方法、数据、结论、局限。</p>
-  <p class="sub">每块都附页码与原文摘录，可以逐条核对。</p>
+  <p class="sub">每块都附页码与原文摘录，可以逐条核对。方法流程与分类框架还能逐段播放。</p>
 
   <h2>在线示例</h2>
   <div class="demos">
     <a class="demo" href="examples/survey.html">
-      <div class="tag">survey · 8 块</div>
+      <div class="tag">survey · 8 块 + 3 个演示</div>
       <h3>资源高效基础模型综述</h3>
-      <p>35 页 ACM 综述。看分类框架怎么被拆成三层，开放问题保留原始 5 条。</p>
+      <p>35 页 ACM 综述。分类框架拆成三层逐层展开，开放问题保留原始 5 条。</p>
     </a>
     <a class="demo" href="examples/skim.html">
-      <div class="tag">skim · 6 块</div>
+      <div class="tag">skim · 6 块 + 3 个演示</div>
       <h3>同一篇论文的速读版</h3>
       <p>五分钟判断值不值得细读：结论、问题、缺口、方法、结果、可用性。</p>
     </a>
   </div>
+
+  <h2>动态演示</h2>
+  <div class="shot"><img src="images/visuals.png" alt="动态演示：分类体系逐层展开、方法流程逐段点亮"></div>
+  <p class="cap">
+    上面三张卡片都是可播放的：分类体系按层展开，方法流程逐段点亮并说明「这一步做什么 / 为什么必须有」，
+    具体例子走一遍把卡点标红。<b>AI 不画图，只负责选原语和填空</b>——画法是手写组件，样式稳定、可校验。
+  </p>
 
   <h2>它长什么样</h2>
   <div class="shot"><img src="images/report-survey.png" alt="综述报告效果"></div>
@@ -133,8 +140,8 @@
   <h2>这台机器上跑出来的数</h2>
   <div class="facts">
     <div class="fact"><b>35 页</b><span>单篇综述，8 个章节全部识别</span></div>
-    <div class="fact"><b>23–29 秒</b><span>一次完整抽取（DeepSeek）</span></div>
-    <div class="fact"><b>38%</b><span>参考文献占比，压缩时整节剔除</span></div>
+    <div class="fact"><b>23–29 秒</b><span>正文抽取 + 14 秒原语选型</span></div>
+    <div class="fact"><b>3 个</b><span>自动生成的演示，首轮校验通过</span></div>
   </div>
 
   <h2>为什么不是「和 PDF 聊天」</h2>
@@ -144,16 +151,24 @@
     另外每句话都有出处：聊天给你一段话，你不知道它从哪来。
   </p>
 
+  <h2>三条不许破的规矩</h2>
+  <p style="color:var(--ink2);margin:0 0 24px">
+    <b>没有原文依据就不演。</b>每个演示必须带页码与原文摘录，没有的判不合法——一个编出来的动画比没有动画更糟。<br>
+    <b>没有卡点就不算例子。</b>所有步骤都没有「卡在哪」时，实例走查直接判不合法。<br>
+    <b>讲不清为什么就要提示。</b>方法流程里某一步的必要性原文没说明时，报告打橙标，而不是假装它很合理。
+  </p>
+
   <h2>自己跑</h2>
   <pre><code>git clone https://github.com/1fish4/paperatomy.git
 cd paperatomy
 pip install -e ".[dev]"
 
 paperatomy config set --api-key sk-xxx --model deepseek-chat
-paperatomy extract paper.pdf -t survey -l zh -o out/paper</code></pre>
+paperatomy extract paper.pdf -t survey -l zh -o out/paper
+paperatomy visuals out/paper.json   # 已有报告单独补演示</code></pre>
   <p style="font-size:13.5px;color:var(--ink3)">
     产出三个文件：<code>.json</code>（结构化）、<code>.md</code>（贴笔记）、
-    <code>.html</code>（单文件报告）。
+    <code>.html</code>（单文件报告，含可播放的演示）。
   </p>
 
   <div class="note">
@@ -162,7 +177,7 @@ paperatomy extract paper.pdf -t survey -l zh -o out/paper</code></pre>
   </div>
 
   <footer>
-    <span>MIT 协议 · 36 项测试</span>
+    <span>MIT 协议 · 65 项测试</span>
     <span>
       <a href="https://github.com/1fish4/paperatomy">GitHub</a> ·
       <a href="https://gitee.com/not-even-xianyu-can-handle-it/paperatomy">Gitee</a>
