@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.eggs/
+
+# 虚拟环境
+.venv/
+venv/
+env/
+
+# 测试与缓存
+.pytest_cache/
+.coverage
+htmlcov/
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+
+# 密钥 —— 绝不入库
+.env
+*.key
+config.local.yaml
+
+# 用户数据：论文原文与抽取结果留在本地，不提交
+papers/
+pdf/
+*.pdf
+out/
+output/
+extractions/
+
+# 构建产物
+docs/_build/

@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "paperatomy"
+version = "0.1.0"
+description = "把一篇论文解剖成一张结构图：按模板抽取研究问题、方法、数据与结论，每块都带原文出处"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+keywords = [
+    "paper-reading", "literature-review", "llm", "pdf", "visualization",
+    "academic-tools", "chinese",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Text Processing :: Linguistic",
+]
+dependencies = [
+    "pyyaml>=6.0",
+    "pymupdf>=1.24",
+]
+
+[project.optional-dependencies]
+# LLM 走 HTTP，默认用标准库，不强制装 SDK；
+# 需要更稳的重试与连接池时再装 httpx。
+llm = ["httpx>=0.27"]
+dev = ["pytest>=7.0"]
+
+[project.scripts]
+paperatomy = "paperatomy.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/1fish4/paperatomy"
+Repository = "https://github.com/1fish4/paperatomy"
+"Bug Tracker" = "https://github.com/1fish4/paperatomy/issues"
+
+[tool.setuptools.packages.find]
+include = ["paperatomy*"]
+
+[tool.setuptools.package-data]
+paperatomy = ["templates/*.yaml", "report_template.html"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
