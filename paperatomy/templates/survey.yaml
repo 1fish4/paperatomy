@@ -1,0 +1,150 @@
+# 综述模板 —— 面向 survey / review 类论文
+#
+# 综述和实验论文的结构完全不同：
+# 没有数据集、没有消融、没有自建方法，核心贡献是「分类框架」。
+# 用精读模板去套，会抽出满屏「论文未提及」。
+id: survey
+version: 1
+name: 综述
+name_en: Survey
+description: 面向 survey / review：抓住收录范围、分类框架、各类方法对比与开放问题。
+description_en: For surveys — scope, taxonomy, comparison across methods, and open problems.
+
+estimated_minutes: 15
+
+instruction: |
+  你是一位帮研究者吃透综述论文的助手。
+  综述的核心贡献不是提出新方法，而是**建立分类框架**并梳理各条路线的得失。
+  因此你的任务重点是：作者用什么维度把领域切开、每一类的方法与局限是什么、
+  领域目前公认的结论与尚未解决的问题是什么。
+  不要把综述当成实验论文去找"数据集"和"消融实验"。
+
+instruction_en: |
+  You help a researcher understand a survey paper. Its main contribution is a taxonomy,
+  not a new method. Focus on the dimensions used to partition the field, the strengths and
+  weaknesses of each line of work, and the open problems.
+
+blocks:
+  - id: tl_dr
+    title: 一句话结论
+    title_en: Bottom line
+    group: 概览
+    group_en: Overview
+    hint: |
+      这篇综述覆盖了什么领域、按什么主线组织、主要结论是什么。一句话。
+    hint_en: |
+      What field it covers, how it is organised, and its main takeaway.
+    required: true
+    max_chars: 160
+    evidence: optional
+
+  - id: scope
+    title: 收录范围
+    title_en: Scope
+    group: 概览
+    group_en: Overview
+    hint: |
+      涵盖的领域边界、时间跨度、文献数量（如果论文给出了统计）、筛选标准。
+      特别注意作者明确排除在外的内容——边界和内容同样重要。
+    hint_en: |
+      Field boundaries, time span, number of papers, and inclusion criteria.
+    required: true
+    max_chars: 400
+    evidence: required
+
+  - id: problem
+    title: 领域要解决的问题
+    title_en: Problem space
+    group: 概览
+    group_en: Overview
+    hint: |
+      这个领域在解决什么问题，为什么值得研究，目前卡在哪。
+      注意区分「整个领域的问题」和「某一类方法的问题」。
+    hint_en: |
+      The core problems of the field, why they matter, and where progress stalls.
+    required: true
+    max_chars: 450
+    evidence: required
+
+  - id: taxonomy
+    title: 分类框架
+    title_en: Taxonomy
+    group: 框架
+    group_en: Framework
+    hint: |
+      这是综述最重要的部分。作者用哪些维度把领域切开？每一类叫什么、包含哪些工作？
+      按「一级维度 → 各类别 → 代表工作」的结构写，能画成树状图。
+      如果作者有多套并行分类（比如按方法、按任务），要分别说明。
+    hint_en: |
+      The dimensions used to partition the field, each category with its representative works.
+      Structure it as dimension, categories, examples.
+    required: true
+    max_chars: 900
+    evidence: required
+
+  - id: comparison
+    title: 各类方法对比
+    title_en: Comparison
+    group: 框架
+    group_en: Framework
+    hint: |
+      逐类说明：核心思路、优势、局限、适用场景。
+      如果论文给出了对比表格或统一实验，务必把关键数字写出来。
+      没有统一实验时，明确指出各方法的结果不可直接比较。
+    hint_en: |
+      For each category: core idea, strengths, limits, applicable settings.
+      Note when results are not directly comparable.
+    required: true
+    max_chars: 900
+    evidence: required
+
+  - id: consensus
+    title: 领域现状与共同前提
+    title_en: Shared premises
+    group: 结论
+    group_en: Conclusions
+    hint: |
+      这个领域里大多数工作共享的前提、默认做法或普遍接受的判断。
+      例如「大家都以 Transformer 为基线」「普遍用某类指标评价」「共同承认某个瓶颈仍未解决」。
+      综述通常不会把这类内容集中写成一节，需要你从多处归纳——
+      因此必须注明依据来自哪里，不要把作者的个人观点当成领域共识。
+      确实归纳不出共性时，写「论文未汇总共性」，不要硬凑。
+    hint_en: |
+      Premises and practices shared across most works in the field,
+      inferred by combining several passages. Cite where each comes from.
+    required: false
+    max_chars: 550
+    evidence: required
+
+  - id: open
+    title: 开放问题与方向
+    title_en: Open problems
+    group: 结论
+    group_en: Conclusions
+    hint: |
+      作者指出的尚未解决的问题、值得投入的方向。
+      **作者列了几条就写几条，逐条对应，不要合并、不要省略、不要自己补充。**
+      如果论文把它们编号了（如 (1)(2)(3)），按原编号输出并保留原始条目数。
+      每条后面说明为什么还没解决。
+    hint_en: |
+      Open problems and directions the authors list. Reproduce the full list —
+      if the paper numbers them (1)(2)(3), keep every item and the original count.
+    required: true
+    max_chars: 800
+    evidence: required
+
+  - id: questions
+    title: 值得追问的问题
+    title_en: Questions worth asking
+    group: 判断
+    group_en: Assessment
+    hint: |
+      提出 3 个问题，指向这份综述的盲区：漏掉的角度、分类框架是否互斥且完备、
+      结论是否被后续工作推翻。
+      要能直接拿去问作者，不要泛泛而谈。
+    hint_en: |
+      Three questions about blind spots: missing angles, whether the taxonomy is exhaustive
+      and mutually exclusive, and whether conclusions still hold.
+    required: true
+    max_chars: 600
+    evidence: optional

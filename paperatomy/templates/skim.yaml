@@ -1,0 +1,109 @@
+# 速读模板 —— 五分钟判断这篇论文值不值得细读
+#
+# 模板就是数据。加一套模板 = 加一个 YAML 文件，不用改代码。
+# 字段说明见 docs/template-format.md。
+id: skim
+version: 1
+name: 速读
+name_en: Skim
+description: 五分钟判断这篇论文值不值得细读。只保留决策所需的六块信息。
+description_en: Decide in five minutes whether this paper is worth a close read.
+
+estimated_minutes: 5
+
+# 全局指令：拼进 prompt 的系统部分
+instruction: |
+  你是一位帮助研究者快速筛选文献的助手。
+  你的读者想知道的是「这篇值不值得我花两小时细读」，而不是「这篇讲了什么细节」。
+  因此：结论优先、数字优先、不解释常识、不铺陈背景。
+  如果论文里没有给出某项信息，content 写「论文未提及」，不要推测。
+
+instruction_en: |
+  You help researchers decide quickly whether a paper deserves a close read.
+  Prioritise conclusions and numbers. Do not explain common knowledge.
+  If the paper does not state something, write "not reported" instead of guessing.
+
+blocks:
+  - id: tl_dr
+    title: 一句话结论
+    title_en: Bottom line
+    group: 概览
+    group_en: Overview
+    hint: |
+      这篇论文做了什么、得到什么结果，一句话说清。
+      要求包含「方法 + 对象 + 关键结果」三要素，不要写「本文提出了一种方法」这种空话。
+    hint_en: |
+      What the paper did and what it found, in one sentence.
+    required: true
+    max_chars: 140
+    evidence: optional
+
+  - id: problem
+    title: 研究问题
+    title_en: Research question
+    group: 概览
+    group_en: Overview
+    hint: |
+      它要解决的具体问题是什么，这个问题为什么重要。
+      如果论文给出了明确的研究问题陈述，优先引用那一句。
+    hint_en: |
+      The specific problem addressed and why it matters.
+    required: true
+    max_chars: 320
+    evidence: required
+
+  - id: gap
+    title: 前人为什么没解决
+    title_en: Why it was open
+    group: 背景
+    group_en: Background
+    hint: |
+      在本文之前，已有工作做到哪一步、卡在哪里，本文的切入点是什么。
+      区分「已有方法的缺陷」与「本文的新想法」，不要混成一段。
+    hint_en: |
+      What prior work achieved, where it fell short, and this paper's angle.
+    required: true
+    max_chars: 400
+    evidence: required
+
+  - id: method
+    title: 方法核心
+    title_en: Method in brief
+    group: 方法
+    group_en: Method
+    hint: |
+      用两三句话讲清方法的核心思路，不展开实现细节。
+      读者看完应该能向别人复述「他们是怎么做的」。
+    hint_en: |
+      The core idea in two or three sentences, without implementation details.
+    required: true
+    max_chars: 420
+    evidence: required
+
+  - id: result
+    title: 主要结果
+    title_en: Key results
+    group: 结果
+    group_en: Results
+    hint: |
+      最关键的数字与对比。写清「在什么数据集上、比谁好、好多少」。
+      没有数字的结论不算结果，要明确指出论文只给了定性描述。
+    hint_en: |
+      The key numbers with baselines and datasets.
+    required: true
+    max_chars: 420
+    evidence: required
+
+  - id: limits
+    title: 能不能用
+    title_en: Applicability
+    group: 结果
+    group_en: Results
+    hint: |
+      作者自述的局限，加上你在论文中能看出的适用边界。
+      两者要分开写：作者承认的、和作者没提但存在风险的。
+    hint_en: |
+      Limitations stated by the authors, then ones you can infer.
+    required: true
+    max_chars: 400
+    evidence: required

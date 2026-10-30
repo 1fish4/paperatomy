@@ -1,0 +1,191 @@
+# 精读模板 —— 完整解剖一篇论文
+#
+# 与速读模板的区别：不只给结论，还要能看出「方法为什么成立、结论靠不靠得住」。
+id: deep
+version: 1
+name: 精读
+name_en: Deep read
+description: 完整解剖一篇论文：从问题到方法、从实验到局限，并指出需要追问的地方。
+description_en: A full anatomy from problem to method, experiments, limits, and open questions.
+
+estimated_minutes: 20
+
+instruction: |
+  你是一位帮助研究者吃透一篇论文的助手。读者需要能独立判断这篇论文的结论是否可信。
+  写作要求：
+  1. 忠于原文。所有事实性内容必须有原文依据；推断出的内容必须标注为「推断」。
+  2. 区分层级。作者的主张、实验证据、你的判断，三者不要混为一谈。
+  3. 不回避不确定。论文没说清的，直接指出「论文未说明」，不要用常识补齐。
+
+instruction_en: |
+  You help a researcher fully understand a paper and judge whether its claims hold.
+  Stay faithful to the source. Separate what the authors claim, what the experiments show,
+  and what you infer. If something is not reported, say so instead of filling the gap.
+
+blocks:
+  - id: tl_dr
+    title: 一句话结论
+    title_en: Bottom line
+    group: 概览
+    group_en: Overview
+    hint: |
+      做了什么、得到什么，一句话。要求包含「方法 + 对象 + 关键结果」。
+    hint_en: |
+      What was done and what was found, in one sentence.
+    required: true
+    max_chars: 160
+    evidence: optional
+
+  - id: problem
+    title: 研究问题
+    title_en: Research question
+    group: 概览
+    group_en: Overview
+    hint: |
+      论文要解决的具体问题。如果作者把它拆成了几个子问题，逐个列出。
+      同时说明这个问题的实际意义（谁会用到这个结果）。
+    hint_en: |
+      The specific problem, its sub-questions, and who cares about it.
+    required: true
+    max_chars: 400
+    evidence: required
+
+  - id: background
+    title: 背景与已有工作
+    title_en: Background and prior work
+    group: 背景
+    group_en: Background
+    hint: |
+      论文如何定位自己在已有工作中的位置。列出它主要对比或继承的 2-4 条工作路线，
+      每条一句话说明做到什么程度。
+    hint_en: |
+      How the paper positions itself against prior work; two to four lines of research.
+    required: true
+    max_chars: 600
+    evidence: required
+
+  - id: gap
+    title: 本文的切入点
+    title_en: The gap this paper targets
+    group: 背景
+    group_en: Background
+    hint: |
+      本文认为已有工作缺了什么、自己的新想法是什么。
+      要能回答「如果没有这篇论文，会少掉什么」。
+    hint_en: |
+      What was missing and what the paper's new idea is.
+    required: true
+    max_chars: 450
+    evidence: required
+
+  - id: method_overview
+    title: 方法 · 整体框架
+    title_en: Method overview
+    group: 方法
+    group_en: Method
+    hint: |
+      方法的整体结构：输入是什么、经过哪几个阶段、输出是什么。
+      用「输入 → 阶段一 → 阶段二 → 输出」的形式描述，便于画成流程图。
+    hint_en: |
+      Overall structure as input, stages, and output, suitable for a flow diagram.
+    required: true
+    max_chars: 700
+    evidence: required
+
+  - id: method_steps
+    title: 方法 · 关键步骤
+    title_en: Method steps
+    group: 方法
+    group_en: Method
+    hint: |
+      逐步拆解核心步骤，每步写清「做什么、为什么这么做、不这么做会怎样」。
+      控制在 5 步以内；超过 5 步时合并次要步骤。
+      如果论文给出了公式或伪代码，指出其位置但不要整段抄录。
+    hint_en: |
+      Up to five key steps, each with what it does and why it is needed.
+    required: true
+    max_chars: 900
+    evidence: required
+
+  - id: dataset
+    title: 数据集
+    title_en: Datasets
+    group: 实验
+    group_en: Experiments
+    hint: |
+      用了哪些数据集，各自规模、来源、划分方式。
+      特别注明是否存在数据泄漏风险（如训练集与测试集同源）。
+    hint_en: |
+      Datasets with size, source, and splits. Flag any leakage risk.
+    required: true
+    max_chars: 500
+    evidence: required
+
+  - id: setup
+    title: 实验设置
+    title_en: Experimental setup
+    group: 实验
+    group_en: Experiments
+    hint: |
+      评价指标、对比基线、超参数与训练细节中影响复现的部分。
+      基线是否足够强，是判断结果可信度的关键，要单独说明。
+    hint_en: |
+      Metrics, baselines, and details needed to judge reproducibility.
+    required: true
+    max_chars: 600
+    evidence: required
+
+  - id: result
+    title: 主要结果
+    title_en: Main results
+    group: 实验
+    group_en: Experiments
+    hint: |
+      核心数字：在哪个数据集上、比哪个基线、提升了多少。
+      若提升幅度很小或在部分数据集上反而下降，必须指出。
+    hint_en: |
+      Key numbers with baselines. Note where gains are marginal or negative.
+    required: true
+    max_chars: 700
+    evidence: required
+
+  - id: ablation
+    title: 消融与验证
+    title_en: Ablations and validation
+    group: 实验
+    group_en: Experiments
+    hint: |
+      哪些设计被证明是必要的，哪些贡献很小。如果论文没有做消融，明确写出这一缺失。
+    hint_en: |
+      Which components were shown necessary. Note the absence of ablations if so.
+    required: false
+    max_chars: 500
+    evidence: required
+
+  - id: limits
+    title: 局限与未来工作
+    title_en: Limitations
+    group: 判断
+    group_en: Assessment
+    hint: |
+      分两部分：作者自述的局限、以及作者未提及但你能看出的风险。
+      后者要有依据，不要凭空猜测。
+    hint_en: |
+      Limitations stated by the authors, then risks they did not mention.
+    required: true
+    max_chars: 550
+    evidence: required
+
+  - id: questions
+    title: 值得追问的问题
+    title_en: Questions worth asking
+    group: 判断
+    group_en: Assessment
+    hint: |
+      提出 3 个具体问题，指向论文没讲清、或结论可能不成立的地方。
+      要求能直接拿去问作者或写进文献综述，不要泛泛而谈「需要更多实验」。
+    hint_en: |
+      Three specific questions about what remains unclear or unsupported.
+    required: true
+    max_chars: 600
+    evidence: optional
