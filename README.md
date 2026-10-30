@@ -4,7 +4,11 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
-[![Tests](https://img.shields.io/badge/tests-36%20passed-brightgreen.svg)](tests/)
+[![Tests](https://github.com/1fish4/paperatomy/actions/workflows/tests.yml/badge.svg)](https://github.com/1fish4/paperatomy/actions)
+[![在线演示](https://img.shields.io/badge/%E5%9C%A8%E7%BA%BF%E6%BC%94%E7%A4%BA-1fish4.github.io-brightgreen.svg)](https://1fish4.github.io/paperatomy/)
+
+**在线演示**：<https://1fish4.github.io/paperatomy/>
+（同一篇 35 页综述的 `survey` 与 `skim` 两种报告，可直接点开操作）
 
 ---
 
