@@ -59,6 +59,11 @@ def build_parser() -> argparse.ArgumentParser:
                        help="只写 JSON，不写 Markdown 与 HTML")
     p_ext.add_argument("--no-html", action="store_true",
                        help="不生成 HTML 报告")
+    p_ext.add_argument("--no-visuals", action="store_true",
+                       help="跳过可视化选型（省一次模型调用）")
+
+    p_pri = sub.add_parser("primitives", help="列出可视化原语")
+    p_pri.add_argument("--json", action="store_true", help="以 JSON 输出")
 
     p_ren = sub.add_parser("render", help="从已有的 JSON 重新生成 Markdown 与 HTML（不调用模型）")
     p_ren.add_argument("json", help="extract 产出的 JSON 文件")
@@ -66,6 +71,16 @@ def build_parser() -> argparse.ArgumentParser:
                        help="输出语言，默认沿用 JSON 里记录的")
     p_ren.add_argument("-o", "--output", default=None,
                        help="输出文件前缀，默认与 JSON 同名")
+
+    p_vis = sub.add_parser(
+        "visuals", help="为已有结果补充动态演示（只调用一次模型，不动正文）")
+    p_vis.add_argument("json", help="extract 产出的 JSON 文件")
+    p_vis.add_argument("--max-chars", type=int, default=90_000,
+                       help="送给模型的材料上限（默认 90000）")
+    p_vis.add_argument("--rebuild", action="store_true", default=True,
+                       help="补完后自动重建 Markdown 与 HTML（默认开启）")
+    p_vis.add_argument("--no-rebuild", dest="rebuild", action="store_false")
+
     p_ext.add_argument("--api-key", default=None)
     p_ext.add_argument("--base-url", default=None)
     p_ext.add_argument("--model", default=None)
@@ -91,12 +106,16 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "templates":
         return _cmd_templates(args)
+    if args.command == "primitives":
+        return _cmd_primitives(args)
     if args.command == "parse":
         return _cmd_parse(args)
     if args.command == "extract":
         return _cmd_extract(args)
     if args.command == "render":
         return _cmd_render(args)
+    if args.command == "visuals":
+        return _cmd_visuals(args)
     if args.command == "config":
         return _cmd_config(args)
 
@@ -130,6 +149,28 @@ def _cmd_templates(args) -> int:
             print(f"             {t.description}")
     print()
     print("用法：paperatomy extract paper.pdf -t <模板 id>")
+    return 0
+
+
+def _cmd_primitives(args) -> int:
+    import json as _json
+
+    from .visuals import list_primitives
+
+    specs = list_primitives()
+    if args.json:
+        print(_json.dumps(
+            [{"name": s.name, "label": s.label, "purpose": s.purpose} for s in specs],
+            ensure_ascii=False, indent=2,
+        ))
+        return 0
+
+    print(f"共 {len(specs)} 个可视化原语：\n")
+    for s in specs:
+        print(f"  {s.name:<10} {s.label}  —— {s.purpose}")
+        print(f"             参数：{s.params_doc}")
+        print()
+    print("用法：paperatomy extract paper.pdf -t survey   （会自动挑选原语）")
     return 0
 
 
@@ -223,26 +264,45 @@ def _cmd_extract(args) -> int:
         print(f"✗ 抽取失败：{exc}")
         return 1
 
+    # 可视化选型。失败不影响主结果——报告本身仍然可用。
+    visuals = []
+    if not args.no_visuals:
+        from .visuals import extract_visuals
+
+        try:
+            visuals = extract_visuals(
+                paper, cfg,
+                lang=args.lang,
+                max_chars=args.max_chars,
+                on_progress=lambda msg: print("  " + msg),
+            )
+        except Exception as exc:
+            print(f"  ⚠ 可视化选型失败（不影响报告）：{exc}")
+
     # 落盘
     pdf_path = Path(args.pdf)
     prefix = Path(args.output) if args.output else pdf_path.with_suffix("")
     prefix.parent.mkdir(parents=True, exist_ok=True)
 
     json_path = prefix.with_suffix(".json")
-    json_path.write_text(to_json(result, template, paper=paper), encoding="utf-8")
+    json_path.write_text(
+        to_json(result, template, paper=paper, visuals=visuals), encoding="utf-8"
+    )
     print(f"\n已写出 {json_path}")
 
     if not args.json_only:
         md_path = prefix.with_suffix(".md")
         md_path.write_text(
-            to_markdown(result, template, lang=args.lang), encoding="utf-8"
+            to_markdown(result, template, lang=args.lang, visuals=visuals),
+            encoding="utf-8",
         )
         print(f"已写出 {md_path}")
 
         if not args.no_html:
             html_path = prefix.with_suffix(".html")
             html_path.write_text(
-                to_html(result, template, lang=args.lang, paper=paper),
+                to_html(result, template, lang=args.lang, paper=paper,
+                        visuals=visuals),
                 encoding="utf-8",
             )
             print(f"已写出 {html_path}  ← 用浏览器打开这个")
@@ -271,9 +331,6 @@ def _cmd_render(args) -> int:
     """
     import json as _json
 
-    from .model import Evidence, Extraction, Finding, list_templates
-    from .render import to_html, to_markdown
-
     json_path = Path(args.json)
     if not json_path.is_file():
         print(f"✗ 找不到文件：{json_path}")
@@ -284,6 +341,102 @@ def _cmd_render(args) -> int:
     except Exception as exc:
         print(f"✗ JSON 解析失败：{exc}")
         return 1
+
+    return _render_from_data(json_path, data, lang=args.lang, output=args.output)
+
+
+def _cmd_visuals(args) -> int:
+    """给已有结果补动态演示。
+
+    只调用一次模型，**不动正文**——正文往往已经人工核对过，
+    为了加动画重跑一遍会把它改掉，那是倒过来的取舍。
+    """
+    import json as _json
+
+    from .llm import load_config
+    from .parse import parse
+    from .render import visual_payload
+    from .visuals import extract_visuals
+
+    json_path = Path(args.json)
+    if not json_path.is_file():
+        print(f"✗ 找不到文件：{json_path}")
+        return 1
+    try:
+        data = _json.loads(json_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        print(f"✗ JSON 解析失败：{exc}")
+        return 1
+
+    source = str(data.get("source", "") or "")
+    if not source:
+        print("✗ JSON 里没有记录论文来源路径，无法重新读取原文。")
+        print("  请改用 paperatomy extract 重新生成。")
+        return 1
+    pdf_path = _resolve_source(source, json_path)
+    if pdf_path is None:
+        print(f"✗ 找不到原文：{source}")
+        print("  在 JSON 所在目录或当前目录下都没有找到，"
+              "请把 PDF 放回原位，或重新跑 paperatomy extract。")
+        return 1
+
+    cfg = load_config()
+    if not cfg.api_key and not cfg.is_local():
+        print("✗ 没有配置 API key。先跑 paperatomy config set --api-key sk-xxx")
+        return 1
+
+    print(f"读取 {pdf_path.name} …")
+    try:
+        paper = parse(pdf_path)
+    except Exception as exc:
+        print(f"✗ 解析失败：{exc}")
+        return 1
+
+    try:
+        visuals = extract_visuals(
+            paper, cfg,
+            lang=str(data.get("lang", "zh")),
+            max_chars=args.max_chars,
+            on_progress=lambda msg: print("  " + msg),
+        )
+    except Exception as exc:
+        print(f"✗ 可视化选型失败：{exc}")
+        return 1
+
+    data["visuals"] = [visual_payload(v) for v in visuals]
+    json_path.write_text(
+        _json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    print(f"已更新 {json_path}（{len(visuals)} 个演示）")
+
+    if args.rebuild:
+        return _render_from_data(json_path, data)
+    return 0
+
+
+def _resolve_source(source: str, json_path: Path) -> Path | None:
+    """把 JSON 里记的来源路径还原成磁盘上真实存在的文件。
+
+    ``source`` 是抽取时按当时的工作目录记录的相对路径，
+    可能相对当前目录、也可能相对 JSON 所在目录（输出到子目录时）。
+    两个都试，取第一个存在的——比强行规定一种语义更不容易出错。
+    """
+    raw = Path(source)
+    candidates = [raw] if raw.is_absolute() else [
+        raw,
+        json_path.parent / raw,
+        json_path.parent.parent / raw,
+    ]
+    for cand in candidates:
+        if cand.is_file():
+            return cand.resolve()
+    return None
+
+
+def _render_from_data(json_path: Path, data: dict, *, lang=None, output=None) -> int:
+    """由 JSON 载荷重建 Markdown 与 HTML。``render`` 与 ``visuals`` 共用。"""
+    from .model import Evidence, Extraction, Finding, list_templates
+    from .render import to_html, to_markdown, visuals_from_json
 
     template_id = (data.get("template") or {}).get("id", "")
     templates = {t.id: t for t in list_templates()}
@@ -307,15 +460,18 @@ def _cmd_render(args) -> int:
     extraction = Extraction(
         template_id=template_id,
         paper_title=str(data.get("paper_title", "")),
-        lang=args.lang or str(data.get("lang", "zh")),
+        lang=lang or str(data.get("lang", "zh")),
         model=str(data.get("model", "")),
         findings=findings,
     )
 
-    prefix = Path(args.output) if args.output else json_path.with_suffix("")
+    prefix = Path(output) if output else json_path.with_suffix("")
+    visuals = visuals_from_json(data)
+
     md_path = prefix.with_suffix(".md")
     md_path.write_text(
-        to_markdown(extraction, template, lang=extraction.lang), encoding="utf-8"
+        to_markdown(extraction, template, lang=extraction.lang, visuals=visuals),
+        encoding="utf-8",
     )
     print(f"已写出 {md_path}")
 
@@ -323,9 +479,11 @@ def _cmd_render(args) -> int:
     html_path = prefix.with_suffix(".html")
     html_path.write_text(
         to_html(extraction, template, lang=extraction.lang,
-                pages=pages), encoding="utf-8"
+                pages=pages, visuals=visuals), encoding="utf-8"
     )
     print(f"已写出 {html_path}")
+    if visuals:
+        print(f"  含 {len(visuals)} 个动态演示")
     return 0
 
 
