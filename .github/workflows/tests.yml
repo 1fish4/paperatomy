@@ -1,0 +1,48 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: ${{ matrix.os }} · py${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ["3.10", "3.12", "3.13"]
+
+    env:
+      # 英文 Windows 的默认输出编码是 cp1252（字符集里没有中文），
+      # 测试或脚本一打印中文就抛 UnicodeEncodeError。
+      PYTHONUTF8: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run tests
+        run: pytest -q
+
+      - name: CLI smoke test
+        run: |
+          paperatomy --help
+          paperatomy templates
+          paperatomy config show
+
+      - name: 校验内置模板可加载
+        run: python -c "from paperatomy import list_templates; ts=list_templates(); assert len(ts)>=3; print([t.id for t in ts])"
