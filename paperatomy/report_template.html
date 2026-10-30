@@ -147,6 +147,190 @@
 
   .empty { color: var(--ink3); font-style: italic; }
 
+  /* ---------- 动态演示 ---------- */
+  .viz-list { display: flex; flex-direction: column; gap: 18px; }
+
+  article.viz {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 14px; overflow: hidden;
+    box-shadow: 0 1px 2px rgba(27,36,48,.03), 0 10px 30px rgba(27,36,48,.04);
+  }
+  .viz-head {
+    display: flex; align-items: center; gap: 12px;
+    padding: 16px 22px; border-bottom: 1px solid var(--line2);
+    background: linear-gradient(180deg, #FDFCFA, #FFFFFF);
+  }
+  .viz-kind {
+    flex: none; font-size: 11px; font-weight: 700; letter-spacing: .06em;
+    color: var(--accent); background: var(--soft);
+    border-radius: 6px; padding: 3px 9px;
+  }
+  .viz-head h3 { margin: 0; font-size: 15px; font-weight: 600; flex: 1; letter-spacing: -.01em; }
+  .viz-ctl { display: flex; align-items: center; gap: 6px; flex: none; }
+  .viz-btn {
+    font-family: inherit; font-size: 12.5px; color: var(--ink2);
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 7px; padding: 5px 11px; cursor: pointer;
+    transition: border-color .15s, color .15s, background .15s;
+  }
+  .viz-btn:hover { border-color: var(--accent2); color: var(--accent); }
+  .viz-btn.primary {
+    background: var(--accent); border-color: var(--accent); color: #fff;
+    font-weight: 600; padding: 5px 15px;
+  }
+  .viz-btn.primary:hover { background: #27607C; border-color: #27607C; color: #fff; }
+  .viz-btn:disabled { opacity: .4; cursor: default; }
+
+  .viz-stage { padding: 30px 24px 24px; background: #FFFDFA; overflow-x: auto; }
+
+  /* --- pipeline：横向流程 --- */
+  .pipe-row { display: flex; align-items: stretch; min-width: min-content; padding: 6px 2px; }
+  .pipe-node {
+    flex: 1 1 0; min-width: 96px; max-width: 168px;
+    display: flex; flex-direction: column; align-items: center; gap: 7px;
+    padding: 14px 10px; border-radius: 11px;
+    border: 1px solid var(--line); background: var(--card);
+    text-align: center; transition: all .4s cubic-bezier(.4,0,.2,1);
+    opacity: .82; transform: translateY(2px);
+  }
+  .pipe-node .pn-idx {
+    width: 24px; height: 24px; border-radius: 50%; flex: none;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono); font-size: 10.5px;
+    background: var(--line2); color: var(--ink3);
+    transition: all .4s ease;
+  }
+  .pipe-node .pn-name { font-size: 13px; line-height: 1.45; color: var(--ink2); }
+  .pipe-node.is-done {
+    opacity: 1; transform: none;
+    border-color: #CBDCD6; background: #F7FBF9;
+  }
+  .pipe-node.is-done .pn-idx { background: #7A9E7E; color: #fff; }
+  .pipe-node.is-done .pn-name { color: var(--ink2); }
+  .pipe-node.is-active {
+    opacity: 1; transform: translateY(-3px) scale(1.03);
+    border-color: var(--accent); background: var(--card);
+    box-shadow: 0 6px 22px rgba(46,111,142,.18);
+  }
+  .pipe-node.is-active .pn-idx { background: var(--accent); color: #fff; }
+  .pipe-node.is-active .pn-name { color: var(--ink); font-weight: 600; }
+
+  .pipe-link { flex: 0 0 34px; position: relative; align-self: center; height: 2px; }
+  .pipe-link::before {
+    content: ""; position: absolute; inset: 0;
+    background: #D9D2C4; transition: background .4s;
+  }
+  .pipe-link::after {
+    content: ""; position: absolute; right: -1px; top: -4px;
+    border: 5px solid transparent; border-left-color: #D9D2C4;
+    transition: border-left-color .4s;
+  }
+  .pipe-link.on::before { background: #9FC6B4; }
+  .pipe-link.on::after { border-left-color: #9FC6B4; }
+  .pipe-link.flow .pulse {
+    position: absolute; top: -2px; left: 0; width: 6px; height: 6px;
+    border-radius: 50%; background: var(--accent);
+    animation: travel 1.5s linear infinite;
+  }
+  @keyframes travel {
+    0%   { left: 0; opacity: 0; }
+    20%  { opacity: 1; }
+    80%  { opacity: 1; }
+    100% { left: calc(100% - 6px); opacity: 0; }
+  }
+
+  /* --- example：纵向走查 --- */
+  .ex-track { display: flex; flex-direction: column; gap: 0; max-width: 760px; margin: 0 auto; }
+  .ex-scenario {
+    font-size: 13px; color: var(--ink2); background: var(--line2);
+    border-radius: 9px; padding: 10px 14px; margin-bottom: 18px;
+    border-left: 3px solid var(--ink3);
+  }
+  .ex-scenario b { color: var(--ink); font-weight: 600; }
+  .ex-step {
+    display: flex; gap: 14px; padding: 12px 14px; border-radius: 10px;
+    transition: all .4s ease; opacity: .68;
+  }
+  .ex-step.is-active { opacity: 1; background: var(--soft); }
+  .ex-step.is-done { opacity: 1; }
+  .ex-rail { flex: none; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .ex-dot {
+    width: 26px; height: 26px; border-radius: 50%; flex: none;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono); font-size: 11px;
+    background: var(--line2); color: var(--ink3); border: 1px solid var(--line);
+    transition: all .35s ease;
+  }
+  .ex-step.is-done .ex-dot { background: #7A9E7E; color: #fff; border-color: #7A9E7E; }
+  .ex-step.is-active .ex-dot { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .ex-step.is-issue.is-active .ex-dot { background: var(--warn); border-color: var(--warn); }
+  .ex-line { flex: 1; width: 1px; background: var(--line); min-height: 12px; }
+  .ex-step:last-child .ex-line { display: none; }
+  .ex-body { flex: 1; min-width: 0; padding-top: 2px; }
+  .ex-state { font-size: 14.5px; color: var(--ink); line-height: 1.65; }
+  .ex-issue {
+    margin-top: 7px; font-size: 13px; color: var(--warn);
+    background: var(--warnSoft); border-radius: 7px; padding: 6px 11px;
+    display: inline-block;
+  }
+  .ex-issue b { font-weight: 700; letter-spacing: .04em; }
+
+  /* --- taxonomy：逐层展开 --- */
+  .tax-tree { max-width: 780px; margin: 0 auto; font-size: 14px; }
+  .tax-node {
+    position: relative; padding: 7px 0 7px 0;
+    transition: opacity .5s ease, transform .5s ease;
+  }
+  .tax-node[data-hidden="1"] { opacity: .12; transform: translateY(-2px); }
+  .tax-line { display: flex; align-items: baseline; gap: 9px; }
+  .tax-bullet {
+    flex: none; width: 7px; height: 7px; border-radius: 2px;
+    background: var(--accent2); margin-top: 8px;
+  }
+  .tax-node[data-depth="0"] .tax-bullet { background: var(--accent); width: 9px; height: 9px; }
+  .tax-node[data-depth="2"] .tax-bullet { background: var(--line); width: 5px; height: 5px; }
+  .tax-name { font-weight: 600; color: var(--ink); }
+  .tax-node[data-depth="2"] .tax-name { font-weight: 400; color: var(--ink2); font-size: 13.5px; }
+  .tax-what { color: var(--ink3); font-size: 13px; }
+  .tax-children {
+    margin-left: 12px; padding-left: 16px;
+    border-left: 1px solid var(--line);
+  }
+
+  /* --- 详情面板 --- */
+  .viz-detail {
+    margin: 0 24px; padding: 16px 20px;
+    background: var(--soft); border-radius: 11px;
+    min-height: 92px;
+  }
+  .vd-top {
+    display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px;
+  }
+  .vd-num { font-family: var(--mono); font-size: 11.5px; color: var(--accent); flex: none; }
+  .vd-name { font-size: 15px; font-weight: 600; color: var(--ink); }
+  .vd-what { margin: 0; font-size: 14px; color: var(--ink2); line-height: 1.7; }
+  .vd-why {
+    margin: 9px 0 0; font-size: 13px; color: var(--ink2);
+    padding-top: 9px; border-top: 1px dashed rgba(46,111,142,.25);
+  }
+  .vd-why b { color: var(--accent); font-weight: 600; margin-right: 6px; }
+  .vd-why.missing { color: var(--warn); }
+  .vd-why.missing b { color: var(--warn); }
+  .vd-issue {
+    margin: 8px 0 0; font-size: 13.5px; color: var(--warn);
+  }
+  .vd-issue b { font-weight: 700; }
+
+  .viz-foot {
+    padding: 14px 24px 20px; font-size: 12.5px; color: var(--ink3);
+    display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center;
+  }
+  .viz-foot .ev-inline { display: flex; gap: 8px; align-items: baseline; }
+  .viz-warn {
+    font-size: 12px; color: var(--warn); background: var(--warnSoft);
+    border-radius: 6px; padding: 2px 9px;
+  }
+
   footer {
     margin-top: 64px; padding-top: 22px; border-top: 1px solid var(--line);
     font-size: 12.5px; color: var(--ink3);
@@ -201,6 +385,9 @@
 
   var jump = [];
   var main = [];
+  // 必须先声明：后面的 vizSection() 会用到，var 只有声明提升、赋值不提升
+  var VIZ = D.visuals || [];
+  var VIZ_LABEL = { pipeline: "方法流程", example: "实例走查", taxonomy: "分类体系" };
 
   // 「一句话结论」单独抽出来做页首大卡：它是整篇最该被先看到的一句，
   // 混在卡片堆里会被淹掉。
@@ -227,6 +414,13 @@
     }
     hh.push("</div>");
     main.push(hh.join(""));
+  }
+
+  // 动态演示放在页首大卡之后：它比正文更值得先看，
+  // 但要排在「一句话结论」后面，否则读者没有上下文。
+  if (VIZ.length) {
+    jump.push('<a href="#viz">动态演示</a>');
+    main.push(vizSection());
   }
 
   D.groups.forEach(function (g, gi) {
@@ -279,6 +473,7 @@
 
   document.getElementById("jump").innerHTML = jump.join("");
   document.getElementById("main").innerHTML = main.join("");
+  initViz();
 
   document.getElementById("stat").textContent =
     (D.blocks || 0) + " 个板块 · 全部内容均来自原文抽取";
@@ -342,6 +537,264 @@
     });
     while (stack.length) { html.push("</li></ul>"); stack.pop(); }
     return html.join("");
+  }
+
+  /* ==================== 动态演示 ====================
+     原语是手写的：画法固定，AI 只负责选型与填空。
+     这样样式统一、质量可控，且出问题时能判断是「选错原语」还是「填错参数」。
+  */
+
+  function vizSection() {
+    var h = ['<section class="group" id="viz" style="--gc:#8A6BB0">'];
+    h.push('<div class="g-head"><h2>动态演示</h2>');
+    h.push('<span class="count">' + VIZ.length + " 个</span></div>");
+    h.push('<div class="viz-list">');
+    VIZ.forEach(function (v, i) { h.push(vizCard(v, i)); });
+    h.push("</div></section>");
+    return h.join("");
+  }
+
+  function vizCard(v, i) {
+    var label = VIZ_LABEL[v.primitive] || v.primitive;
+    var h = ['<article class="viz" data-viz="' + i + '">'];
+    h.push('<header class="viz-head">');
+    h.push('<span class="viz-kind">' + esc(label) + "</span>");
+    h.push("<h3>" + esc(v.title || "未命名演示") + "</h3>");
+    h.push('<div class="viz-ctl">');
+    h.push('<button class="viz-btn" data-act="prev" aria-label="上一步">←</button>');
+    h.push('<button class="viz-btn primary" data-act="play">▶ 演示</button>');
+    h.push('<button class="viz-btn" data-act="next" aria-label="下一步">→</button>');
+    h.push("</div></header>");
+
+    h.push('<div class="viz-stage">' + stageHTML(v) + "</div>");
+    h.push('<div class="viz-detail" data-detail></div>');
+
+    // 页脚：原文依据 + 警告
+    h.push('<div class="viz-foot">');
+    (v.evidence || []).slice(0, 2).forEach(function (e) {
+      h.push('<span class="ev-inline"><span class="ev-page">' +
+             esc(e.page ? "p." + e.page : "页?") + "</span>");
+      h.push('<span class="ev-quote">' + esc(trunc(e.quote, 90)) + "</span></span>");
+    });
+    (v.warnings || []).forEach(function (w) {
+      h.push('<span class="viz-warn">' + esc(w) + "</span>");
+    });
+    h.push("</div></article>");
+    return h.join("");
+  }
+
+  function stageHTML(v) {
+    var p = v.params || {};
+    if (v.primitive === "pipeline") {
+      var stages = p.stages || [];
+      var h = ['<div class="pipe-row">'];
+      stages.forEach(function (st, k) {
+        h.push('<div class="pipe-node">');
+        h.push('<span class="pn-idx">' + pad2(k + 1) + "</span>");
+        h.push('<span class="pn-name">' + esc(st.name) + "</span></div>");
+        if (k < stages.length - 1) {
+          h.push('<div class="pipe-link"><span class="pulse"></span></div>');
+        }
+      });
+      h.push("</div>");
+      return h.join("");
+    }
+
+    if (v.primitive === "example") {
+      var h2 = ['<div class="ex-track">'];
+      if (p.scenario) {
+        h2.push('<div class="ex-scenario"><b>设定　</b>' + esc(p.scenario) + "</div>");
+      }
+      (p.steps || []).forEach(function (st, k) {
+        var issue = (st.issue || "").trim();
+        h2.push('<div class="ex-step' + (issue ? " is-issue" : "") + '">');
+        h2.push('<div class="ex-rail"><span class="ex-dot">' + (k + 1) +
+                '</span><span class="ex-line"></span></div>');
+        h2.push('<div class="ex-body"><div class="ex-state">' + esc(st.state) + "</div>");
+        if (issue) {
+          h2.push('<div class="ex-issue"><b>卡点</b>　' + esc(issue) + "</div>");
+        }
+        h2.push("</div></div>");
+      });
+      h2.push("</div>");
+      return h2.join("");
+    }
+
+    if (v.primitive === "taxonomy") {
+      var h3 = ['<div class="tax-tree">'];
+      (function walk(node, depth) {
+        if (!node || !node.name) { return; }
+        h3.push('<div class="tax-node" data-depth="' + depth + '">');
+        h3.push('<div class="tax-line"><span class="tax-bullet"></span>');
+        h3.push('<span class="tax-name">' + esc(node.name) + "</span>");
+        if (node.what) { h3.push('<span class="tax-what">' + esc(node.what) + "</span>"); }
+        h3.push("</div>");
+        var kids = node.children || [];
+        if (kids.length) {
+          h3.push('<div class="tax-children">');
+          kids.forEach(function (c) { walk(c, depth + 1); });
+          h3.push("</div>");
+        }
+        h3.push("</div>");
+      })(p.root, 0);
+      h3.push("</div>");
+      return h3.join("");
+    }
+
+    return '<div class="empty">未知原语，无法渲染。</div>';
+  }
+
+  function stepCount(v) {
+    var p = v.params || {};
+    if (v.primitive === "pipeline") { return Math.max(1, (p.stages || []).length); }
+    if (v.primitive === "example") { return Math.max(1, (p.steps || []).length); }
+    if (v.primitive === "taxonomy") {
+      var max = 0;
+      (function walk(n, d) {
+        if (!n) { return; }
+        max = Math.max(max, d);
+        (n.children || []).forEach(function (c) { walk(c, d + 1); });
+      })(p.root, 0);
+      return max + 1;
+    }
+    return 1;
+  }
+
+  function applyStep(el, v, i) {
+    if (v.primitive === "pipeline") {
+      var nodes = el.querySelectorAll(".pipe-node");
+      Array.prototype.forEach.call(nodes, function (n, k) {
+        n.classList.toggle("is-done", k < i);
+        n.classList.toggle("is-active", k === i);
+      });
+      var links = el.querySelectorAll(".pipe-link");
+      Array.prototype.forEach.call(links, function (l, k) {
+        l.classList.toggle("on", k < i);
+        l.classList.toggle("flow", k === i);
+      });
+      return;
+    }
+    if (v.primitive === "example") {
+      var steps = el.querySelectorAll(".ex-step");
+      Array.prototype.forEach.call(steps, function (s, k) {
+        s.classList.toggle("is-done", k < i);
+        s.classList.toggle("is-active", k === i);
+      });
+      return;
+    }
+    if (v.primitive === "taxonomy") {
+      var nodes2 = el.querySelectorAll(".tax-node");
+      Array.prototype.forEach.call(nodes2, function (n) {
+        var d = Number(n.getAttribute("data-depth"));
+        n.setAttribute("data-hidden", d > i ? "1" : "0");
+      });
+    }
+  }
+
+  function renderDetail(box, v, i) {
+    if (!box) { return; }
+    var p = v.params || {};
+    var total = stepCount(v);
+    var h = [];
+
+    if (v.primitive === "pipeline") {
+      var st = (p.stages || [])[i] || {};
+      h.push('<div class="vd-top"><span class="vd-num">' + pad2(i + 1) + " / " +
+             pad2(total) + '</span><span class="vd-name">' + esc(st.name) + "</span></div>");
+      h.push('<p class="vd-what">' + esc(st.what) + "</p>");
+      if ((st.why || "").trim()) {
+        h.push('<p class="vd-why"><b>为什么必须有</b>' + esc(st.why) + "</p>");
+      } else {
+        // 没有 why 往往说明论文没讲清这一步的必要性 —— 这正是值得追问的地方
+        h.push('<p class="vd-why missing"><b>注意</b>原文未说明这一步为什么必须有，' +
+               "这通常意味着作者默认读者已知，值得在原文里找依据。</p>");
+      }
+    } else if (v.primitive === "example") {
+      var s = (p.steps || [])[i] || {};
+      h.push('<div class="vd-top"><span class="vd-num">' + pad2(i + 1) + " / " +
+             pad2(total) + '</span><span class="vd-name">第 ' + (i + 1) + " 步</span></div>");
+      h.push('<p class="vd-what">' + esc(s.state) + "</p>");
+      if ((s.issue || "").trim()) {
+        h.push('<p class="vd-issue"><b>在这里卡住　</b>' + esc(s.issue) + "</p>");
+      } else {
+        h.push('<p class="vd-what" style="margin-top:6px;color:var(--ok)">' +
+               "这一步问题被解决了。</p>");
+      }
+    } else if (v.primitive === "taxonomy") {
+      var count = 0;
+      (function walk(n, d) {
+        if (!n) { return; }
+        if (d === i) { count += 1; }
+        (n.children || []).forEach(function (c) { walk(c, d + 1); });
+      })(p.root, 0);
+      var names = ["根节点", "一级分类", "具体方法/子类", "更细的层"];
+      h.push('<div class="vd-top"><span class="vd-num">第 ' + i + " 层</span>");
+      h.push('<span class="vd-name">' + (names[i] || "第 " + i + " 层") + "</span></div>");
+      h.push('<p class="vd-what">这一层展开 ' + count + " 个节点，共 " + total +
+             " 层。点「▶ 演示」可从根节点逐层展开。</p>");
+    }
+
+    box.innerHTML = h.join("");
+  }
+
+  function initViz() {
+    Array.prototype.forEach.call(
+      document.querySelectorAll("article.viz"),
+      function (el) {
+        var v = VIZ[Number(el.getAttribute("data-viz"))];
+        if (!v) { return; }
+        var total = stepCount(v);
+        var detail = el.querySelector("[data-detail]");
+        // 分类体系默认全展开：它的价值在于一眼看到整个框架，
+        // 而不是像流程那样一步步跟着走。演示按钮用来「重播展开过程」。
+        var st = { i: v.primitive === "taxonomy" ? total - 1 : 0, timer: null };
+
+        function paint() {
+          applyStep(el, v, st.i);
+          renderDetail(detail, v, st.i);
+          var btn = el.querySelector('[data-act="play"]');
+          btn.textContent = st.timer ? "⏸ 暂停"
+            : (st.i >= total - 1 ? "↻ 重播" : "▶ 演示");
+        }
+
+        function stop() {
+          if (st.timer) { clearInterval(st.timer); st.timer = null; }
+        }
+
+        function go(n) {
+          st.i = Math.max(0, Math.min(total - 1, n));
+          paint();
+        }
+
+        el.addEventListener("click", function (e) {
+          var btn = e.target.closest("[data-act]");
+          if (!btn) { return; }
+          var act = btn.getAttribute("data-act");
+
+          if (act === "next") { stop(); go(st.i + 1); return; }
+          if (act === "prev") { stop(); go(st.i - 1); return; }
+          if (act !== "play") { return; }
+
+          if (st.timer) { stop(); paint(); return; }
+          if (st.i >= total - 1) { st.i = 0; }
+          paint();
+          var dwell = v.primitive === "example" ? 1700 : 1400;
+          st.timer = setInterval(function () {
+            if (st.i >= total - 1) { stop(); paint(); return; }
+            st.i += 1;
+            paint();
+          }, dwell);
+        });
+
+        paint();
+      }
+    );
+  }
+
+  function pad2(n) { return (n < 10 ? "0" : "") + n; }
+  function trunc(s, n) {
+    s = String(s || "");
+    return s.length > n ? s.slice(0, n) + "…" : s;
   }
 
   function esc(s) {
