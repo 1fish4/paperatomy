@@ -467,6 +467,16 @@
   .ask-fab.has-ctx .dot { opacity: 1; }
   .ask-fab.offline { background: linear-gradient(150deg, #99A2AE, #7E8792); }
 
+  /* 工作台模式下的返回按钮：单报告打开时是 null，不显示 */
+  .back-fab {
+    position: fixed; left: 22px; bottom: 22px; z-index: 60; display: none;
+    border: 1px solid var(--line); background: #fff; color: var(--ink2);
+    border-radius: 999px; padding: 8px 15px; font-size: 12.5px; cursor: pointer;
+    box-shadow: 0 3px 12px rgba(27,36,48,.08); transition: all .16s;
+  }
+  .back-fab:hover { color: var(--accent); border-color: var(--accent2); }
+  .back-fab.show { display: inline-flex; align-items: center; gap: 5px; }
+
   .ask-panel {
     position: fixed; top: 0; right: 0; bottom: 0; z-index: 70;
     width: 432px; max-width: 100vw;
@@ -631,6 +641,11 @@
   </footer>
 </div>
 
+
+<button class="back-fab" id="backFab" type="button">
+  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor"
+       stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M15 6l-6 6 6 6"/></svg>工作台</button>
 
 <button class="ask-fab" id="askFab" type="button" aria-label="追问这篇论文">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
@@ -1475,6 +1490,15 @@
   });
 
   initAsk();
+
+  // 工作台打开的报告，左下角给一个返回入口
+  if (window.__PA_SERVE__ && window.__PA_SERVE__.mode === "workbench") {
+    var backFab = document.getElementById("backFab");
+    backFab.classList.add("show");
+    backFab.addEventListener("click", function () {
+      location.href = "/";
+    });
+  }
 
   // 打开 http://127.0.0.1:8770/#ask 直接展开面板，省一次点击
   if (location.hash === "#ask" && ASK.live) { openAsk(); }

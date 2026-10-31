@@ -93,8 +93,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_loc.add_argument("--no-rebuild", dest="rebuild", action="store_false")
 
     p_srv = sub.add_parser(
-        "serve", help="起一个本地服务，在报告页面里直接追问这篇论文")
-    p_srv.add_argument("json", help="extract 产出的 JSON 文件")
+        "serve", help="起本地服务：不给报告则打开工作台（上传 PDF 直接分析）")
+    p_srv.add_argument("json", nargs="?", default=None,
+                       help="报告 JSON；省略时打开论文工作台")
+    p_srv.add_argument("--dir", default=".",
+                       help="工作台的根目录（报告在 out/，PDF 在 papers/）")
     p_srv.add_argument("--port", type=int, default=8770, help="端口，默认 8770")
     p_srv.add_argument("--open", action="store_true", help="启动后自动打开浏览器")
 
@@ -544,10 +547,11 @@ def _cmd_locate(args) -> int:
 
 
 def _cmd_serve(args) -> int:
-    """起本地问答服务。"""
+    """起本地服务：给了报告进报告模式，不给进工作台模式。"""
     from .serve import serve
 
-    return serve(args.json, port=args.port, open_browser=args.open)
+    return serve(args.json, root=args.dir, port=args.port,
+                 open_browser=args.open)
 
 
 def _resolve_source(source: str, json_path: Path) -> Path | None:
