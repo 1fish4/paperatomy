@@ -115,33 +115,43 @@
   <h2>在线示例</h2>
   <div class="demos">
     <a class="demo" href="examples/survey.html">
-      <div class="tag">survey · 8 块 + 3 个演示</div>
+      <div class="tag">survey · 8 块 + 8 环节</div>
       <h3>资源高效基础模型综述</h3>
-      <p>35 页 ACM 综述。分类框架拆成三层逐层展开，开放问题保留原始 5 条。</p>
+      <p>35 页 ACM 综述。论证链从资源代价一路走到精度代价，每段可播放。</p>
     </a>
     <a class="demo" href="examples/skim.html">
-      <div class="tag">skim · 6 块 + 3 个演示</div>
+      <div class="tag">skim · 6 块 + 8 环节</div>
       <h3>同一篇论文的速读版</h3>
       <p>五分钟判断值不值得细读：结论、问题、缺口、方法、结果、可用性。</p>
     </a>
   </div>
 
-  <h2>动态演示</h2>
-  <div class="shot"><img src="images/visuals.png" alt="动态演示：分类体系逐层展开、方法流程逐段点亮"></div>
+  <h2>论证链</h2>
+  <div class="shot"><img src="images/chain.png" alt="论证链：问题 → 洞察 → 改动 → 机制 → 效果 → 代价"></div>
   <p class="cap">
-    上面三张卡片都是可播放的：分类体系按层展开，方法流程逐段点亮并说明「这一步做什么 / 为什么必须有」，
-    具体例子走一遍把卡点标红。<b>AI 不画图，只负责选原语和填空</b>——画法是手写组件，样式稳定、可校验。
+    这不是模板。链条的节点数、类型、顺序由每篇论文自己决定，
+    固定的是渲染引擎。<b>「改动」环节必须给出改动前后的对照</b>——
+    上面这张图里，左边是原始注意力（QK^T 全对全），右边是替换后的结构，
+    差异被直接画出来，而不是用文字描述。
+  </p>
+
+  <h2>「改进具体体现在哪里」</h2>
+  <p style="color:var(--ink2);margin:0 0 24px">
+    这是最容易含糊、也最该说清的一句话。所以 <code>change</code> 节点必须同时给
+    <code>before</code> 与 <code>after</code> 两份图示规格：
+    一排 token 用 1.5 的节奏点亮，另一排用 0.4——<b>速度差异被看见，而不只是被描述</b>；
+    一排模块块高亮被替换的那一块，新旧用暖冷两套颜色分开。
   </p>
 
   <h2>它长什么样</h2>
   <div class="shot"><img src="images/report-survey.png" alt="综述报告效果"></div>
-  <p class="cap">每一块底部列出原文页码与摘录；低置信度的判断会单独标出。</p>
+  <p class="cap">正文每一块底部列出原文页码与摘录；低置信度的判断会单独标出。</p>
 
   <h2>这台机器上跑出来的数</h2>
   <div class="facts">
     <div class="fact"><b>35 页</b><span>单篇综述，8 个章节全部识别</span></div>
-    <div class="fact"><b>23–29 秒</b><span>正文抽取 + 14 秒原语选型</span></div>
-    <div class="fact"><b>3 个</b><span>自动生成的演示，首轮校验通过</span></div>
+    <div class="fact"><b>25 秒</b><span>论证链抽取，含一轮自动修复</span></div>
+    <div class="fact"><b>8 个</b><span>链条节点，从资源代价到精度代价</span></div>
   </div>
 
   <h2>为什么不是「和 PDF 聊天」</h2>
@@ -153,9 +163,10 @@
 
   <h2>三条不许破的规矩</h2>
   <p style="color:var(--ink2);margin:0 0 24px">
-    <b>没有原文依据就不演。</b>每个演示必须带页码与原文摘录，没有的判不合法——一个编出来的动画比没有动画更糟。<br>
-    <b>没有卡点就不算例子。</b>所有步骤都没有「卡在哪」时，实例走查直接判不合法。<br>
-    <b>讲不清为什么就要提示。</b>方法流程里某一步的必要性原文没说明时，报告打橙标，而不是假装它很合理。
+    <b>没有依据的改动不许画。</b>「改动」与「效果」两个环节没有页码与原文摘录，直接判不合法——
+    一个编出来的动画比没有动画更糟。<br>
+    <b>效果必须是数字。</b>「显著提升」会被打回，「2.6×」才通过。<br>
+    <b>抽不出来就不抽。</b>空链是合法结果：纯理论论文没有「改动前后」，强行编一条反而有害。
   </p>
 
   <h2>自己跑</h2>
@@ -165,7 +176,7 @@ pip install -e ".[dev]"
 
 paperatomy config set --api-key sk-xxx --model deepseek-chat
 paperatomy extract paper.pdf -t survey -l zh -o out/paper
-paperatomy visuals out/paper.json   # 已有报告单独补演示</code></pre>
+paperatomy chain out/paper.json     # 已有报告单独补论证链</code></pre>
   <p style="font-size:13.5px;color:var(--ink3)">
     产出三个文件：<code>.json</code>（结构化）、<code>.md</code>（贴笔记）、
     <code>.html</code>（单文件报告，含可播放的演示）。
@@ -177,7 +188,7 @@ paperatomy visuals out/paper.json   # 已有报告单独补演示</code></pre>
   </div>
 
   <footer>
-    <span>MIT 协议 · 65 项测试</span>
+    <span>MIT 协议 · 81 项测试</span>
     <span>
       <a href="https://github.com/1fish4/paperatomy">GitHub</a> ·
       <a href="https://gitee.com/not-even-xianyu-can-handle-it/paperatomy">Gitee</a>

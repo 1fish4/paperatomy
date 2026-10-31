@@ -147,188 +147,254 @@
 
   .empty { color: var(--ink3); font-style: italic; }
 
-  /* ---------- 动态演示 ---------- */
-  .viz-list { display: flex; flex-direction: column; gap: 18px; }
+  /* ---------- 论证链（深色舞台） ---------- */
+  /* 深色内嵌舞台是刻意的：它把这块和正文区分开，读起来像「一段视频」而不是「又一段文字」 */
+  .chain-card {
+    position: relative;
+    border-radius: 16px;
+    padding: 24px 26px 18px;
+    background: radial-gradient(115% 130% at 12% 0%, #22303F 0%, #141D27 45%, #0E141B 100%);
+    box-shadow: 0 20px 50px rgba(16, 24, 34, .28);
+    overflow: hidden;
+    color: #E9EFF6;
+  }
+  .chain-card::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background-image:
+      linear-gradient(rgba(255,255,255,.028) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.028) 1px, transparent 1px);
+    background-size: 26px 26px;
+    -webkit-mask-image: radial-gradient(85% 80% at 50% 25%, #000 35%, transparent 100%);
+    mask-image: radial-gradient(85% 80% at 50% 25%, #000 35%, transparent 100%);
+  }
+  .chain-card > * { position: relative; }
 
-  article.viz {
-    background: var(--card); border: 1px solid var(--line);
-    border-radius: 14px; overflow: hidden;
-    box-shadow: 0 1px 2px rgba(27,36,48,.03), 0 10px 30px rgba(27,36,48,.04);
+  .chain-thesis {
+    margin: 0 0 20px; padding-left: 13px;
+    border-left: 2px solid rgba(111,179,217,.6);
+    font-size: 15px; line-height: 1.72; color: #D8E4F0;
   }
-  .viz-head {
-    display: flex; align-items: center; gap: 12px;
-    padding: 16px 22px; border-bottom: 1px solid var(--line2);
-    background: linear-gradient(180deg, #FDFCFA, #FFFFFF);
+  .chain-thesis b {
+    color: #8FD2F0; font-weight: 600; letter-spacing: .08em;
+    margin-right: 9px; font-size: 11.5px; text-transform: uppercase;
   }
-  .viz-kind {
-    flex: none; font-size: 11px; font-weight: 700; letter-spacing: .06em;
-    color: var(--accent); background: var(--soft);
-    border-radius: 6px; padding: 3px 9px;
-  }
-  .viz-head h3 { margin: 0; font-size: 15px; font-weight: 600; flex: 1; letter-spacing: -.01em; }
-  .viz-ctl { display: flex; align-items: center; gap: 6px; flex: none; }
-  .viz-btn {
-    font-family: inherit; font-size: 12.5px; color: var(--ink2);
-    background: var(--card); border: 1px solid var(--line);
-    border-radius: 7px; padding: 5px 11px; cursor: pointer;
-    transition: border-color .15s, color .15s, background .15s;
-  }
-  .viz-btn:hover { border-color: var(--accent2); color: var(--accent); }
-  .viz-btn.primary {
-    background: var(--accent); border-color: var(--accent); color: #fff;
-    font-weight: 600; padding: 5px 15px;
-  }
-  .viz-btn.primary:hover { background: #27607C; border-color: #27607C; color: #fff; }
-  .viz-btn:disabled { opacity: .4; cursor: default; }
 
-  .viz-stage { padding: 30px 24px 24px; background: #FFFDFA; overflow-x: auto; }
+  /* --- 链条横排 --- */
+  .chain-rail { display: flex; align-items: stretch; margin-bottom: 20px; }
+  .cc {
+    flex: 1 1 0; min-width: 92px; max-width: 172px; position: relative;
+    padding: 11px 10px 12px; border-radius: 11px;
+    border: 1px solid rgba(255,255,255,.13);
+    background: rgba(255,255,255,.035);
+    cursor: pointer; opacity: .4;
+    transition: opacity .45s ease, transform .45s cubic-bezier(.34,1.4,.64,1),
+                border-color .45s, background .45s, box-shadow .45s;
+  }
+  .cc:hover { opacity: .72; }
+  .cc.is-done {
+    opacity: .82; border-color: rgba(255,255,255,.2);
+    background: rgba(255,255,255,.06);
+  }
+  .cc.is-active {
+    opacity: 1; transform: translateY(-5px);
+    background: rgba(255,255,255,.1);
+    border-color: var(--c);
+    box-shadow: 0 0 0 1px var(--c), 0 16px 36px -10px var(--c);
+  }
+  .cc-t {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 10px; letter-spacing: .1em; color: #9FB0C2; margin-bottom: 5px;
+  }
+  .cc-t i { display: block; width: 6px; height: 6px; border-radius: 2px; background: var(--c); flex: none; }
+  .cc-l { font-size: 12.5px; line-height: 1.45; color: #C6D5E4; }
+  .cc.is-active .cc-l { color: #fff; font-weight: 600; }
 
-  /* --- pipeline：横向流程 --- */
-  .pipe-row { display: flex; align-items: stretch; min-width: min-content; padding: 6px 2px; }
-  .pipe-node {
-    flex: 1 1 0; min-width: 96px; max-width: 168px;
-    display: flex; flex-direction: column; align-items: center; gap: 7px;
-    padding: 14px 10px; border-radius: 11px;
-    border: 1px solid var(--line); background: var(--card);
-    text-align: center; transition: all .4s cubic-bezier(.4,0,.2,1);
-    opacity: .82; transform: translateY(2px);
-  }
-  .pipe-node .pn-idx {
-    width: 24px; height: 24px; border-radius: 50%; flex: none;
-    display: flex; align-items: center; justify-content: center;
-    font-family: var(--mono); font-size: 10.5px;
-    background: var(--line2); color: var(--ink3);
-    transition: all .4s ease;
-  }
-  .pipe-node .pn-name { font-size: 13px; line-height: 1.45; color: var(--ink2); }
-  .pipe-node.is-done {
-    opacity: 1; transform: none;
-    border-color: #CBDCD6; background: #F7FBF9;
-  }
-  .pipe-node.is-done .pn-idx { background: #7A9E7E; color: #fff; }
-  .pipe-node.is-done .pn-name { color: var(--ink2); }
-  .pipe-node.is-active {
-    opacity: 1; transform: translateY(-3px) scale(1.03);
-    border-color: var(--accent); background: var(--card);
-    box-shadow: 0 6px 22px rgba(46,111,142,.18);
-  }
-  .pipe-node.is-active .pn-idx { background: var(--accent); color: #fff; }
-  .pipe-node.is-active .pn-name { color: var(--ink); font-weight: 600; }
-
-  .pipe-link { flex: 0 0 34px; position: relative; align-self: center; height: 2px; }
-  .pipe-link::before {
+  .cl { flex: 0 0 26px; align-self: center; height: 2px; position: relative; }
+  .cl::before {
     content: ""; position: absolute; inset: 0;
-    background: #D9D2C4; transition: background .4s;
+    background: rgba(255,255,255,.13); transition: background .4s;
   }
-  .pipe-link::after {
-    content: ""; position: absolute; right: -1px; top: -4px;
-    border: 5px solid transparent; border-left-color: #D9D2C4;
+  .cl.on::before { background: linear-gradient(90deg, rgba(143,210,240,.12), rgba(143,210,240,.6)); }
+  .cl::after {
+    content: ""; position: absolute; right: -1px; top: -3px;
+    border: 4px solid transparent; border-left-color: rgba(255,255,255,.13);
     transition: border-left-color .4s;
   }
-  .pipe-link.on::before { background: #9FC6B4; }
-  .pipe-link.on::after { border-left-color: #9FC6B4; }
-  .pipe-link.flow .pulse {
-    position: absolute; top: -2px; left: 0; width: 6px; height: 6px;
-    border-radius: 50%; background: var(--accent);
-    animation: travel 1.5s linear infinite;
+  .cl.on::after { border-left-color: rgba(143,210,240,.65); }
+  .cl i {
+    position: absolute; top: -2.5px; left: 0; width: 7px; height: 7px;
+    border-radius: 50%; background: #8FD2F0;
+    box-shadow: 0 0 10px 2px rgba(143,210,240,.8);
+    opacity: 0;
   }
-  @keyframes travel {
+  .cl.flow i { animation: chainTravel .95s cubic-bezier(.5,0,.5,1) infinite; }
+  @keyframes chainTravel {
     0%   { left: 0; opacity: 0; }
-    20%  { opacity: 1; }
-    80%  { opacity: 1; }
-    100% { left: calc(100% - 6px); opacity: 0; }
+    25%  { opacity: 1; }
+    75%  { opacity: 1; }
+    100% { left: calc(100% - 7px); opacity: 0; }
   }
 
-  /* --- example：纵向走查 --- */
-  .ex-track { display: flex; flex-direction: column; gap: 0; max-width: 760px; margin: 0 auto; }
-  .ex-scenario {
-    font-size: 13px; color: var(--ink2); background: var(--line2);
-    border-radius: 9px; padding: 10px 14px; margin-bottom: 18px;
-    border-left: 3px solid var(--ink3);
+  /* --- 详情舞台 --- */
+  .chain-detail {
+    background: rgba(255,255,255,.045);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 12px; padding: 16px 18px;
+    /* 固定舞台高度：播放时页面不能上下跳，跳了就不像在放片子 */
+    min-height: 196px;
+    display: flex; flex-direction: column; justify-content: center;
   }
-  .ex-scenario b { color: var(--ink); font-weight: 600; }
-  .ex-step {
-    display: flex; gap: 14px; padding: 12px 14px; border-radius: 10px;
-    transition: all .4s ease; opacity: .68;
+  .cd-head { display: flex; align-items: center; gap: 9px; margin-bottom: 9px; }
+  .cd-badge {
+    font-size: 10.5px; letter-spacing: .08em;
+    padding: 2px 8px; border-radius: 5px;
+    background: rgba(255,255,255,.08); color: #BFD1E2;
   }
-  .ex-step.is-active { opacity: 1; background: var(--soft); }
-  .ex-step.is-done { opacity: 1; }
-  .ex-rail { flex: none; display: flex; flex-direction: column; align-items: center; gap: 6px; }
-  .ex-dot {
-    width: 26px; height: 26px; border-radius: 50%; flex: none;
-    display: flex; align-items: center; justify-content: center;
-    font-family: var(--mono); font-size: 11px;
-    background: var(--line2); color: var(--ink3); border: 1px solid var(--line);
-    transition: all .35s ease;
-  }
-  .ex-step.is-done .ex-dot { background: #7A9E7E; color: #fff; border-color: #7A9E7E; }
-  .ex-step.is-active .ex-dot { background: var(--accent); color: #fff; border-color: var(--accent); }
-  .ex-step.is-issue.is-active .ex-dot { background: var(--warn); border-color: var(--warn); }
-  .ex-line { flex: 1; width: 1px; background: var(--line); min-height: 12px; }
-  .ex-step:last-child .ex-line { display: none; }
-  .ex-body { flex: 1; min-width: 0; padding-top: 2px; }
-  .ex-state { font-size: 14.5px; color: var(--ink); line-height: 1.65; }
-  .ex-issue {
-    margin-top: 7px; font-size: 13px; color: var(--warn);
-    background: var(--warnSoft); border-radius: 7px; padding: 6px 11px;
-    display: inline-block;
-  }
-  .ex-issue b { font-weight: 700; letter-spacing: .04em; }
+  .cd-title { font-size: 15px; font-weight: 600; color: #fff; letter-spacing: -.01em; }
+  .cd-text { margin: 0 0 12px; font-size: 13.5px; line-height: 1.72; color: #A9BACC; }
+  .cd-text:last-child { margin-bottom: 0; }
 
-  /* --- taxonomy：逐层展开 --- */
-  .tax-tree { max-width: 780px; margin: 0 auto; font-size: 14px; }
-  .tax-node {
-    position: relative; padding: 7px 0 7px 0;
-    transition: opacity .5s ease, transform .5s ease;
+  /* 改动前后对照 */
+  .delta { display: grid; grid-template-columns: 1fr 26px 1fr; gap: 10px; align-items: stretch; }
+  .delta-col {
+    background: rgba(255,255,255,.03);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 9px; padding: 10px 12px; min-width: 0;
   }
-  .tax-node[data-hidden="1"] { opacity: .12; transform: translateY(-2px); }
-  .tax-line { display: flex; align-items: baseline; gap: 9px; }
-  .tax-bullet {
-    flex: none; width: 7px; height: 7px; border-radius: 2px;
-    background: var(--accent2); margin-top: 8px;
+  .delta-col.before { border-color: rgba(232,131,107,.32); }
+  .delta-col.after  { border-color: rgba(126,208,168,.34); }
+  .delta-tag { font-size: 10px; letter-spacing: .1em; margin-bottom: 8px; }
+  .delta-col.before .delta-tag { color: #E8836B; }
+  .delta-col.after  .delta-tag { color: #7ED0A8; }
+  .delta-arrow { align-self: center; text-align: center; color: #8FD2F0; font-size: 17px; }
+
+  /* 图示：token 序列 */
+  .dg-cap { font-size: 10.5px; color: #7A8B9D; margin-bottom: 7px; }
+  .dg { display: flex; gap: 4px; flex-wrap: wrap; }
+  .dg-tk {
+    width: 15px; height: 15px; border-radius: 3px;
+    background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.1);
   }
-  .tax-node[data-depth="0"] .tax-bullet { background: var(--accent); width: 9px; height: 9px; }
-  .tax-node[data-depth="2"] .tax-bullet { background: var(--line); width: 5px; height: 5px; }
-  .tax-name { font-weight: 600; color: var(--ink); }
-  .tax-node[data-depth="2"] .tax-name { font-weight: 400; color: var(--ink2); font-size: 13.5px; }
-  .tax-what { color: var(--ink3); font-size: 13px; }
-  .tax-children {
-    margin-left: 12px; padding-left: 16px;
-    border-left: 1px solid var(--line);
+  .run .dg-tk {
+    animation: tkLit .34s ease forwards;
+    animation-delay: calc(var(--d) * 1s);
+  }
+  @keyframes tkLit {
+    to { background: #6FB3D9; border-color: #8FD2F0; box-shadow: 0 0 7px rgba(143,210,240,.5); }
+  }
+  /* 改动前用暖色：新旧不只是「快慢」，还要一眼看出是两套东西 */
+  .run .delta-col.before .dg-tk {
+    animation-name: tkLitWarm;
+  }
+  @keyframes tkLitWarm {
+    to { background: #B8763F; border-color: #E8836B; box-shadow: 0 0 7px rgba(232,131,107,.45); }
   }
 
-  /* --- 详情面板 --- */
-  .viz-detail {
-    margin: 0 24px; padding: 16px 20px;
-    background: var(--soft); border-radius: 11px;
-    min-height: 92px;
+  /* 图示：指标条 */
+  .dg-bars { display: flex; flex-direction: column; gap: 7px; }
+  .dg-bar { display: flex; align-items: center; gap: 8px; font-size: 11px; color: #9FB0C2; }
+  .dg-bar > span:first-child { width: 56px; flex: none; text-align: right; }
+  .dg-track {
+    flex: 1; height: 9px; border-radius: 5px;
+    background: rgba(255,255,255,.07); overflow: hidden; min-width: 40px;
   }
-  .vd-top {
-    display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px;
+  .dg-fill {
+    display: block; height: 100%; width: 0; border-radius: 5px;
+    background: linear-gradient(90deg, #3C7FA0, #8FD2F0);
+    transition: width .9s cubic-bezier(.2,.8,.2,1);
   }
-  .vd-num { font-family: var(--mono); font-size: 11.5px; color: var(--accent); flex: none; }
-  .vd-name { font-size: 15px; font-weight: 600; color: var(--ink); }
-  .vd-what { margin: 0; font-size: 14px; color: var(--ink2); line-height: 1.7; }
-  .vd-why {
-    margin: 9px 0 0; font-size: 13px; color: var(--ink2);
-    padding-top: 9px; border-top: 1px dashed rgba(46,111,142,.25);
-  }
-  .vd-why b { color: var(--accent); font-weight: 600; margin-right: 6px; }
-  .vd-why.missing { color: var(--warn); }
-  .vd-why.missing b { color: var(--warn); }
-  .vd-issue {
-    margin: 8px 0 0; font-size: 13.5px; color: var(--warn);
-  }
-  .vd-issue b { font-weight: 700; }
+  .run .dg-fill { width: var(--w); }
+  .dg-val { width: 42px; flex: none; color: #C6D5E4; font-variant-numeric: tabular-nums; }
 
-  .viz-foot {
-    padding: 14px 24px 20px; font-size: 12.5px; color: var(--ink3);
-    display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center;
+  /* 图示：模块块 */
+  .dg-blocks { display: flex; gap: 5px; }
+  .dg-bl {
+    flex: 1; min-width: 0; padding: 7px 4px; text-align: center;
+    font-size: 10.5px; line-height: 1.3; border-radius: 6px;
+    background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.09);
+    color: #A9BACC;
+    overflow: hidden; text-overflow: ellipsis;
   }
-  .viz-foot .ev-inline { display: flex; gap: 8px; align-items: baseline; }
-  .viz-warn {
-    font-size: 12px; color: var(--warn); background: var(--warnSoft);
+  .dg-bl.hl {
+    background: rgba(111,179,217,.22); border-color: #6FB3D9;
+    color: #fff; font-weight: 600;
+  }
+
+  .dg-text { margin: 0; font-size: 12.5px; line-height: 1.65; color: #A9BACC; }
+
+  /* 大数字 */
+  .metric { display: flex; align-items: baseline; gap: 9px; margin: 6px 0 2px; flex-wrap: wrap; }
+  .metric-n {
+    font-size: 40px; font-weight: 700; letter-spacing: -.03em;
+    color: #8FE0B4; font-variant-numeric: tabular-nums; line-height: 1.05;
+  }
+  .metric-u { font-size: 17px; color: #7ED0A8; }
+  .metric-l { font-size: 12px; color: #9FB0C2; }
+
+  /* 分类树（在深色舞台上） */
+  .cd-tax { font-size: 12.5px; }
+  .ct { display: flex; align-items: baseline; gap: 7px; padding: 2px 0; }
+  .ct-dot {
+    width: 5px; height: 5px; border-radius: 1.5px; flex: none;
+    background: #9B9BE0; margin-top: 6px;
+  }
+  .ct[data-d="2"] .ct-dot { background: rgba(255,255,255,.25); width: 4px; height: 4px; }
+  .ct-n { color: #D8E4F0; }
+  .ct[data-d="2"] .ct-n { color: #A9BACC; }
+  .ct-w { color: #7A8B9D; font-size: 11.5px; }
+  .ct-kids { margin-left: 11px; padding-left: 13px; border-left: 1px solid rgba(255,255,255,.1); }
+
+  .cd-ev {
+    margin-top: 11px; display: flex; gap: 8px; align-items: baseline;
+    font-size: 11.5px; color: #7A8B9D;
+  }
+  .cd-ev b { color: #8FD2F0; font-family: var(--mono); font-weight: 500; flex: none; }
+  .cd-ev span { font-style: italic; }
+
+  /* --- 播放条 --- */
+  .chain-bar { display: flex; align-items: center; gap: 10px; margin-top: 16px; }
+  .cb-btn {
+    font-family: inherit; font-size: 12.5px; font-weight: 600;
+    color: #0E141B; background: #8FD2F0; border: 0;
+    border-radius: 8px; padding: 7px 16px; cursor: pointer;
+    transition: background .15s;
+  }
+  .cb-btn:hover { background: #A9DEF5; }
+  .cb-btn.ghost {
+    background: rgba(255,255,255,.08); color: #C6D5E4;
+    font-weight: 500; padding: 7px 11px;
+  }
+  .cb-btn.ghost:hover { background: rgba(255,255,255,.16); color: #fff; }
+  .cb-track {
+    flex: 1; height: 4px; border-radius: 2px; position: relative;
+    background: rgba(255,255,255,.1); cursor: pointer; min-width: 60px;
+  }
+  .cb-fill {
+    position: absolute; left: 0; top: 0; bottom: 0; width: 0;
+    border-radius: 2px;
+    background: linear-gradient(90deg, #3C7FA0, #8FD2F0);
+    transition: width .4s ease;
+  }
+  .cb-count {
+    font-family: var(--mono); font-size: 11.5px; color: #9FB0C2;
+    min-width: 44px; text-align: right;
+  }
+
+  .chain-warn { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .chain-warn span {
+    font-size: 11.5px; color: #E0B479;
+    background: rgba(224,180,121,.1);
+    border: 1px solid rgba(224,180,121,.25);
     border-radius: 6px; padding: 2px 9px;
+  }
+
+  @media (max-width: 800px) {
+    .chain-card { padding: 18px 16px 14px; }
+    .chain-rail { overflow-x: auto; padding-bottom: 8px; }
+    .cc { min-width: 112px; }
+    .delta { grid-template-columns: 1fr; }
+    .delta-arrow { transform: rotate(90deg); }
+    .metric-n { font-size: 32px; }
   }
 
   footer {
@@ -365,7 +431,7 @@
   </footer>
 </div>
 
-<script id="paper-data" type="application/json">{"paper_title":"Resource-efficient Algorithms and Systems of Foundation Models: A Survey","template_name":"综述","model":"deepseek-chat","lang":"zh","pages":35,"blocks":8,"groups":[{"name":"概览","blocks":[{"id":"tl_dr","title":"一句话结论","content":"该综述覆盖大基础模型（LLM、ViT、扩散模型、多模态模型）的资源高效算法与系统，按模型架构、算法（预训练/微调/推理/压缩）、系统（分布式训练/云边服务）三条主线组织，旨在降低训练与部署的算力、内存、存储和带宽开销而不牺牲性能。","confidence":"high","empty":false,"evidence":[{"page":1,"quote":"This survey delves into the critical importance of such research, examining both algorithmic and systemic aspects."}]},{"id":"scope","title":"收录范围","content":"领域边界：仅涵盖算法与系统创新，明确排除硬件设计；资源定义限于物理资源（计算、内存、存储、带宽等），排除训练数据（标签）与隐私；文献主要来自CSRankings顶会及arXiv高影响力论文；时间上主要收录2020年之后的论文。未给出具体文献数量统计。","confidence":"high","empty":false,"evidence":[{"page":2,"quote":"We survey only algorithm and system innovations; we exclude a huge body of work at hardware design;"},{"page":2,"quote":"The definition of resource in this survey is limited to mainly physical ones, including computing, memory, storage, bandwidth, etc; we exclude training data (labels) and privacy that can also be regarded as resources;"},{"page":2,"quote":"We mainly survey papers published on top-tier CS conferences, i.e., those included in CSRankings. We also manually pick related and potentially high-impact papers from arXiv."},{"page":2,"quote":"We mainly survey papers published after the year of 2020, since the innovation of AI is going fast with old knowledge and methods being overturned frequently."}]},{"id":"problem","title":"领域要解决的问题","content":"整个领域的问题：基础模型的可扩展性带来巨大资源需求（算力、内存、存储、带宽），且训练与部署集中在少数大厂云端，导致隐私难以保护、设备端难以运行大模型。领域卡在如何在不牺牲性能的前提下降低资源足迹，并推动模型向边缘/设备下沉。具体到方法层面：注意力机制二次复杂度导致长序列训练/推理瓶颈；预训练需万亿级token与巨大算力；微调全参数成本高；自回归解码效率低；KV cache内存开销大；量化中激活异常值导致精度下降；分布式训练面临故障、通信、存储与异构GPU挑战；端侧推理受内存墙与I/O限制。","confidence":"high","empty":false,"evidence":[{"page":1,"quote":"However, the scalability comes at a cost of huge resource demand."},{"page":2,"quote":"Till the end of 2023, there are only a few major players capable of training and deploying the state-of-the-art FMs, who thereby have powerful control over the public and can potentially manipulate them in a way they prefer."},{"page":4,"quote":"The attention mechanism in large FMs faces significant computational bottlenecks primarily due to its quadratic complexity."},{"page":10,"quote":"Pre-training for large FMs relies on a substantial amount of computation resources. For instance, GPT-3-175B consumes 3.14×10^23 FLOPs and LLaMA-70B takes 1.7×10^6 GPU hours."},{"page":18,"quote":"Compared to traditional DNNs, LLMs exhibit a higher frequency of activation outliers, which are crucial for maintaining model accuracy. Standard quantization often removes these outliers, leading to a significant performance drop."}]}]},{"name":"框架","blocks":[{"id":"taxonomy","title":"分类框架","content":"作者按“架构→算法→系统”三层组织，每层再细分。\n\n一、资源高效架构（第3节）：\n1. 高效注意力：稀疏注意力（Longformer、ETC、BIGBIRD、HEPOS、MATE、TDANet）；近似注意力（Linformer、Reformer、Katharopoulos等、Polysketchformer、Mega、Deformable Attention、CrossViT）；无注意力方法（Hyena、SSM/Mamba、Recurrent-Style Transformers、RWKV、RetNet）。\n2. 动态神经网络：Mixture-of-Experts（Switch Transformer、GLaM、V-MoE、LIMoE、Mistral1、MoEfication、Sparse upcycling、FFF）；Early Exiting（He et al.等）。\n3. 扩散模型优化：高效扩散（DDIM、PNDM、DPM-Solver）；潜空间扩散（LDM/Stable Diffusion、LD-ZNet、SALAD）；扩散架构变体（SnapFusion、ScaleCrafter、ERNIE-ViLG、Mobile diffusion）。\n4. ViT专用优化（LeViT、MobileViT、EfficientFormer、EfficientViT、FastViT、LightViT、EdgeViT）。\n\n二、资源高效算法（第4节，按生命周期分）：\n1. 预训练算法：训练数据质量控制（DataComp、DFN、DataCompDR）、训练数据缩减（去重、图像块移除：TRIPS、MAE、MixMAE、COPA、PatchDropout）、渐进学习（Stacking BERT、CompoundGrow、Staged training、Knowledge inheritance、AutoProg、LiGO）、混合精度训练（Mesa、GACT）。\n2. 微调算法：加性调优（Adapter tuning：ADA、MetaTroll、ST-Adapter、HiWi、AdaMix、MEFT、Residual Adapters；Prompt tuning：PromptTuning、ATTEMPT、BioInstruct、DualPL、MPrompt；Prefix tuning：UAPT、Prefix-diffusion、DOP、DAPA、PIP）；选择性调优（SAM、SmartFRZ、FiSH-DiP、Token Mixing、VL-PET）；重参数调优（LoRA及其变体：QLoRA、PEQA、QALoRA、LoftQ、GLoRA、PELA、LongLoRA、LBP-WHT、DSEE、Delta-LoRA、PiSSA、DoRA、LoRA+）。\n3. 推理算法：机会解码（Speculative decoding、SpecTr、ProphetNet、Draft & Verify、Medusa、Look-ahead decoding、SpecInfer、LLMCad）；输入过滤与压缩（Prompt压缩：LLMLingua、EntropyRank、LLMZip、AutoCompressors、ICAE、Nugget 2D、CoT-Max；Token剪枝：PoWER-BERT、Length-Adaptive Transformer、TR-BERT、DynamicViT、AdaViT、A-ViT、SPViT、PuMer）；KV cache（H2O、Dynamic Context Pruning、Scissorhands、Landmark Attention）；长上下文（LM-Infinite、StreamingLLM、PCW、LongNet、SLED）。\n4. 模型压缩：剪枝（结构化/非结构化/上下文剪枝）、知识蒸馏（白盒KD：MiniLLM、GKD、TED；黑盒KD：Meta-ICL、Metal-ICL、Multitask-ICT、Fine-tune-CoT等）、量化（QAT：LLM-QAT、QuantGPT、BitNet；PTQ：仅权重量化如SpQR、LLM.int8()、AWQ、OWQ、SqueezeLLM、GPTQ、QuIP；权重-激活联合量化如SmoothQuant、RPTQ、OliVe、Outlier Suppression+、QLLM、LLM-FP4、ZeroQuant、FlexRound、ATOM）、低秩分解（TensorGPT、LoSparse、ViTALiTy等）。\n\n三、资源高效系统（第5节）：\n1. 分布式训练：容错（Varuna、Gemini、Bamboo、activation checkpointing、Oobleck）、并行（数据并行/DeepSpeed ZeRO、模型并行/张量并行与流水线并行、序列并行、Galvatron）、通信优化、存储优化（ZeRO-Offload、FlashNeuron、Behemoth）、异构GPU（Hetpipe、Whale）、MoE训练系统（MegaBlocks、Brainstorm、FlexMoE、Tutel、SmartMoE、Janus、MoE-Mamba）。\n2. 硬件感知优化（EdgeBERT、FlightLLM、SpAtten、A3）。\n3. 云端服务：调度（Sarathi-Serve、dLoRA）、内存节省（DeepSpeed-Inference、FlexGen、vLLM/PagedAttention、S-LoRA、SGLang）、新兴平台（SpotServe、HexGen）。\n4. 边缘服务：边云协同（EdgeFM）、端侧MoE（EdgeMoe、PC-MoE）、内存优化（LLMCad、PowerInfer）、I/O优化（STI、LLM in a flash）、内核优化（llm.npu等）。","confidence":"high","empty":false,"evidence":[{"page":5,"quote":"As summarized in Fig. 3, numerous efforts have been invested to mitigate the huge resource cost of attention-based transformer architecture."},{"page":9,"quote":"This section focuses on resoruce-efficient large FMs techniques at the algorithm level. Compared to traditional DNNs, large FMs exhibit new characteristics such as its huge parameter set and autoregressive inference. This disparity has led to the emergence of numerous resource-efficient algorithms, which are categorized based on the lifecycle of FMs: pre-training, fine-tuning, serving algorithms, and model compression."},{"page":20,"quote":"This section investigates the system research to enable resource-efficient large FMs, notable at four aspects: (1) distributed training; (2) hardware-aware optimizations; (3) serving in cloud, and (4) serving in edge."}]},{"id":"comparison","title":"各类方法对比","content":"论文未提供统一的实验对比表格，各方法结果来自不同论文、不同设置，不可直接比较。以下按类归纳核心思路、优势、局限与适用场景（基于原文描述）。\n\n1. 高效注意力：稀疏注意力降低复杂度至线性，但可能损失精度；近似注意力（低秩、核方法）减少内存但引入近似误差；无注意力架构（Mamba、RWKV、RetNet）实现线性复杂度，Mamba比Transformer快5倍，RetNet训练内存节省25-50%、加速7倍，但可能牺牲通用性。适用长序列场景。\n2. 动态神经网络：MoE以稀疏激活扩展参数，Switch Transformer达万亿参数、2048专家；V-MoE 15B参数匹配稠密模型且训练时间更少；Sparse upcycling减少约50%预训练成本；FFF比原FFN快220倍但约5%精度损失。局限：路由与负载均衡开销。Early exiting在置信度高时提前终止，但需设计退出策略。\n3. 扩散优化：DDIM加速采样；DPM-Solver仅需10-20步去噪；LDM在潜空间扩散大幅降低内存；SnapFusion在移动端2秒内生成512×512图像。局限：生成质量与步数权衡。\n4. ViT专用：LeViT、MobileViT、EfficientFormer等混合CNN-Transformer实现轻量；EfficientViT线性注意力在超分任务比Restormer快6.4倍。局限：针对视觉任务定制。\n5. 预训练算法：数据去重减少训练步数；渐进学习复用计算；混合精度减半内存。局限：需调整训练流程。\n6. 微调算法：加性调优（Adapter/Prompt/Prefix）冻结主干，成本低但可能不如全微调；选择性调优更新少量参数；重参数调优（LoRA）最流行，但存在性能差距，Delta-LoRA、PiSSA、DoRA、LoRA+等改进收敛与性能。\n7. 推理算法：投机解码在T5X上提升2-3倍，SpecTr壁钟时间提升2.13倍；Token剪枝动态减少计算；KV cache驱逐策略H2O降低延迟1.9倍、吞吐提升29倍，Scissorhands减少5倍KV内存；长上下文方法支持128k至1B token。局限：可能影响生成质量。\n8. 模型压缩：剪枝需重训练；蒸馏分白盒/黑盒，黑盒依赖API；量化中QAT成本高，PTQ易部署但无反馈调整，GPTQ可将175B模型量化至3-4比特而精度损失小；低秩分解压缩率高（TensorGPT嵌入层压缩38.40倍）。\n9. 系统：分布式训练并行策略混合使用，Galvatron自动选择；容错方法各有开销；云端服务vLLM的PagedAttention优化KV内存；边缘服务受内存墙限制，PowerInfer利用稀疏性。","confidence":"medium","empty":false,"evidence":[{"page":5,"quote":"The time and space complexity comparison is shown in Table 1."},{"page":6,"quote":"Mamba seamlessly integrates selective SSMs into a streamlined neural network architecture, eliminating attention and MLP blocks. This model achieves a notable 5× speed increase over traditional transformers and exhibits linear scaling with sequence length."},{"page":6,"quote":"RetNet introduces an architecture that replaces multi-head attention with a multi-scale retention mechanism. During training, RetNet demonstrates a 25-50% memory saving and a 7× acceleration compared to the standard Transformer."},{"page":13,"quote":"Yaniv et al. [141] report a 2–3× improvement in performance using speculative decoding on the T5X model, while a concurrent study [36] demonstrates similar speedups on a 70B Chinchilla model."},{"page":14,"quote":"H2O demonstrates the capability to reduce latency by up to 1.9× and increase throughput by 29×."},{"page":15,"quote":"Scissorhands utilizes an innovative compact KV cache and results in a notable reduction in KV cache inference memory usage, achieving up to a 5× reducation while maintaining model quality."},{"page":18,"quote":"GPTQ reduces the bit-width of each weight to 3 or 4 bits, allowing quantization of GPT models with 175 billion parameters with minimal accuracy loss."}]}]},{"name":"结论","blocks":[{"id":"consensus","title":"领域现状与共同前提","content":"论文未集中汇总领域共识，但从多处可归纳出以下共享前提与默认做法：(1) 大多数基础模型基于Transformer架构，其注意力二次复杂度是主要瓶颈，因此大量工作围绕降低注意力成本展开；(2) 资源效率研究普遍以不牺牲性能为前提，追求在同等精度下降低算力/内存/存储/带宽；(3) 模型压缩（剪枝、蒸馏、量化、低秩分解）是部署阶段的通用手段，其中量化因部署成本低而被广泛采用；(4) 微调阶段普遍采用参数高效微调（PEFT），LoRA被视为最流行的参数高效微调方法；(5) 系统层面普遍采用混合并行策略训练大模型，云端服务普遍关注KV cache内存管理；(6) 领域普遍承认端侧部署受内存墙和I/O限制，边云协同是常见思路。以上归纳依据分散于第3-5节及结论。","confidence":"medium","empty":false,"evidence":[{"page":4,"quote":"Since most FMs are based on transformer architecture, we briefly analyze the resource cost of it."},{"page":13,"quote":"LoRA, as the most popular parameter-efficient fine-tuning method, still exhibits performance gaps when compared to full fine-tuning."},{"page":18,"quote":"Due to its low deployment cost, PTQ is also the most easily deployable and widely applicable technique in model compression."},{"page":21,"quote":"In practice, these parallelisms are usually used in a hybrid way."},{"page":23,"quote":"Since large FMs often rely on large parameter sizes and on-device memory resources are scarce (e.g., 8GB), inferring large FMs on devices faces the challenge of “memory wall”."}]},{"id":"open","title":"开放问题与方向","content":"作者在结论中列出5条未来方向：(1) 云边混合部署：使基础模型下沉到近用户设备，实现泛在、隐私保护、高可用的通用智能；尚未解决因为模型规模与设备资源矛盾，目前仅初步将LLaMA-7B带到手机/PC，杀手级应用待探索。(2) 利用模型稀疏性：模型越大，给定任务激活比例越小，即使稠密训练的非MoE模型也存在运行时激活稀疏性；尚未解决因为需要更高效的稀疏架构（超越MoE）来利用激活稀疏性降低推理时间与内存。(3) 基础模型即服务：模型成为像Web和数据库一样的通用服务；尚未解决因为对调度、负载均衡、安全与隔离的系统基础设施提出新挑战，同时带来软硬件协同设计机会。(4) 以Agent为整体系统优化：LLM作为构建Agent的关键模块，其效率不应孤立考虑，需适配Agent工作流；尚未解决因为多模型协作存在逻辑依赖，为每个任务选择合适模型并在给定硬件上调度以最大化Agent性能的设计空间巨大。(5) 实用隐私保护基础模型：用户数据上云增加隐私担忧，现有方法包括联邦学习等；尚未解决因为隐私保护与资源效率的联合优化仍不成熟。","confidence":"high","empty":false,"evidence":[{"page":24,"quote":"(1) Cloud-edge hybrid deployment. To enable ubiquitous, privacy-preserving, and highly available general intelligence, many FMs will ultimately sink to near-user devices."},{"page":24,"quote":"(2) Exploiting the model sparsity. With model being larger, the activated ratio of model will go smaller for a given task."},{"page":24,"quote":"(3) Large FM as a service. On both clouds and devices, large FMs are unifying the DNN ecosystem [293]. Ultimately, it becomes a universal service to be invoked just as today’s Web and Database."},{"page":24,"quote":"(4) Agent as a holistic system to optimize. In the future, FMs especially LLMs will be used as a key building block for establishing agents [151, 262]."},{"page":24,"quote":"(5) Practical privacy-preserving FM. As the volume of user data uploaded to the cloud for FM processing continues to increase, the severity of privacy concerns correspondingly escalates."}]}]},{"name":"判断","blocks":[{"id":"questions","title":"值得追问的问题","content":"1. 分类框架中“架构优化”与“算法优化”存在重叠（如动态神经网络中的MoE既属架构又涉及系统训练优化，LoRA既属微调又属低秩分解压缩），作者如何保证分类互斥且完备？是否遗漏了“数据高效”这一角度（如数据选择、合成数据）？2. 综述明确排除硬件设计，但硬件感知优化（如FlightLLM、SpAtten）又被纳入系统章节，边界是否一致？排除硬件是否导致对能效（energy）这一关键资源的讨论不足？3. 结论中提出“利用模型稀疏性”作为方向，但正文对激活稀疏性的讨论仅零星提及（如PowerInfer），是否低估了稀疏性在训练和推理中的潜力？后续工作（如MoE与Mamba结合）是否已部分回应？","confidence":"low","empty":false,"evidence":[{"page":2,"quote":"We survey only algorithm and system innovations; we exclude a huge body of work at hardware design;"},{"page":21,"quote":"Some hardware-aware methods are also proposed to optimize FM."},{"page":24,"quote":"Recent literature [175] finds that even a densely trained non-MoE model exhibits runtime activation sparsity, which can be exploited to reduce inference time and memory footprint."}]}]}],"visuals":[{"primitive":"taxonomy","title":"综述对资源高效基础模型研究的分类框架","params":{"root":{"name":"Resource-efficient FMs","children":[{"name":"Resource-efficient Architectures","what":"修改或替换现有基础模型架构以降低资源开销","children":[{"name":"Efficient Attention","what":"稀疏注意力、近似注意力、无注意力架构","children":[]},{"name":"Dynamic Neural Network","what":"MoE 与 Early Exiting 等动态计算","children":[]},{"name":"Diffusion Optimizations","what":"扩散模型采样与潜空间优化","children":[]},{"name":"ViT-specific Optimizations","what":"面向 ViT 的轻量架构设计","children":[]}]},{"name":"Resource-efficient Algorithms","what":"按生命周期划分的算法级优化","children":[{"name":"Pre-training Algorithms","what":"数据质量控制、数据削减、渐进学习、混合精度训练","children":[]},{"name":"Finetuning Algorithms","what":"additive、selective、re-parameter tuning","children":[]},{"name":"Inference Algorithms","what":"投机解码、输入过滤压缩、KV cache、长上下文","children":[]},{"name":"Model Compression","what":"剪枝、知识蒸馏、量化、低秩分解","children":[]}]},{"name":"Resource-efficient Systems","what":"系统级优化，覆盖训练与部署","children":[{"name":"Distributed Training","what":"容错、并行、通信、存储、异构 GPU、MoE","children":[]},{"name":"Hardware-aware Optimizations","what":"算法-硬件协同设计","children":[]},{"name":"Serving on Cloud","what":"云端服务调度与内存管理","children":[]},{"name":"Serving on Edge","what":"端侧推理优化","children":[]}]}]}},"confidence":"high","note":"综述的核心贡献就是这套三层分类框架，原文明确给出了架构/算法/系统三大块及其子类。","evidence":[{"page":3,"quote":"Section 3 investigates the architectural innovations that revise or replace the existing foundation model architectures. Section 4 and Section 5 examine the algorithm-level and system-level literature towards more resource-efficient foundation models."},{"page":9,"quote":"This disparity has led to the emergence of numerous resource-efficient algorithms, which are categorized based on the lifecycle of FMs: pre-training, fine-tuning, serving algorithms, and model compression."},{"page":20,"quote":"This section investigates the system research to enable resource-efficient large FMs, notable at four aspects: (1) distributed training; (2) hardware-aware optimizations; (3) serving in cloud, and (4) serving in edge."}],"warnings":[]},{"primitive":"pipeline","title":"投机解码的推理加速流程","params":{"stages":[{"name":"小模型草稿生成","what":"用成本低的小模型自回归地生成候选 token 序列","why":"小模型单步开销低，可快速产出草稿"},{"name":"大模型并行验证","what":"用大模型对草稿 token 并行做验证","why":"并行验证避免大模型逐 token 自回归，从而加速"},{"name":"接受/拒绝输出","what":"保留通过验证的 token，得到最终输出序列","why":""}]},"confidence":"high","note":"原文对投机解码给出了清晰的先后阶段描述，适合用 pipeline 演。","evidence":[{"page":13,"quote":"It involves generating sequences autoregressively with a cost-efficient small model, followed by parallel token verification using a larger model."},{"page":13,"quote":"Yaniv et al. [141] report a 2–3× improvement in performance using speculative decoding on the T5X model"}],"warnings":["阶段「接受/拒绝输出」原文未说明为什么必须有"]},{"primitive":"example","title":"LoRA 初始化带来的收敛慢问题及 PiSSA 的修正","params":{"scenario":"用 LoRA 对预训练大模型做参数高效微调，低秩矩阵 A、B 的初始化方式影响收敛速度","steps":[{"state":"LoRA 将低秩矩阵 A 初始化为高斯随机值、B 初始化为零","issue":"初始梯度值非常小，导致收敛缓慢"},{"state":"PiSSA 改进初始化方式","issue":null}]},"confidence":"medium","note":"原文给出了 LoRA 初始化导致收敛慢的具体卡点，属于可演的问题例子；但材料对 PiSSA 的具体做法描述有限，故只演到卡点被识别。","evidence":[{"page":13,"quote":"PiSSA [182] identifies an issue where LoRA initializes low-rank matrices with Gaussian random values and zeros, resulting in very small initial gradient values and slow convergence."}],"warnings":[]}]}</script>
+<script id="paper-data" type="application/json">{"paper_title":"Resource-efficient Algorithms and Systems of Foundation Models: A Survey","template_name":"综述","model":"deepseek-chat","lang":"zh","pages":35,"blocks":8,"groups":[{"name":"概览","blocks":[{"id":"tl_dr","title":"一句话结论","content":"该综述覆盖大基础模型（LLM、ViT、扩散模型、多模态模型）的资源高效算法与系统，按模型架构、算法（预训练/微调/推理/压缩）、系统（分布式训练/云边服务）三条主线组织，旨在降低训练与部署的算力、内存、存储和带宽开销而不牺牲性能。","confidence":"high","empty":false,"evidence":[{"page":1,"quote":"This survey delves into the critical importance of such research, examining both algorithmic and systemic aspects."}]},{"id":"scope","title":"收录范围","content":"领域边界：仅涵盖算法与系统创新，明确排除硬件设计；资源定义限于物理资源（计算、内存、存储、带宽等），排除训练数据（标签）与隐私；文献主要来自CSRankings顶会及arXiv高影响力论文；时间上主要收录2020年之后的论文。未给出具体文献数量统计。","confidence":"high","empty":false,"evidence":[{"page":2,"quote":"We survey only algorithm and system innovations; we exclude a huge body of work at hardware design;"},{"page":2,"quote":"The definition of resource in this survey is limited to mainly physical ones, including computing, memory, storage, bandwidth, etc; we exclude training data (labels) and privacy that can also be regarded as resources;"},{"page":2,"quote":"We mainly survey papers published on top-tier CS conferences, i.e., those included in CSRankings. We also manually pick related and potentially high-impact papers from arXiv."},{"page":2,"quote":"We mainly survey papers published after the year of 2020, since the innovation of AI is going fast with old knowledge and methods being overturned frequently."}]},{"id":"problem","title":"领域要解决的问题","content":"整个领域的问题：基础模型的可扩展性带来巨大资源需求（算力、内存、存储、带宽），且训练与部署集中在少数大厂云端，导致隐私难以保护、设备端难以运行大模型。领域卡在如何在不牺牲性能的前提下降低资源足迹，并推动模型向边缘/设备下沉。具体到方法层面：注意力机制二次复杂度导致长序列训练/推理瓶颈；预训练需万亿级token与巨大算力；微调全参数成本高；自回归解码效率低；KV cache内存开销大；量化中激活异常值导致精度下降；分布式训练面临故障、通信、存储与异构GPU挑战；端侧推理受内存墙与I/O限制。","confidence":"high","empty":false,"evidence":[{"page":1,"quote":"However, the scalability comes at a cost of huge resource demand."},{"page":2,"quote":"Till the end of 2023, there are only a few major players capable of training and deploying the state-of-the-art FMs, who thereby have powerful control over the public and can potentially manipulate them in a way they prefer."},{"page":4,"quote":"The attention mechanism in large FMs faces significant computational bottlenecks primarily due to its quadratic complexity."},{"page":10,"quote":"Pre-training for large FMs relies on a substantial amount of computation resources. For instance, GPT-3-175B consumes 3.14×10^23 FLOPs and LLaMA-70B takes 1.7×10^6 GPU hours."},{"page":18,"quote":"Compared to traditional DNNs, LLMs exhibit a higher frequency of activation outliers, which are crucial for maintaining model accuracy. Standard quantization often removes these outliers, leading to a significant performance drop."}]}]},{"name":"框架","blocks":[{"id":"taxonomy","title":"分类框架","content":"作者按“架构→算法→系统”三层组织，每层再细分。\n\n一、资源高效架构（第3节）：\n1. 高效注意力：稀疏注意力（Longformer、ETC、BIGBIRD、HEPOS、MATE、TDANet）；近似注意力（Linformer、Reformer、Katharopoulos等、Polysketchformer、Mega、Deformable Attention、CrossViT）；无注意力方法（Hyena、SSM/Mamba、Recurrent-Style Transformers、RWKV、RetNet）。\n2. 动态神经网络：Mixture-of-Experts（Switch Transformer、GLaM、V-MoE、LIMoE、Mistral1、MoEfication、Sparse upcycling、FFF）；Early Exiting（He et al.等）。\n3. 扩散模型优化：高效扩散（DDIM、PNDM、DPM-Solver）；潜空间扩散（LDM/Stable Diffusion、LD-ZNet、SALAD）；扩散架构变体（SnapFusion、ScaleCrafter、ERNIE-ViLG、Mobile diffusion）。\n4. ViT专用优化（LeViT、MobileViT、EfficientFormer、EfficientViT、FastViT、LightViT、EdgeViT）。\n\n二、资源高效算法（第4节，按生命周期分）：\n1. 预训练算法：训练数据质量控制（DataComp、DFN、DataCompDR）、训练数据缩减（去重、图像块移除：TRIPS、MAE、MixMAE、COPA、PatchDropout）、渐进学习（Stacking BERT、CompoundGrow、Staged training、Knowledge inheritance、AutoProg、LiGO）、混合精度训练（Mesa、GACT）。\n2. 微调算法：加性调优（Adapter tuning：ADA、MetaTroll、ST-Adapter、HiWi、AdaMix、MEFT、Residual Adapters；Prompt tuning：PromptTuning、ATTEMPT、BioInstruct、DualPL、MPrompt；Prefix tuning：UAPT、Prefix-diffusion、DOP、DAPA、PIP）；选择性调优（SAM、SmartFRZ、FiSH-DiP、Token Mixing、VL-PET）；重参数调优（LoRA及其变体：QLoRA、PEQA、QALoRA、LoftQ、GLoRA、PELA、LongLoRA、LBP-WHT、DSEE、Delta-LoRA、PiSSA、DoRA、LoRA+）。\n3. 推理算法：机会解码（Speculative decoding、SpecTr、ProphetNet、Draft & Verify、Medusa、Look-ahead decoding、SpecInfer、LLMCad）；输入过滤与压缩（Prompt压缩：LLMLingua、EntropyRank、LLMZip、AutoCompressors、ICAE、Nugget 2D、CoT-Max；Token剪枝：PoWER-BERT、Length-Adaptive Transformer、TR-BERT、DynamicViT、AdaViT、A-ViT、SPViT、PuMer）；KV cache（H2O、Dynamic Context Pruning、Scissorhands、Landmark Attention）；长上下文（LM-Infinite、StreamingLLM、PCW、LongNet、SLED）。\n4. 模型压缩：剪枝（结构化/非结构化/上下文剪枝）、知识蒸馏（白盒KD：MiniLLM、GKD、TED；黑盒KD：Meta-ICL、Metal-ICL、Multitask-ICT、Fine-tune-CoT等）、量化（QAT：LLM-QAT、QuantGPT、BitNet；PTQ：仅权重量化如SpQR、LLM.int8()、AWQ、OWQ、SqueezeLLM、GPTQ、QuIP；权重-激活联合量化如SmoothQuant、RPTQ、OliVe、Outlier Suppression+、QLLM、LLM-FP4、ZeroQuant、FlexRound、ATOM）、低秩分解（TensorGPT、LoSparse、ViTALiTy等）。\n\n三、资源高效系统（第5节）：\n1. 分布式训练：容错（Varuna、Gemini、Bamboo、activation checkpointing、Oobleck）、并行（数据并行/DeepSpeed ZeRO、模型并行/张量并行与流水线并行、序列并行、Galvatron）、通信优化、存储优化（ZeRO-Offload、FlashNeuron、Behemoth）、异构GPU（Hetpipe、Whale）、MoE训练系统（MegaBlocks、Brainstorm、FlexMoE、Tutel、SmartMoE、Janus、MoE-Mamba）。\n2. 硬件感知优化（EdgeBERT、FlightLLM、SpAtten、A3）。\n3. 云端服务：调度（Sarathi-Serve、dLoRA）、内存节省（DeepSpeed-Inference、FlexGen、vLLM/PagedAttention、S-LoRA、SGLang）、新兴平台（SpotServe、HexGen）。\n4. 边缘服务：边云协同（EdgeFM）、端侧MoE（EdgeMoe、PC-MoE）、内存优化（LLMCad、PowerInfer）、I/O优化（STI、LLM in a flash）、内核优化（llm.npu等）。","confidence":"high","empty":false,"evidence":[{"page":5,"quote":"As summarized in Fig. 3, numerous efforts have been invested to mitigate the huge resource cost of attention-based transformer architecture."},{"page":9,"quote":"This section focuses on resoruce-efficient large FMs techniques at the algorithm level. Compared to traditional DNNs, large FMs exhibit new characteristics such as its huge parameter set and autoregressive inference. This disparity has led to the emergence of numerous resource-efficient algorithms, which are categorized based on the lifecycle of FMs: pre-training, fine-tuning, serving algorithms, and model compression."},{"page":20,"quote":"This section investigates the system research to enable resource-efficient large FMs, notable at four aspects: (1) distributed training; (2) hardware-aware optimizations; (3) serving in cloud, and (4) serving in edge."}]},{"id":"comparison","title":"各类方法对比","content":"论文未提供统一的实验对比表格，各方法结果来自不同论文、不同设置，不可直接比较。以下按类归纳核心思路、优势、局限与适用场景（基于原文描述）。\n\n1. 高效注意力：稀疏注意力降低复杂度至线性，但可能损失精度；近似注意力（低秩、核方法）减少内存但引入近似误差；无注意力架构（Mamba、RWKV、RetNet）实现线性复杂度，Mamba比Transformer快5倍，RetNet训练内存节省25-50%、加速7倍，但可能牺牲通用性。适用长序列场景。\n2. 动态神经网络：MoE以稀疏激活扩展参数，Switch Transformer达万亿参数、2048专家；V-MoE 15B参数匹配稠密模型且训练时间更少；Sparse upcycling减少约50%预训练成本；FFF比原FFN快220倍但约5%精度损失。局限：路由与负载均衡开销。Early exiting在置信度高时提前终止，但需设计退出策略。\n3. 扩散优化：DDIM加速采样；DPM-Solver仅需10-20步去噪；LDM在潜空间扩散大幅降低内存；SnapFusion在移动端2秒内生成512×512图像。局限：生成质量与步数权衡。\n4. ViT专用：LeViT、MobileViT、EfficientFormer等混合CNN-Transformer实现轻量；EfficientViT线性注意力在超分任务比Restormer快6.4倍。局限：针对视觉任务定制。\n5. 预训练算法：数据去重减少训练步数；渐进学习复用计算；混合精度减半内存。局限：需调整训练流程。\n6. 微调算法：加性调优（Adapter/Prompt/Prefix）冻结主干，成本低但可能不如全微调；选择性调优更新少量参数；重参数调优（LoRA）最流行，但存在性能差距，Delta-LoRA、PiSSA、DoRA、LoRA+等改进收敛与性能。\n7. 推理算法：投机解码在T5X上提升2-3倍，SpecTr壁钟时间提升2.13倍；Token剪枝动态减少计算；KV cache驱逐策略H2O降低延迟1.9倍、吞吐提升29倍，Scissorhands减少5倍KV内存；长上下文方法支持128k至1B token。局限：可能影响生成质量。\n8. 模型压缩：剪枝需重训练；蒸馏分白盒/黑盒，黑盒依赖API；量化中QAT成本高，PTQ易部署但无反馈调整，GPTQ可将175B模型量化至3-4比特而精度损失小；低秩分解压缩率高（TensorGPT嵌入层压缩38.40倍）。\n9. 系统：分布式训练并行策略混合使用，Galvatron自动选择；容错方法各有开销；云端服务vLLM的PagedAttention优化KV内存；边缘服务受内存墙限制，PowerInfer利用稀疏性。","confidence":"medium","empty":false,"evidence":[{"page":5,"quote":"The time and space complexity comparison is shown in Table 1."},{"page":6,"quote":"Mamba seamlessly integrates selective SSMs into a streamlined neural network architecture, eliminating attention and MLP blocks. This model achieves a notable 5× speed increase over traditional transformers and exhibits linear scaling with sequence length."},{"page":6,"quote":"RetNet introduces an architecture that replaces multi-head attention with a multi-scale retention mechanism. During training, RetNet demonstrates a 25-50% memory saving and a 7× acceleration compared to the standard Transformer."},{"page":13,"quote":"Yaniv et al. [141] report a 2–3× improvement in performance using speculative decoding on the T5X model, while a concurrent study [36] demonstrates similar speedups on a 70B Chinchilla model."},{"page":14,"quote":"H2O demonstrates the capability to reduce latency by up to 1.9× and increase throughput by 29×."},{"page":15,"quote":"Scissorhands utilizes an innovative compact KV cache and results in a notable reduction in KV cache inference memory usage, achieving up to a 5× reducation while maintaining model quality."},{"page":18,"quote":"GPTQ reduces the bit-width of each weight to 3 or 4 bits, allowing quantization of GPT models with 175 billion parameters with minimal accuracy loss."}]}]},{"name":"结论","blocks":[{"id":"consensus","title":"领域现状与共同前提","content":"论文未集中汇总领域共识，但从多处可归纳出以下共享前提与默认做法：(1) 大多数基础模型基于Transformer架构，其注意力二次复杂度是主要瓶颈，因此大量工作围绕降低注意力成本展开；(2) 资源效率研究普遍以不牺牲性能为前提，追求在同等精度下降低算力/内存/存储/带宽；(3) 模型压缩（剪枝、蒸馏、量化、低秩分解）是部署阶段的通用手段，其中量化因部署成本低而被广泛采用；(4) 微调阶段普遍采用参数高效微调（PEFT），LoRA被视为最流行的参数高效微调方法；(5) 系统层面普遍采用混合并行策略训练大模型，云端服务普遍关注KV cache内存管理；(6) 领域普遍承认端侧部署受内存墙和I/O限制，边云协同是常见思路。以上归纳依据分散于第3-5节及结论。","confidence":"medium","empty":false,"evidence":[{"page":4,"quote":"Since most FMs are based on transformer architecture, we briefly analyze the resource cost of it."},{"page":13,"quote":"LoRA, as the most popular parameter-efficient fine-tuning method, still exhibits performance gaps when compared to full fine-tuning."},{"page":18,"quote":"Due to its low deployment cost, PTQ is also the most easily deployable and widely applicable technique in model compression."},{"page":21,"quote":"In practice, these parallelisms are usually used in a hybrid way."},{"page":23,"quote":"Since large FMs often rely on large parameter sizes and on-device memory resources are scarce (e.g., 8GB), inferring large FMs on devices faces the challenge of “memory wall”."}]},{"id":"open","title":"开放问题与方向","content":"作者在结论中列出5条未来方向：(1) 云边混合部署：使基础模型下沉到近用户设备，实现泛在、隐私保护、高可用的通用智能；尚未解决因为模型规模与设备资源矛盾，目前仅初步将LLaMA-7B带到手机/PC，杀手级应用待探索。(2) 利用模型稀疏性：模型越大，给定任务激活比例越小，即使稠密训练的非MoE模型也存在运行时激活稀疏性；尚未解决因为需要更高效的稀疏架构（超越MoE）来利用激活稀疏性降低推理时间与内存。(3) 基础模型即服务：模型成为像Web和数据库一样的通用服务；尚未解决因为对调度、负载均衡、安全与隔离的系统基础设施提出新挑战，同时带来软硬件协同设计机会。(4) 以Agent为整体系统优化：LLM作为构建Agent的关键模块，其效率不应孤立考虑，需适配Agent工作流；尚未解决因为多模型协作存在逻辑依赖，为每个任务选择合适模型并在给定硬件上调度以最大化Agent性能的设计空间巨大。(5) 实用隐私保护基础模型：用户数据上云增加隐私担忧，现有方法包括联邦学习等；尚未解决因为隐私保护与资源效率的联合优化仍不成熟。","confidence":"high","empty":false,"evidence":[{"page":24,"quote":"(1) Cloud-edge hybrid deployment. To enable ubiquitous, privacy-preserving, and highly available general intelligence, many FMs will ultimately sink to near-user devices."},{"page":24,"quote":"(2) Exploiting the model sparsity. With model being larger, the activated ratio of model will go smaller for a given task."},{"page":24,"quote":"(3) Large FM as a service. On both clouds and devices, large FMs are unifying the DNN ecosystem [293]. Ultimately, it becomes a universal service to be invoked just as today’s Web and Database."},{"page":24,"quote":"(4) Agent as a holistic system to optimize. In the future, FMs especially LLMs will be used as a key building block for establishing agents [151, 262]."},{"page":24,"quote":"(5) Practical privacy-preserving FM. As the volume of user data uploaded to the cloud for FM processing continues to increase, the severity of privacy concerns correspondingly escalates."}]}]},{"name":"判断","blocks":[{"id":"questions","title":"值得追问的问题","content":"1. 分类框架中“架构优化”与“算法优化”存在重叠（如动态神经网络中的MoE既属架构又涉及系统训练优化，LoRA既属微调又属低秩分解压缩），作者如何保证分类互斥且完备？是否遗漏了“数据高效”这一角度（如数据选择、合成数据）？2. 综述明确排除硬件设计，但硬件感知优化（如FlightLLM、SpAtten）又被纳入系统章节，边界是否一致？排除硬件是否导致对能效（energy）这一关键资源的讨论不足？3. 结论中提出“利用模型稀疏性”作为方向，但正文对激活稀疏性的讨论仅零星提及（如PowerInfer），是否低估了稀疏性在训练和推理中的潜力？后续工作（如MoE与Mamba结合）是否已部分回应？","confidence":"low","empty":false,"evidence":[{"page":2,"quote":"We survey only algorithm and system innovations; we exclude a huge body of work at hardware design;"},{"page":21,"quote":"Some hardware-aware methods are also proposed to optimize FM."},{"page":24,"quote":"Recent literature [175] finds that even a densely trained non-MoE model exhibits runtime activation sparsity, which can be exploited to reduce inference time and memory footprint."}]}]}],"chain":{"thesis":"基础模型的能力来自规模，但规模带来巨大的算力、存储、带宽开销；本文按「架构—算法—系统」三层梳理现有工作，说明在不牺牲性能的前提下压缩这些资源开销的可行路径。","confidence":"medium","note":"综述无单一方法改动与自测数字，change/effect 落在被引代表性工作上。为满足 3–8 节点，合并了架构层与算法层的改动，并删去与主链重复的 KV cache 节点，保留其效果作为算法层证据。","nodes":[{"id":"n1","type":"problem","label":"规模换性能，资源代价高","detail":"FMs 的通用性与零样本能力随参数和数据增长，但训练与部署的硬件开销同步膨胀，只有少数机构能承担最先进模型的训练与部署。","evidence":[{"page":10,"quote":"GPT-3-175B consumes 3.14×1023FLOPs and LLaMA-70B takes 1.7×106GPU hours."}],"metric":{"value":"1.7","unit":"百万 GPU 小时","label":"LLaMA-70B 预训练开销"}},{"id":"n2","type":"insight","label":"瓶颈在注意力与 FFN","detail":"多数 FMs 基于 transformer，注意力为 O(T²D)、FFN 为 O(TD²)；实测 FFN 是最耗算力的部件，embedding 与 LM head 占存储但几乎不耗 FLOPs，因此优化要分层打在不同部件上。","evidence":[{"page":5,"quote":"the computation complexity of attention is 𝑂(𝑇2𝐷), while that of FFN is 𝑂(𝑇𝐷2)"},{"page":5,"quote":"The FFN layer is the most computationally intensive component."}]},{"id":"n3","type":"change","label":"注意力由二次改为线性","detail":"架构层把标准二次自注意力替换为稀疏注意力、近似注意力或无注意力结构（SSM/RNN 式），复杂度从 O(T²d) 降到 O(Td) 或 O(T log T d)。","evidence":[{"page":5,"quote":"Transformer [246] 𝑂(𝑇2𝑑) 𝑂(𝑇2+𝑇𝑑) ... RetNet [231] 𝑂(𝑇𝑑) 𝑂(𝑇𝑑) RWKV [207] 𝑂(𝑇𝑑) 𝑂(𝑑)"}],"before":{"kind":"blocks","items":["QK^T 全对全","Softmax","AV"],"highlight":0},"after":{"kind":"blocks","items":["稀疏/低秩近似","线性或 SSM 递推"],"highlight":1}},{"id":"n4","type":"mechanism","label":"不再计算全对全注意力矩阵","detail":"稀疏化只保留局部窗口与全局 token 的内积，近似法把注意力矩阵投影到低秩空间或用核函数结合矩阵乘法结合律，SSM 用隐状态递推替代显式注意力，从而消掉 T² 项。","evidence":[{"page":6,"quote":"decompose conventional attention into local windowed attention and task-specific global attention, effectively reducing self-attention complexity to linear."}]},{"id":"n5","type":"effect","label":"Mamba 提速 5×","detail":"Mamba 相对传统 transformer 报告 5× 加速并随序列长度线性扩展；RetNet 训练时省 25–50% 显存、加速 7×。","evidence":[{"page":6,"quote":"This model achieves a notable 5× speed increase over traditional transformers and exhibits linear scaling with sequence length."},{"page":6,"quote":"RetNet demonstrates a 25-50% memory saving and a 7× acceleration compared to the standard Transformer."}],"metric":{"value":"5","unit":"×","label":"Mamba 推理加速"}},{"id":"n6","type":"change","label":"解码改为先猜后验","detail":"算法层用 speculative decoding：小模型自回归草稿若干 token，大模型一次并行验证，把多次串行前向压成一次；KV cache 侧则按注意力分数逐出最不重要的条目。","evidence":[{"page":13,"quote":"It involves generating sequences autoregressively with a cost-efficient small model, followed by parallel token verification using a larger model."},{"page":14,"quote":"This strategy employs attention scores to identify and select the least important KV cache tokens in the current state for eviction."}],"before":{"kind":"tokens","n":8,"label":"大模型逐 token 串行","cadence":1.4},"after":{"kind":"tokens","n":8,"label":"小模型草稿 + 大模型并行验证","cadence":0.45}},{"id":"n7","type":"effect","label":"解码提速 2–3 倍","detail":"在 T5X 上报告 2–3× 提升，70B Chinchilla 上有类似加速；SpecTr 进一步达到 2.13× 墙钟加速并额外 1.37×；H2O 吞吐提升 29×、延迟降 1.9×。","evidence":[{"page":13,"quote":"Yaniv et al. [141] report a 2–3× improvement in performance using speculative decoding on the T5X model"},{"page":14,"quote":"H2O demonstrates the capability to reduce latency by up to 1.9× and increase throughput by 29×."}],"metric":{"value":"2","unit":"×","label":"T5X 解码加速（区间下界）"}},{"id":"n8","type":"cost","label":"加速伴随精度与工程代价","detail":"FFN 拆叶方案 FFF 虽快 220× 但损失约 5% 精度；量化需专门处理激活离群值否则精度显著下降；QAT 训练成本仍高；稀疏注意力未必减少 KV 显存。","evidence":[{"page":7,"quote":"being up to 220× faster than the original feed-forward layer with about 5% accuracy loss"},{"page":18,"quote":"LLMs exhibit a higher frequency of activation outliers, which are crucial for maintaining model accuracy. Standard quantization often removes these outliers, leading to a significant performance drop."},{"page":14,"quote":"most sparse attention designs ... do not necessarily lead to a reduction in KV cache memory consumption"}]}],"evidence":[],"warnings":[],"types":{"problem":{"label":"问题","color":"#E8836B"},"insight":{"label":"洞察","color":"#D9B45E"},"change":{"label":"改动","color":"#6FB3D9"},"mechanism":{"label":"机制","color":"#8FBF9F"},"effect":{"label":"效果","color":"#7ED0A8"},"cost":{"label":"代价","color":"#C58FB0"},"taxonomy":{"label":"框架","color":"#9B9BE0"},"question":{"label":"待解","color":"#93A4B8"}}}}</script>
 <script>
 (function () {
   var D = JSON.parse(document.getElementById("paper-data").textContent);
@@ -385,9 +451,9 @@
 
   var jump = [];
   var main = [];
-  // 必须先声明：后面的 vizSection() 会用到，var 只有声明提升、赋值不提升
-  var VIZ = D.visuals || [];
-  var VIZ_LABEL = { pipeline: "方法流程", example: "实例走查", taxonomy: "分类体系" };
+  // 必须先声明：后面的 chainSection() 会用到，
+  // var 只有声明提升、赋值不提升（上一版踩过：整页空白）
+  var CHAIN = D.chain || null;
 
   // 「一句话结论」单独抽出来做页首大卡：它是整篇最该被先看到的一句，
   // 混在卡片堆里会被淹掉。
@@ -416,11 +482,11 @@
     main.push(hh.join(""));
   }
 
-  // 动态演示放在页首大卡之后：它比正文更值得先看，
+  // 论证链放在页首大卡之后：它比正文更值得先看，
   // 但要排在「一句话结论」后面，否则读者没有上下文。
-  if (VIZ.length) {
-    jump.push('<a href="#viz">动态演示</a>');
-    main.push(vizSection());
+  if (CHAIN && CHAIN.nodes && CHAIN.nodes.length) {
+    jump.push('<a href="#chain">论证链</a>');
+    main.push(chainSection());
   }
 
   D.groups.forEach(function (g, gi) {
@@ -473,7 +539,7 @@
 
   document.getElementById("jump").innerHTML = jump.join("");
   document.getElementById("main").innerHTML = main.join("");
-  initViz();
+  initChain();
 
   document.getElementById("stat").textContent =
     (D.blocks || 0) + " 个板块 · 全部内容均来自原文抽取";
@@ -539,268 +605,339 @@
     return html.join("");
   }
 
-  /* ==================== 动态演示 ====================
-     原语是手写的：画法固定，AI 只负责选型与填空。
-     这样样式统一、质量可控，且出问题时能判断是「选错原语」还是「填错参数」。
+  /* ==================== 论证链 ====================
+     固定的是这个渲染引擎：怎么排版、怎么动、怎么标注差异。
+     不固定的是链条本身——节点几个、什么类型、顺序如何，全由论文决定。
   */
+  function chainSection() {
+    var nodes = CHAIN.nodes;
+    var h = ['<section class="group" id="chain">'];
+    h.push('<div class="g-head"><h2>论证链</h2>');
+    h.push('<span class="count">' + nodes.length + ' 个环节 · 可播放</span></div>');
+    h.push('<article class="chain-card">');
 
-  function vizSection() {
-    var h = ['<section class="group" id="viz" style="--gc:#8A6BB0">'];
-    h.push('<div class="g-head"><h2>动态演示</h2>');
-    h.push('<span class="count">' + VIZ.length + " 个</span></div>");
-    h.push('<div class="viz-list">');
-    VIZ.forEach(function (v, i) { h.push(vizCard(v, i)); });
-    h.push("</div></section>");
-    return h.join("");
-  }
+    if (CHAIN.thesis) {
+      h.push('<p class="chain-thesis"><b>主张</b>' + esc(CHAIN.thesis) + "</p>");
+    }
 
-  function vizCard(v, i) {
-    var label = VIZ_LABEL[v.primitive] || v.primitive;
-    var h = ['<article class="viz" data-viz="' + i + '">'];
-    h.push('<header class="viz-head">');
-    h.push('<span class="viz-kind">' + esc(label) + "</span>");
-    h.push("<h3>" + esc(v.title || "未命名演示") + "</h3>");
-    h.push('<div class="viz-ctl">');
-    h.push('<button class="viz-btn" data-act="prev" aria-label="上一步">←</button>');
-    h.push('<button class="viz-btn primary" data-act="play">▶ 演示</button>');
-    h.push('<button class="viz-btn" data-act="next" aria-label="下一步">→</button>');
-    h.push("</div></header>");
+    h.push('<div class="chain-rail" data-rail>' + railHTML(nodes) + "</div>");
+    h.push('<div class="chain-detail" data-detail></div>');
 
-    h.push('<div class="viz-stage">' + stageHTML(v) + "</div>");
-    h.push('<div class="viz-detail" data-detail></div>');
+    h.push('<div class="chain-bar">');
+    h.push('<button class="cb-btn" data-act="play">▶ 播放</button>');
+    h.push('<button class="cb-btn ghost" data-act="prev" aria-label="上一步">←</button>');
+    h.push('<button class="cb-btn ghost" data-act="next" aria-label="下一步">→</button>');
+    h.push('<div class="cb-track" data-track><div class="cb-fill" data-fill></div></div>');
+    h.push('<span class="cb-count" data-count></span>');
+    h.push("</div>");
 
-    // 页脚：原文依据 + 警告
-    h.push('<div class="viz-foot">');
-    (v.evidence || []).slice(0, 2).forEach(function (e) {
-      h.push('<span class="ev-inline"><span class="ev-page">' +
-             esc(e.page ? "p." + e.page : "页?") + "</span>");
-      h.push('<span class="ev-quote">' + esc(trunc(e.quote, 90)) + "</span></span>");
-    });
-    (v.warnings || []).forEach(function (w) {
-      h.push('<span class="viz-warn">' + esc(w) + "</span>");
-    });
-    h.push("</div></article>");
-    return h.join("");
-  }
-
-  function stageHTML(v) {
-    var p = v.params || {};
-    if (v.primitive === "pipeline") {
-      var stages = p.stages || [];
-      var h = ['<div class="pipe-row">'];
-      stages.forEach(function (st, k) {
-        h.push('<div class="pipe-node">');
-        h.push('<span class="pn-idx">' + pad2(k + 1) + "</span>");
-        h.push('<span class="pn-name">' + esc(st.name) + "</span></div>");
-        if (k < stages.length - 1) {
-          h.push('<div class="pipe-link"><span class="pulse"></span></div>');
-        }
+    if (CHAIN.warnings && CHAIN.warnings.length) {
+      h.push('<div class="chain-warn">');
+      CHAIN.warnings.forEach(function (w) {
+        h.push("<span>" + esc(w) + "</span>");
       });
       h.push("</div>");
-      return h.join("");
     }
 
-    if (v.primitive === "example") {
-      var h2 = ['<div class="ex-track">'];
-      if (p.scenario) {
-        h2.push('<div class="ex-scenario"><b>设定　</b>' + esc(p.scenario) + "</div>");
-      }
-      (p.steps || []).forEach(function (st, k) {
-        var issue = (st.issue || "").trim();
-        h2.push('<div class="ex-step' + (issue ? " is-issue" : "") + '">');
-        h2.push('<div class="ex-rail"><span class="ex-dot">' + (k + 1) +
-                '</span><span class="ex-line"></span></div>');
-        h2.push('<div class="ex-body"><div class="ex-state">' + esc(st.state) + "</div>");
-        if (issue) {
-          h2.push('<div class="ex-issue"><b>卡点</b>　' + esc(issue) + "</div>");
-        }
-        h2.push("</div></div>");
-      });
-      h2.push("</div>");
-      return h2.join("");
-    }
-
-    if (v.primitive === "taxonomy") {
-      var h3 = ['<div class="tax-tree">'];
-      (function walk(node, depth) {
-        if (!node || !node.name) { return; }
-        h3.push('<div class="tax-node" data-depth="' + depth + '">');
-        h3.push('<div class="tax-line"><span class="tax-bullet"></span>');
-        h3.push('<span class="tax-name">' + esc(node.name) + "</span>");
-        if (node.what) { h3.push('<span class="tax-what">' + esc(node.what) + "</span>"); }
-        h3.push("</div>");
-        var kids = node.children || [];
-        if (kids.length) {
-          h3.push('<div class="tax-children">');
-          kids.forEach(function (c) { walk(c, depth + 1); });
-          h3.push("</div>");
-        }
-        h3.push("</div>");
-      })(p.root, 0);
-      h3.push("</div>");
-      return h3.join("");
-    }
-
-    return '<div class="empty">未知原语，无法渲染。</div>';
+    h.push("</article></section>");
+    return h.join("");
   }
 
-  function stepCount(v) {
-    var p = v.params || {};
-    if (v.primitive === "pipeline") { return Math.max(1, (p.stages || []).length); }
-    if (v.primitive === "example") { return Math.max(1, (p.steps || []).length); }
-    if (v.primitive === "taxonomy") {
-      var max = 0;
-      (function walk(n, d) {
-        if (!n) { return; }
-        max = Math.max(max, d);
-        (n.children || []).forEach(function (c) { walk(c, d + 1); });
-      })(p.root, 0);
-      return max + 1;
-    }
-    return 1;
-  }
-
-  function applyStep(el, v, i) {
-    if (v.primitive === "pipeline") {
-      var nodes = el.querySelectorAll(".pipe-node");
-      Array.prototype.forEach.call(nodes, function (n, k) {
-        n.classList.toggle("is-done", k < i);
-        n.classList.toggle("is-active", k === i);
-      });
-      var links = el.querySelectorAll(".pipe-link");
-      Array.prototype.forEach.call(links, function (l, k) {
-        l.classList.toggle("on", k < i);
-        l.classList.toggle("flow", k === i);
-      });
-      return;
-    }
-    if (v.primitive === "example") {
-      var steps = el.querySelectorAll(".ex-step");
-      Array.prototype.forEach.call(steps, function (s, k) {
-        s.classList.toggle("is-done", k < i);
-        s.classList.toggle("is-active", k === i);
-      });
-      return;
-    }
-    if (v.primitive === "taxonomy") {
-      var nodes2 = el.querySelectorAll(".tax-node");
-      Array.prototype.forEach.call(nodes2, function (n) {
-        var d = Number(n.getAttribute("data-depth"));
-        n.setAttribute("data-hidden", d > i ? "1" : "0");
-      });
-    }
-  }
-
-  function renderDetail(box, v, i) {
-    if (!box) { return; }
-    var p = v.params || {};
-    var total = stepCount(v);
+  function railHTML(nodes) {
     var h = [];
+    nodes.forEach(function (n, i) {
+      h.push('<div class="cc" data-i="' + i + '" style="--c:' + typeColor(n.type) + '">');
+      h.push('<div class="cc-t"><i></i>' + esc(typeLabel(n.type)) + "</div>");
+      h.push('<div class="cc-l">' + esc(n.label) + "</div>");
+      h.push("</div>");
+      if (i < nodes.length - 1) {
+        h.push('<div class="cl" data-link="' + i + '"><i></i></div>');
+      }
+    });
+    return h.join("");
+  }
 
-    if (v.primitive === "pipeline") {
-      var st = (p.stages || [])[i] || {};
-      h.push('<div class="vd-top"><span class="vd-num">' + pad2(i + 1) + " / " +
-             pad2(total) + '</span><span class="vd-name">' + esc(st.name) + "</span></div>");
-      h.push('<p class="vd-what">' + esc(st.what) + "</p>");
-      if ((st.why || "").trim()) {
-        h.push('<p class="vd-why"><b>为什么必须有</b>' + esc(st.why) + "</p>");
-      } else {
-        // 没有 why 往往说明论文没讲清这一步的必要性 —— 这正是值得追问的地方
-        h.push('<p class="vd-why missing"><b>注意</b>原文未说明这一步为什么必须有，' +
-               "这通常意味着作者默认读者已知，值得在原文里找依据。</p>");
-      }
-    } else if (v.primitive === "example") {
-      var s = (p.steps || [])[i] || {};
-      h.push('<div class="vd-top"><span class="vd-num">' + pad2(i + 1) + " / " +
-             pad2(total) + '</span><span class="vd-name">第 ' + (i + 1) + " 步</span></div>");
-      h.push('<p class="vd-what">' + esc(s.state) + "</p>");
-      if ((s.issue || "").trim()) {
-        h.push('<p class="vd-issue"><b>在这里卡住　</b>' + esc(s.issue) + "</p>");
-      } else {
-        h.push('<p class="vd-what" style="margin-top:6px;color:var(--ok)">' +
-               "这一步问题被解决了。</p>");
-      }
-    } else if (v.primitive === "taxonomy") {
-      var count = 0;
-      (function walk(n, d) {
-        if (!n) { return; }
-        if (d === i) { count += 1; }
-        (n.children || []).forEach(function (c) { walk(c, d + 1); });
-      })(p.root, 0);
-      var names = ["根节点", "一级分类", "具体方法/子类", "更细的层"];
-      h.push('<div class="vd-top"><span class="vd-num">第 ' + i + " 层</span>");
-      h.push('<span class="vd-name">' + (names[i] || "第 " + i + " 层") + "</span></div>");
-      h.push('<p class="vd-what">这一层展开 ' + count + " 个节点，共 " + total +
-             " 层。点「▶ 演示」可从根节点逐层展开。</p>");
+  function typeLabel(t) {
+    var meta = (CHAIN.types || {})[t];
+    return meta ? meta.label : t;
+  }
+
+  function typeColor(t) {
+    var meta = (CHAIN.types || {})[t];
+    return meta ? meta.color : "#8FD2F0";
+  }
+
+  function detailHTML(n) {
+    var h = ['<div class="cd-head">'];
+    h.push('<span class="cd-badge" style="color:' + typeColor(n.type) + '">' +
+           esc(typeLabel(n.type)) + "</span>");
+    h.push('<span class="cd-title">' + esc(n.label) + "</span></div>");
+
+    if (n.detail) { h.push('<p class="cd-text">' + esc(n.detail) + "</p>"); }
+
+    if (n.type === "change" && n.before && n.after) {
+      h.push('<div class="delta">');
+      h.push('<div class="delta-col before"><div class="delta-tag">改动前</div>' +
+             diagramHTML(n.before) + "</div>");
+      h.push('<div class="delta-arrow">→</div>');
+      h.push('<div class="delta-col after"><div class="delta-tag">改动后</div>' +
+             diagramHTML(n.after) + "</div>");
+      h.push("</div>");
+    } else if (n.type === "taxonomy" && n.root) {
+      h.push(taxHTML(n.root));
+    } else if (n.metric) {
+      h.push(metricHTML(n.metric));
+      if (n.before) { h.push(diagramHTML(n.before)); }
+    } else if (n.before) {
+      h.push(diagramHTML(n.before));
     }
 
-    box.innerHTML = h.join("");
+    if (n.evidence && n.evidence.length) {
+      var ev = n.evidence[0];
+      h.push('<div class="cd-ev"><b>' +
+             (ev.page ? "p." + ev.page : "页码?") + "</b><span>" +
+             esc(trunc(ev.quote, 140)) + "</span></div>");
+    }
+    return h.join("");
   }
 
-  function initViz() {
-    Array.prototype.forEach.call(
-      document.querySelectorAll("article.viz"),
-      function (el) {
-        var v = VIZ[Number(el.getAttribute("data-viz"))];
-        if (!v) { return; }
-        var total = stepCount(v);
-        var detail = el.querySelector("[data-detail]");
-        // 分类体系默认全展开：它的价值在于一眼看到整个框架，
-        // 而不是像流程那样一步步跟着走。演示按钮用来「重播展开过程」。
-        var st = { i: v.primitive === "taxonomy" ? total - 1 : 0, timer: null };
+  function diagramHTML(spec) {
+    if (!spec) { return ""; }
+    var cap = spec.label ? '<div class="dg-cap">' + esc(spec.label) + "</div>" : "";
 
-        function paint() {
-          applyStep(el, v, st.i);
-          renderDetail(detail, v, st.i);
-          var btn = el.querySelector('[data-act="play"]');
-          btn.textContent = st.timer ? "⏸ 暂停"
-            : (st.i >= total - 1 ? "↻ 重播" : "▶ 演示");
-        }
-
-        function stop() {
-          if (st.timer) { clearInterval(st.timer); st.timer = null; }
-        }
-
-        function go(n) {
-          st.i = Math.max(0, Math.min(total - 1, n));
-          paint();
-        }
-
-        el.addEventListener("click", function (e) {
-          var btn = e.target.closest("[data-act]");
-          if (!btn) { return; }
-          var act = btn.getAttribute("data-act");
-
-          if (act === "next") { stop(); go(st.i + 1); return; }
-          if (act === "prev") { stop(); go(st.i - 1); return; }
-          if (act !== "play") { return; }
-
-          if (st.timer) { stop(); paint(); return; }
-          if (st.i >= total - 1) { st.i = 0; }
-          paint();
-          var dwell = v.primitive === "example" ? 1700 : 1400;
-          st.timer = setInterval(function () {
-            if (st.i >= total - 1) { stop(); paint(); return; }
-            st.i += 1;
-            paint();
-          }, dwell);
-        });
-
-        paint();
+    if (spec.kind === "tokens") {
+      var n = Math.max(1, Math.min(12, Number(spec.n) || 4));
+      var cadence = Number(spec.cadence);
+      if (!isFinite(cadence) || cadence <= 0) { cadence = 1; }
+      var h = ['<div class="dg">'];
+      for (var i = 0; i < n; i++) {
+        // 用间隔象征节奏：cadence 越大，点亮越慢。速度差异因此「看得见」。
+        var delay = (i * cadence * 0.13).toFixed(2);
+        h.push('<span class="dg-tk" style="--d:' + delay + '"></span>');
       }
-    );
+      h.push("</div>");
+      return cap + h.join("");
+    }
+
+    if (spec.kind === "bars") {
+      var items = spec.items || [];
+      var max = 0;
+      items.forEach(function (it) {
+        max = Math.max(max, Math.abs(Number(it.value) || 0));
+      });
+      max = max || 1;
+      var hb = ["<div class=\"dg-bars\">"];
+      items.forEach(function (it) {
+        var v = Number(it.value) || 0;
+        var pct = Math.round((Math.abs(v) / max) * 100);
+        hb.push('<div class="dg-bar"><span>' + esc(it.label || "") + "</span>");
+        hb.push('<span class="dg-track"><span class="dg-fill" style="--w:' +
+                pct + '%"></span></span>');
+        hb.push('<span class="dg-val">' + esc(String(it.value)) + "</span></div>");
+      });
+      hb.push("</div>");
+      return cap + hb.join("");
+    }
+
+    if (spec.kind === "blocks") {
+      var list = spec.items || [];
+      var hl = typeof spec.highlight === "number" ? spec.highlight : -1;
+      var hbl = ['<div class="dg-blocks">'];
+      list.forEach(function (it, k) {
+        hbl.push('<div class="dg-bl' + (k === hl ? " hl" : "") + '">' +
+                 esc(it) + "</div>");
+      });
+      hbl.push("</div>");
+      return cap + hbl.join("");
+    }
+
+    return cap + '<p class="dg-text">' + esc(spec.text || "") + "</p>";
   }
 
-  function pad2(n) { return (n < 10 ? "0" : "") + n; }
-  function trunc(s, n) {
-    s = String(s || "");
-    return s.length > n ? s.slice(0, n) + "…" : s;
+  function metricHTML(m) {
+    var raw = String(m.value == null ? "" : m.value);
+    var num = parseFloat(raw.replace(/[^0-9.\-]/g, ""));
+    var h = ['<div class="metric">'];
+    h.push('<span class="metric-n" data-to="' + (isFinite(num) ? num : "") +
+           '">' + esc(raw) + "</span>");
+    if (m.unit) { h.push('<span class="metric-u">' + esc(m.unit) + "</span>"); }
+    if (m.label) { h.push('<span class="metric-l">' + esc(m.label) + "</span>"); }
+    h.push("</div>");
+    return h.join("");
+  }
+
+  function taxHTML(root) {
+    var h = ['<div class="cd-tax">'];
+    (function walk(node, d) {
+      if (!node || !node.name) { return; }
+      h.push('<div class="ct" data-d="' + d + '"><span class="ct-dot"></span>');
+      h.push('<span class="ct-n">' + esc(node.name) + "</span>");
+      if (node.what) { h.push('<span class="ct-w">' + esc(node.what) + "</span>"); }
+      h.push("</div>");
+      var kids = node.children || [];
+      if (kids.length) {
+        h.push('<div class="ct-kids">');
+        kids.forEach(function (c) { walk(c, d + 1); });
+        h.push("</div>");
+      }
+    })(root, 0);
+    h.push("</div>");
+    return h.join("");
+  }
+
+  // 数字滚动：只有能解析成数字的才动，否则原样显示
+  function animateNumber(el) {
+    var finalText = el.textContent;
+    var target = parseFloat(el.getAttribute("data-to"));
+    if (!isFinite(target)) { return; }
+    // 先落盘正确值：万一 rAF 被节流（后台标签页、无头截图），
+    // 界面上也不能留一个错了的数字
+    el.textContent = finalText;
+    var dot = finalText.indexOf(".");
+    var decimals = dot >= 0 ? (finalText.length - dot - 1) : 0;
+    var t0 = null;
+    function frame(t) {
+      if (t0 === null) { t0 = t; }
+      var p = Math.min(1, (t - t0) / 700);
+      var eased = 1 - Math.pow(1 - p, 3);
+      el.textContent = (target * eased).toFixed(decimals);
+      if (p < 1) { requestAnimationFrame(frame); }
+    }
+    requestAnimationFrame(frame);
+    // 兜底：动画停摆也必须回到正确值
+    setTimeout(function () { el.textContent = finalText; }, 820);
+  }
+
+  function initChain() {
+    if (!CHAIN || !CHAIN.nodes || !CHAIN.nodes.length) { return; }
+    var card = document.querySelector(".chain-card");
+    if (!card) { return; }
+
+    var rail = card.querySelector("[data-rail]");
+    var detail = card.querySelector("[data-detail]");
+    var fill = card.querySelector("[data-fill]");
+    var count = card.querySelector("[data-count]");
+    var playBtn = card.querySelector('[data-act="play"]');
+    var track = card.querySelector("[data-track]");
+    var total = CHAIN.nodes.length;
+    var st = { i: 0, timer: null, auto: false };
+
+    function dwellFor(node) {
+      if (node.type === "change") { return 3200; }
+      if (node.type === "effect") { return 2400; }
+      if (node.type === "taxonomy") { return 2600; }
+      return 1800;
+    }
+
+    function paint(run) {
+      var idx = st.i;
+      Array.prototype.forEach.call(rail.querySelectorAll(".cc"), function (el) {
+        var k = Number(el.getAttribute("data-i"));
+        el.classList.toggle("is-active", k === idx);
+        el.classList.toggle("is-done", k < idx);
+      });
+      Array.prototype.forEach.call(rail.querySelectorAll(".cl"), function (el) {
+        var k = Number(el.getAttribute("data-link"));
+        el.classList.toggle("on", k < idx);
+        el.classList.toggle("flow", k === idx);
+      });
+
+      detail.innerHTML = detailHTML(CHAIN.nodes[idx]);
+      if (run) {
+        // 重跑 CSS 动画必须先把类摘掉并强制重排，否则浏览器认为没变化
+        detail.classList.remove("run");
+        void detail.offsetWidth;
+        detail.classList.add("run");
+      }
+
+      var num = detail.querySelector(".metric-n");
+      if (num) { animateNumber(num); }
+
+      fill.style.width = ((idx + 1) / total * 100) + "%";
+      count.textContent = (idx + 1) + " / " + total;
+      playBtn.textContent = st.timer
+        ? "⏸ 暂停"
+        : (idx >= total - 1 ? "↻ 重播" : "▶ 播放");
+    }
+
+    function stop() {
+      if (st.timer) { clearTimeout(st.timer); st.timer = null; }
+    }
+
+    function schedule() {
+      st.timer = setTimeout(function () {
+        if (st.i < total - 1) {
+          st.i += 1;
+          paint(true);
+          schedule();
+        } else {
+          stop();
+          paint(false);
+        }
+      }, dwellFor(CHAIN.nodes[st.i]));
+    }
+
+    function play() {
+      if (st.timer) { stop(); paint(false); return; }
+      if (st.i >= total - 1) { st.i = 0; }
+      paint(true);
+      schedule();
+    }
+
+    function go(n) {
+      stop();
+      st.i = Math.max(0, Math.min(total - 1, n));
+      paint(true);
+    }
+
+    card.addEventListener("click", function (e) {
+      var btn = e.target.closest("[data-act]");
+      if (btn) {
+        var act = btn.getAttribute("data-act");
+        if (act === "play") { play(); }
+        else if (act === "next") { go(st.i + 1); }
+        else if (act === "prev") { go(st.i - 1); }
+        return;
+      }
+      if (track && track.contains(e.target)) {
+        var rect = track.getBoundingClientRect();
+        var ratio = (e.clientX - rect.left) / Math.max(rect.width, 1);
+        go(Math.round(ratio * (total - 1)));
+        return;
+      }
+      var cc = e.target.closest(".cc");
+      if (cc) { go(Number(cc.getAttribute("data-i"))); }
+    });
+
+    paint(false);
+
+    // 第一次滚到这里时自动播一遍：动起来比一个静止的流程图有说服力得多。
+    // 只自动播一次，之后完全交给用户。
+    if (typeof IntersectionObserver === "function") {
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          if (en.isIntersecting && !st.auto) {
+            st.auto = true;
+            io.disconnect();
+            // 留一点时间让人先读到「主张」，再开始动
+            setTimeout(play, 900);
+          }
+        });
+      }, { threshold: 0.55 });
+      io.observe(card);
+    }
   }
 
   function esc(s) {
     return String(s == null ? "" : s)
       .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;");
+  }
+
+  // 证据摘录在卡片里放不下全句，截断但要留出省略号，别让人以为是原文结尾
+  function trunc(s, n) {
+    s = String(s || "");
+    return s.length > n ? s.slice(0, n) + "…" : s;
   }
 })();
 </script>
