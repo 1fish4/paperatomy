@@ -28,6 +28,7 @@ LLM 抽取一定会混入编造内容，用户必须能一键跳回原文核对�
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -176,19 +177,104 @@ class Template:
 
 @dataclass
 class Evidence:
-    """一条原文依据。"""
+    """一条原文依据。
+
+    字段分两组：**模型给的**（``page`` / ``quote`` / ``quote_zh``）与
+    **程序算出来的**（``section`` / ``section_no`` / ``para`` / ``verified``）。
+
+    为什么这么分
+    ------------
+    让模型直接报「第 4.2 节第 3 段」它数不准——它看到的文本没有段的边界。
+    所以模型只负责抄一段原文，由 :func:`paperatomy.locate.annotate`
+    拿引文回原文匹配，命中哪段就填哪段。
+    ``verified`` 因此有三态：``None`` 未校验、``True`` 已在原文定位到、
+    ``False`` 原文里找不到（**很可能被编造**）。
+    """
 
     page: int = 0
     """页码，从 1 开始。0 表示模型未给出。"""
 
     quote: str = ""
-    """原文摘录。保持引号内的内容与原文一致，不要翻译。"""
+    """原文摘录。保持与原文一致，不要翻译。"""
+
+    quote_zh: str = ""
+    """中文译文。原文即中文时留空，展示层自动回落到 ``quote``。"""
+
+    section: str = ""
+    """所在章节标题，由定位器填写。"""
+
+    section_no: str = ""
+    """章节编号，如 ``4.2``。"""
+
+    para: int = 0
+    """章节内第几段，由定位器填写。"""
+
+    verified: bool | None = None
+    """引文是否在原文中定位到。``None`` 表示还没跑过定位。"""
 
     def __str__(self) -> str:
         if not self.quote:
             return ""
-        loc = f"p.{self.page}" if self.page else "p.?"
-        return f"[{loc}] {self.quote}"
+        return f"[{self.locator}] {self.quote}"
+
+    @property
+    def locator(self) -> str:
+        """人类可读的出处坐标，如 ``§4.2 · 第 3 段 · p.11``。"""
+        parts: list[str] = []
+        if self.section_no:
+            parts.append(f"§{self.section_no}")
+        elif self.section:
+            parts.append(f"§ {_short(self.section, 26)}")
+        if self.para:
+            parts.append(f"第 {self.para} 段")
+        if self.page:
+            parts.append(f"p.{self.page}")
+        return " · ".join(parts) or "出处未标注"
+
+    def to_dict(self) -> dict:
+        """序列化。空字段不写，JSON 干净一些。"""
+        out: dict[str, Any] = {"page": self.page, "quote": self.quote}
+        for key in ("quote_zh", "section", "section_no"):
+            value = getattr(self, key)
+            if value:
+                out[key] = value
+        if self.para:
+            out["para"] = self.para
+        if self.verified is not None:
+            out["verified"] = self.verified
+        return out
+
+    @classmethod
+    def from_dict(cls, raw: Any) -> "Evidence":
+        """从 JSON 还原。缺字段一律走默认值，兼容旧结果文件。"""
+        if isinstance(raw, str):
+            return cls(quote=raw.strip())
+        if not isinstance(raw, dict):
+            return cls()
+        verified = raw.get("verified")
+        return cls(
+            page=_as_int(raw.get("page")),
+            quote=str(raw.get("quote", "") or "").strip(),
+            quote_zh=str(raw.get("quote_zh", "") or "").strip(),
+            section=str(raw.get("section", "") or "").strip(),
+            section_no=str(raw.get("section_no", "") or "").strip(),
+            para=_as_int(raw.get("para")),
+            verified=None if verified is None else bool(verified),
+        )
+
+
+def _as_int(value: Any) -> int:
+    """尽量从各种写法里取整数。模型有时把页码写成 ``p.3``。"""
+    if isinstance(value, int):
+        return value
+    m = re.search(r"\d+", str(value or ""))
+    return int(m.group()) if m else 0
+
+
+def _short(text: str, limit: int) -> str:
+    """截断到 ``limit`` 字符，超出加省略号。"""
+    text = (text or "").strip()
+    return text if len(text) <= limit else text[: limit - 1] + "…"
 
 
 @dataclass

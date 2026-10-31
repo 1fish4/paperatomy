@@ -186,7 +186,7 @@ class ChainNode:
             "type": self.type,
             "label": self.label,
             "detail": self.detail,
-            "evidence": [{"page": e.page, "quote": e.quote} for e in self.evidence],
+            "evidence": [e.to_dict() for e in self.evidence],
         }
         for key in ("metric", "before", "after", "root"):
             value = getattr(self, key)
@@ -205,11 +205,7 @@ class ChainNode:
             before=raw.get("before") if isinstance(raw.get("before"), dict) else None,
             after=raw.get("after") if isinstance(raw.get("after"), dict) else None,
             root=raw.get("root") if isinstance(raw.get("root"), dict) else None,
-            evidence=[
-                Evidence(page=int(e.get("page", 0) or 0), quote=str(e.get("quote", "")))
-                for e in (raw.get("evidence") or [])
-                if isinstance(e, dict)
-            ],
+            evidence=[Evidence.from_dict(e) for e in (raw.get("evidence") or [])],
         )
 
 
@@ -231,7 +227,7 @@ class Chain:
             "confidence": self.confidence,
             "note": self.note,
             "nodes": [n.to_dict() for n in self.nodes],
-            "evidence": [{"page": e.page, "quote": e.quote} for e in self.evidence],
+            "evidence": [e.to_dict() for e in self.evidence],
         }
 
     @classmethod
@@ -244,11 +240,7 @@ class Chain:
                 ChainNode.from_dict(item) for item in (raw.get("nodes") or [])
                 if isinstance(item, dict)
             ],
-            evidence=[
-                Evidence(page=int(e.get("page", 0) or 0), quote=str(e.get("quote", "")))
-                for e in (raw.get("evidence") or [])
-                if isinstance(e, dict)
-            ],
+            evidence=[Evidence.from_dict(e) for e in (raw.get("evidence") or [])],
         )
 
 
@@ -457,6 +449,8 @@ _SYSTEM = """\
    要让读者一眼看出「改进具体体现在哪里」。
 5. 抽不出有意义的链条时，返回空的 nodes 数组，并在 note 里说明原因。
    **空链不丢人，编一条假链才丢人。**
+6. evidence.quote **必须逐字照抄原文**，不要改写、不要压缩、不要拼接两处不相邻的话。
+   quote_zh 是同一条摘录的中文译文，完整通顺地译出，不加解释。
 """
 
 _SCHEMA = """\
@@ -482,7 +476,9 @@ _SCHEMA = """\
       "detail": "把逐 token 生成替换为「草稿 k 个 + 一次并行验证」。",
       "before": {"kind": "tokens", "n": 8, "label": "逐 token 串行", "cadence": 1.4},
       "after":  {"kind": "tokens", "n": 8, "label": "草稿 + 并行验证", "cadence": 0.45},
-      "evidence": [{"page": 13, "quote": "..."}]
+      "evidence": [{"page": 13,
+                    "quote": "Mamba seamlessly integrates selective SSMs into a streamlined architecture, eliminating attention and MLP blocks",
+                    "quote_zh": "Mamba 把选择性 SSM 集成进精简架构，去掉了注意力和 MLP 块"}]
     },
     {
       "id": "n5",
@@ -490,7 +486,9 @@ _SCHEMA = """\
       "label": "解码提速 2–3 倍",
       "detail": "在 T5X 上报告 2–3× 提升。",
       "metric": {"value": "2.6", "unit": "×", "label": "解码吞吐"},
-      "evidence": [{"page": 13, "quote": "..."}]
+      "evidence": [{"page": 13,
+                    "quote": "Mamba seamlessly integrates selective SSMs into a streamlined architecture, eliminating attention and MLP blocks",
+                    "quote_zh": "Mamba 把选择性 SSM 集成进精简架构，去掉了注意力和 MLP 块"}]
     },
     {
       "id": "n6",
@@ -508,7 +506,9 @@ _SCHEMA = """\
           ]}
         ]
       },
-      "evidence": [{"page": 3, "quote": "..."}]
+      "evidence": [{"page": 3,
+                    "quote": "Section 3 investigates the architectural innovations",
+                    "quote_zh": "第 3 节考察架构层面的创新"}]
     }
   ]
 }

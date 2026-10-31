@@ -18,6 +18,7 @@ import os
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Iterator
 
 __all__ = [
     "LLMConfig",
@@ -25,6 +26,7 @@ __all__ = [
     "load_config",
     "save_config",
     "chat",
+    "chat_stream",
     "CONFIG_PATH",
 ]
 
@@ -252,3 +254,73 @@ def chat(
                 time.sleep(2 * (attempt + 1))
 
     raise LLMError(f"调用大模型失败（已重试 {cfg.retries} 次）：{last_error}")
+
+
+def chat_stream(
+    messages: list[dict],
+    cfg: LLMConfig | None = None,
+) -> Iterator[str]:
+    """流式调用，逐段产出文本增量。
+
+    为什么不复用 :func:`chat`
+    ------------------------
+    问答场景里「等 20 秒再一次性出现」和「字一个个出来」是两种体验，
+    而后者让人知道它正在干活。底层只是把 ``stream`` 打开，
+    再按 SSE 逐行读，不需要额外依赖。
+
+    异常
+    -----
+    LLMError
+        缺少 key、网络失败、服务端错误。**已经吐出的增量不会撤回**，
+        调用方要把「中断」也当成一种正常结束来处理。
+    """
+    cfg = cfg or load_config()
+    if not cfg.api_key and not cfg.is_local():
+        raise LLMError(
+            "没有配置 API key。先运行 paperatomy config set --api-key sk-xxx"
+        )
+
+    headers = {"Content-Type": "application/json", "Accept": "text/event-stream"}
+    if cfg.api_key:
+        headers["Authorization"] = f"Bearer {cfg.api_key}"
+
+    payload = {
+        "model": cfg.model,
+        "messages": messages,
+        "temperature": cfg.temperature,
+        "max_tokens": cfg.max_tokens,
+        "stream": True,
+    }
+
+    import urllib.error
+    import urllib.request
+
+    body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    req = urllib.request.Request(cfg.endpoint(), data=body, headers=headers,
+                                 method="POST")
+    try:
+        resp = urllib.request.urlopen(req, timeout=cfg.timeout)
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise LLMError(_http_error(exc.code, detail)) from exc
+    except urllib.error.URLError as exc:
+        raise LLMError(f"连不上 {cfg.endpoint()}：{exc.reason}") from exc
+
+    with resp:
+        for raw in resp:
+            line = raw.decode("utf-8", errors="replace").strip()
+            if not line or not line.startswith("data:"):
+                continue
+            chunk = line[5:].strip()
+            if chunk == "[DONE]":
+                break
+            try:
+                obj = json.loads(chunk)
+            except Exception:
+                continue
+            choices = obj.get("choices") or []
+            if not choices:
+                continue
+            delta = (choices[0].get("delta") or {}).get("content") or ""
+            if delta:
+                yield delta

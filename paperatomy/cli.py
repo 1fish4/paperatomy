@@ -85,6 +85,19 @@ def build_parser() -> argparse.ArgumentParser:
     p_ext.add_argument("--base-url", default=None)
     p_ext.add_argument("--model", default=None)
 
+    p_loc = sub.add_parser(
+        "locate", help="给已有结果补证据定位（不调模型、不花钱）")
+    p_loc.add_argument("json", help="extract 产出的 JSON 文件")
+    p_loc.add_argument("--rebuild", action="store_true", default=True,
+                       help="补完后自动重建 Markdown 与 HTML（默认开启）")
+    p_loc.add_argument("--no-rebuild", dest="rebuild", action="store_false")
+
+    p_srv = sub.add_parser(
+        "serve", help="起一个本地服务，在报告页面里直接追问这篇论文")
+    p_srv.add_argument("json", help="extract 产出的 JSON 文件")
+    p_srv.add_argument("--port", type=int, default=8770, help="端口，默认 8770")
+    p_srv.add_argument("--open", action="store_true", help="启动后自动打开浏览器")
+
     p_cfg = sub.add_parser("config", help="查看或设置大模型配置")
     p_cfg.add_argument("action", nargs="?", default="show",
                        choices=["show", "set"])
@@ -116,6 +129,10 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_render(args)
     if args.command == "chain":
         return _cmd_chain(args)
+    if args.command == "locate":
+        return _cmd_locate(args)
+    if args.command == "serve":
+        return _cmd_serve(args)
     if args.command == "config":
         return _cmd_config(args)
 
@@ -285,6 +302,20 @@ def _cmd_extract(args) -> int:
         except Exception as exc:
             print(f"  ⚠ 论证链抽取失败（不影响报告）：{exc}")
 
+    # 证据定位：拿引文回原文匹配，落到「第几章第几段」。
+    # 匹配不上的标成未核实——这比让用户逐条核对可靠，也是抓编造的唯一手段。
+    try:
+        from .locate import annotate_extraction
+
+        print()
+        loc = annotate_extraction(result, paper.paragraphs, chain)
+        print(f"  {loc.summary()}")
+        if loc.misses:
+            print(f"  ⚠ {loc.misses} 条引文在原文里找不到原话，已标为「未核实」"
+                  f"（多为模型改写而非照抄）")
+    except Exception as exc:
+        print(f"  ⚠ 证据定位失败（不影响报告）：{exc}")
+
     # 落盘
     pdf_path = Path(args.pdf)
     prefix = Path(args.output) if args.output else pdf_path.with_suffix("")
@@ -412,6 +443,15 @@ def _cmd_chain(args) -> int:
     data["chain"] = chain_payload(chain) if chain.nodes else None
     # 0.2 时代的 visuals 字段已废弃，顺手清掉，避免 JSON 里留两套并存的结构
     data.pop("visuals", None)
+
+    # 新抽的链没有坐标，顺手把整份文件的证据都定位一遍
+    try:
+        print()
+        loc = _relocate_payload(data, paper)
+        print(f"  {loc.summary()}")
+    except Exception as exc:
+        print(f"  ⚠ 证据定位失败（不影响报告）：{exc}")
+
     json_path.write_text(
         _json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
     )
@@ -420,6 +460,94 @@ def _cmd_chain(args) -> int:
     if args.rebuild:
         return _render_from_data(json_path, data)
     return 0
+
+
+def _relocate_payload(data: dict, paper) -> "object":
+    """就地把 JSON 载荷里所有证据补上章节、段号、页码。
+
+    不调用模型，纯本地计算——所以可以随时重跑、零成本。
+    也正因为用不上模型，已有的旧报告能一键升级到新格式。
+    """
+    from .locate import annotate
+    from .model import Evidence
+
+    slots: list[tuple[list, int]] = []
+    objects = []
+
+    def _collect(bucket) -> None:
+        if not isinstance(bucket, list):
+            return
+        for i in range(len(bucket)):
+            slots.append((bucket, i))
+            objects.append(Evidence.from_dict(bucket[i]))
+
+    for finding in data.get("findings") or []:
+        _collect(finding.get("evidence"))
+    chain = data.get("chain") or {}
+    _collect(chain.get("evidence"))
+    for node in chain.get("nodes") or []:
+        _collect(node.get("evidence"))
+
+    report = annotate(objects, paper.paragraphs)
+    for evidence, (bucket, index) in zip(objects, slots):
+        bucket[index] = evidence.to_dict()
+    return report
+
+
+def _cmd_locate(args) -> int:
+    """给已有报告补证据定位。
+
+    不调模型、不花钱、不动正文，只把每条证据从「p.13」细化为
+    「§4.2 · 第 3 段 · p.11」，并标出哪些引文在原文里找不到原话。
+    """
+    import json as _json
+
+    from .parse import parse
+
+    json_path = Path(args.json)
+    if not json_path.is_file():
+        print(f"✗ 找不到文件：{json_path}")
+        return 1
+    try:
+        data = _json.loads(json_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        print(f"✗ JSON 解析失败：{exc}")
+        return 1
+
+    source = str(data.get("source", "") or "")
+    pdf_path = _resolve_source(source, json_path) if source else None
+    if pdf_path is None:
+        print(f"✗ 找不到原文：{source or '（JSON 里没有记录来源）'}")
+        print("  定位需要重新读一次 PDF，请把 PDF 放回原位。")
+        return 1
+
+    print(f"读取 {pdf_path.name} …")
+    try:
+        paper = parse(pdf_path)
+    except Exception as exc:
+        print(f"✗ 解析失败：{exc}")
+        return 1
+    print(f"  段落索引：{len(paper.paragraphs)} 段")
+
+    report = _relocate_payload(data, paper)
+    json_path.write_text(
+        _json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    print(f"  {report.summary()}")
+    if report.misses:
+        print(f"  ⚠ {report.misses} 条引文在原文里找不到原话，已标为「未核实」")
+    print(f"已更新 {json_path}")
+
+    if args.rebuild:
+        return _render_from_data(json_path, data)
+    return 0
+
+
+def _cmd_serve(args) -> int:
+    """起本地问答服务。"""
+    from .serve import serve
+
+    return serve(args.json, port=args.port, open_browser=args.open)
 
 
 def _resolve_source(source: str, json_path: Path) -> Path | None:
@@ -459,10 +587,7 @@ def _render_from_data(json_path: Path, data: dict, *, lang=None, output=None) ->
             block_id=str(item.get("block_id", "")),
             content=str(item.get("content", "")),
             confidence=str(item.get("confidence", "medium")),
-            evidence=[
-                Evidence(page=int(e.get("page", 0) or 0), quote=str(e.get("quote", "")))
-                for e in (item.get("evidence") or [])
-            ],
+            evidence=[Evidence.from_dict(e) for e in (item.get("evidence") or [])],
         ))
 
     extraction = Extraction(

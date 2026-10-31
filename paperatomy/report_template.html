@@ -413,6 +413,202 @@
     article.card { break-inside: avoid; border-color: #ccc; }
     .c-body { display: block !important; }
   }
+
+  /* ---------- 证据：章节 · 段号 · 中英对照 ---------- */
+  /* 从「p.13」升级到「§4.2 · 第 3 段 · p.11」：页码只告诉你在哪一页，
+     段号才告诉你在哪一段。英文原文保留，中文译文放在下面一行。 */
+  .ev-item {
+    display: block;
+    margin-bottom: 14px; padding-left: 12px;
+    border-left: 2px solid var(--line2);
+  }
+  .ev-item:last-child { margin-bottom: 0; }
+  .ev-loc {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+    margin-bottom: 5px;
+  }
+  .ev-loc .chip {
+    font-family: var(--mono); font-size: 11px; color: var(--accent);
+    background: var(--soft); border-radius: 5px; padding: 1px 7px;
+  }
+  .ev-loc .sec {
+    font-size: 11.5px; color: var(--ink3);
+    max-width: 30ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .ev-loc .raw {
+    font-size: 10.5px; color: var(--warn); background: var(--warnSoft);
+    border-radius: 5px; padding: 0 6px; white-space: nowrap;
+  }
+  .ev-src {
+    font-size: 12.5px; line-height: 1.62; color: var(--ink3);
+    font-style: italic; margin-bottom: 3px;
+  }
+  .ev-zh { font-size: 13.5px; line-height: 1.72; color: var(--ink2); }
+  .ev-zh.none { color: var(--ink3); font-size: 12.5px; }
+
+  /* ---------- 追问：悬浮按钮与侧栏 ---------- */
+  .ask-fab {
+    position: fixed; right: 26px; bottom: 26px; z-index: 60;
+    width: 52px; height: 52px; border-radius: 50%;
+    border: none; cursor: pointer; padding: 0;
+    background: linear-gradient(150deg, #3C87A8, #2E6F8E);
+    color: #fff; display: grid; place-items: center;
+    box-shadow: 0 8px 22px rgba(46,111,142,.34), 0 2px 6px rgba(0,0,0,.10);
+    transition: transform .18s cubic-bezier(.2,.8,.3,1), box-shadow .18s;
+  }
+  .ask-fab:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(46,111,142,.42); }
+  .ask-fab:active { transform: translateY(0) scale(.97); }
+  .ask-fab svg { width: 23px; height: 23px; }
+  .ask-fab .dot {
+    position: absolute; top: 7px; right: 8px; width: 9px; height: 9px;
+    border-radius: 50%; background: #F0B26B; border: 2px solid #FFFDFA;
+    opacity: 0; transition: opacity .2s;
+  }
+  .ask-fab.has-ctx .dot { opacity: 1; }
+  .ask-fab.offline { background: linear-gradient(150deg, #99A2AE, #7E8792); }
+
+  .ask-panel {
+    position: fixed; top: 0; right: 0; bottom: 0; z-index: 70;
+    width: 432px; max-width: 100vw;
+    background: #FFFDFA; border-left: 1px solid var(--line);
+    box-shadow: -20px 0 60px rgba(24,34,44,.14);
+    display: none; flex-direction: column;
+  }
+  /* 显隐用 display 控制，动画只做入场装饰。
+     用 transition 做显隐的写法，一旦过渡没跑完，元素就停在隐藏态——
+     任何「最终状态由动画给出」的写法都不安全。 */
+  .ask-panel.open { display: flex; }
+
+  .ask-head {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 18px 20px 14px; border-bottom: 1px solid var(--line);
+  }
+  .ask-title { font-size: 15px; font-weight: 600; letter-spacing: -.01em; }
+  .ask-sub {
+    font-size: 11.5px; color: var(--ink3); margin-top: 3px;
+    font-family: var(--mono);
+  }
+  .ask-sub b { color: var(--ok); font-weight: 500; }
+  .ask-close {
+    margin-left: auto; flex: none; width: 28px; height: 28px;
+    border: 1px solid var(--line); background: #fff; border-radius: 8px;
+    color: var(--ink3); font-size: 17px; line-height: 1; cursor: pointer;
+    transition: all .16s;
+  }
+  .ask-close:hover { color: var(--ink); border-color: #D8D1C3; }
+
+  .ask-log {
+    flex: 1; overflow-y: auto; padding: 18px 20px 6px;
+    display: flex; flex-direction: column; gap: 14px;
+    scroll-behavior: smooth;
+  }
+  .ask-hint {
+    color: var(--ink3); font-size: 13px; line-height: 1.75;
+    background: var(--bg); border: 1px dashed var(--line);
+    border-radius: 10px; padding: 14px 16px;
+  }
+  .ask-hint b { color: var(--ink2); font-weight: 600; }
+  .ask-eg {
+    display: block; margin-top: 8px; font-size: 12.5px;
+    color: var(--accent); cursor: pointer; text-decoration: none;
+  }
+  .ask-eg:hover { text-decoration: underline; }
+
+  .msg { font-size: 14px; line-height: 1.78; }
+  .msg.user {
+    align-self: flex-end; max-width: 88%;
+    background: var(--soft); color: var(--ink);
+    border-radius: 12px 12px 3px 12px; padding: 9px 14px;
+  }
+  .msg.bot {
+    align-self: flex-start; max-width: 100%;
+    color: var(--ink2);
+  }
+  .msg.bot .who {
+    font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--ink3); font-family: var(--mono); margin-bottom: 5px;
+  }
+  .msg.bot p { margin: 0 0 9px; }
+  .msg.bot p:last-child { margin-bottom: 0; }
+  .msg.err { color: var(--warn); background: var(--warnSoft);
+             border-radius: 10px; padding: 10px 13px; font-size: 13px; }
+  .caret {
+    display: inline-block; width: 7px; height: 15px; margin-left: 2px;
+    background: var(--accent2); vertical-align: -2px;
+    animation: blink 1s steps(2) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .ask-ctx { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 20px; }
+  .ask-ctx:not(:empty) { padding-top: 10px; }
+  .ctx-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11.5px; color: var(--accent);
+    background: var(--soft); border-radius: 999px; padding: 3px 6px 3px 10px;
+    max-width: 100%;
+  }
+  .ctx-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 22ch; }
+  .ctx-chip button {
+    border: none; background: rgba(46,111,142,.12); color: var(--accent);
+    width: 16px; height: 16px; border-radius: 50%; cursor: pointer;
+    font-size: 12px; line-height: 1; padding: 0; flex: none;
+  }
+  .ctx-chip button:hover { background: rgba(46,111,142,.24); }
+
+  .ask-input {
+    display: flex; gap: 8px; align-items: flex-end;
+    padding: 12px 20px 18px; border-top: 1px solid var(--line);
+    margin-top: 10px;
+  }
+  .ask-input textarea {
+    flex: 1; resize: none; border: 1px solid var(--line); border-radius: 10px;
+    padding: 9px 12px; font-family: var(--sans); font-size: 13.5px;
+    line-height: 1.6; color: var(--ink); background: #fff;
+    max-height: 132px; outline: none; transition: border-color .16s;
+  }
+  .ask-input textarea:focus { border-color: var(--accent2); }
+  .ask-input textarea:disabled { background: var(--bg); color: var(--ink3); }
+  .ask-send {
+    flex: none; width: 38px; height: 38px; border-radius: 10px;
+    border: none; cursor: pointer; background: var(--accent); color: #fff;
+    display: grid; place-items: center; transition: background .16s, opacity .16s;
+  }
+  .ask-send:hover:not(:disabled) { background: #255B75; }
+  .ask-send:disabled { opacity: .4; cursor: not-allowed; }
+  .ask-send svg { width: 17px; height: 17px; }
+
+  /* 「追问」小按钮：挂在每个板块与论证链节点上 */
+  .ask-btn {
+    flex: none; border: 1px solid var(--line); background: #fff;
+    color: var(--ink3); font-size: 11.5px; line-height: 1;
+    padding: 4px 9px; border-radius: 999px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 4px;
+    transition: all .16s; white-space: nowrap;
+  }
+  .ask-btn:hover { color: var(--accent); border-color: var(--accent2); background: var(--soft); }
+  .ask-btn svg { width: 11px; height: 11px; }
+  .ask-btn.dark {
+    background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.16);
+    color: rgba(233,239,246,.66);
+  }
+  .ask-btn.dark:hover { background: rgba(111,179,217,.18); border-color: rgba(143,210,240,.5); color: #DCEAF6; }
+  .cd-head .ask-btn { margin-left: auto; }
+
+  /* 论证链里的证据改成竖排：中英要两行，横排放不下 */
+  .cd-ev {
+    margin-top: 11px; display: flex; flex-direction: column; gap: 3px;
+    font-size: 11.5px; color: #7A8B9D;
+    border-left: 2px solid rgba(143,210,240,.22); padding-left: 10px;
+  }
+  .cd-ev b { color: #8FD2F0; font-family: var(--mono); font-weight: 500; }
+  .cd-ev span { font-style: italic; }
+  .cd-ev .zh { font-style: normal; color: #C3D2E0; }
+
+  @media (max-width: 640px) {
+    .ask-panel { width: 100%; }
+    .ask-fab { right: 16px; bottom: 16px; }
+  }
+
 </style>
 </head>
 <body>
@@ -434,6 +630,43 @@
     <span>由 <a href="https://github.com/1fish4/paperatomy">paperatomy</a> 生成 · 每块内容均附原文页码与摘录</span>
   </footer>
 </div>
+
+
+<button class="ask-fab" id="askFab" type="button" aria-label="追问这篇论文">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+       stroke-linecap="round" stroke-linejoin="round">
+    <path d="M20 14.5a2 2 0 0 1-2 2H8l-4 3.5V6.5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2z"/>
+    <path d="M8.5 9.8h7M8.5 12.8h4.5"/>
+  </svg>
+  <i class="dot"></i>
+</button>
+
+<aside class="ask-panel" id="askPanel" aria-hidden="true">
+  <div class="ask-head">
+    <div>
+      <div class="ask-title">追问这篇论文</div>
+      <div class="ask-sub" id="askSub">正在检查本地服务…</div>
+    </div>
+    <button class="ask-close" id="askClose" type="button" aria-label="关闭">×</button>
+  </div>
+
+  <div class="ask-log" id="askLog"></div>
+
+  <div class="ask-ctx" id="askCtx"></div>
+
+  <div class="ask-input">
+    <textarea id="askText" rows="1" placeholder="问点什么，比如：这个改动为什么能成立？"></textarea>
+    <button class="ask-send" id="askSend" type="button" aria-label="发送" disabled>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+           stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4.5 12h13M11.5 6l6 6-6 6"/>
+      </svg>
+    </button>
+  </div>
+</aside>
+
+<!-- 本地服务会把这一行替换成实际端口；静态打开时保持 null -->
+<script>window.__PA_SERVE__ = null;</script>
 
 <script id="paper-data" type="application/json">/*__DATA__*/null</script>
 <script>
@@ -474,13 +707,7 @@
     var hh = ['<div class="hero"><div class="label">' + esc(hero.title) + "</div>"];
     hh.push("<p>" + esc(hero.content || "论文未提及。") + "</p>");
     if (hero.evidence && hero.evidence.length) {
-      hh.push('<div class="ev"><div class="ev-title">原文依据</div>');
-      hero.evidence.forEach(function (e) {
-        hh.push('<div class="ev-item"><span class="ev-page">' +
-                esc(e.page ? "p." + e.page : "页?") + "</span>");
-        hh.push('<span class="ev-quote">' + esc(e.quote) + "</span></div>");
-      });
-      hh.push("</div>");
+      hh.push(evHTML(hero.evidence));
     }
     hh.push("</div>");
     main.push(hh.join(""));
@@ -515,6 +742,7 @@
       if (b.confidence === "low") {
         main.push('<span class="badge low">低置信</span>');
       }
+      main.push(askBtn("b:" + b.id));
       main.push('<svg class="chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" ' +
                 'stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">' +
                 '<path d="M6 4l4 4-4 4"/></svg>');
@@ -527,13 +755,7 @@
         main.push('<div class="txt">' + formatText(b.content) + "</div>");
       }
       if (b.evidence && b.evidence.length) {
-        main.push('<div class="ev"><div class="ev-title">原文依据</div>');
-        b.evidence.forEach(function (e) {
-          var page = e.page ? "p." + e.page : "页码未标注";
-          main.push('<div class="ev-item"><span class="ev-page">' + esc(page) + "</span>");
-          main.push('<span class="ev-quote">' + esc(e.quote) + "</span></div>");
-        });
-        main.push("</div>");
+        main.push(evHTML(b.evidence));
       }
       main.push("</div></article>");
     });
@@ -675,7 +897,8 @@
     var h = ['<div class="cd-head">'];
     h.push('<span class="cd-badge" style="color:' + typeColor(n.type) + '">' +
            esc(typeLabel(n.type)) + "</span>");
-    h.push('<span class="cd-title">' + esc(n.label) + "</span></div>");
+    h.push('<span class="cd-title">' + esc(n.label) + "</span>");
+    h.push(askBtn("n:" + n.id, true) + "</div>");
 
     if (n.detail) { h.push('<p class="cd-text">' + esc(n.detail) + "</p>"); }
 
@@ -698,9 +921,12 @@
 
     if (n.evidence && n.evidence.length) {
       var ev = n.evidence[0];
-      h.push('<div class="cd-ev"><b>' +
-             (ev.page ? "p." + ev.page : "页码?") + "</b><span>" +
-             esc(trunc(ev.quote, 140)) + "</span></div>");
+      h.push('<div class="cd-ev"><b>' + esc(locatorOf(ev)) + "</b>");
+      h.push("<span>" + esc(trunc(ev.quote, 170)) + "</span>");
+      if (ev.quote_zh && ev.quote_zh !== ev.quote) {
+        h.push('<span class="zh">' + esc(trunc(ev.quote_zh, 170)) + "</span>");
+      }
+      h.push("</div>");
     }
     return h.join("");
   }
@@ -943,6 +1169,316 @@
     s = String(s || "");
     return s.length > n ? s.slice(0, n) + "…" : s;
   }
+
+  // ======================= 追问这篇论文 =======================
+  // 静态打开时 window.__PA_SERVE__ 是 null，按钮会显示「未连接」并给出命令；
+  // 由 paperatomy serve 提供页面时，服务端会把它替换成实际端口。
+  var ASK_CFG = window.__PA_SERVE__ || null;
+  var ASK = { ctx: [], history: [], busy: false, live: false };
+
+  var askPanel = document.getElementById("askPanel");
+  var askLog = document.getElementById("askLog");
+  var askText = document.getElementById("askText");
+  var askSend = document.getElementById("askSend");
+  var askSub = document.getElementById("askSub");
+  var askCtx = document.getElementById("askCtx");
+  var askFab = document.getElementById("askFab");
+
+  // 出处坐标：和 Markdown、命令行完全一致（这里必须是同一套规则，
+  // 否则同一份报告换个地方看就对不上了）
+  function locatorOf(e) {
+    var parts = [];
+    if (e.section_no) { parts.push("§" + e.section_no); }
+    if (e.para) { parts.push("第 " + e.para + " 段"); }
+    if (e.page) { parts.push("p." + e.page); }
+    return parts.join(" · ") || "出处未标注";
+  }
+
+  function evHTML(list) {
+    var h = ['<div class="ev"><div class="ev-title">原文依据</div>'];
+    list.forEach(function (e) {
+      h.push('<div class="ev-item"><div class="ev-loc">');
+      h.push('<span class="chip">' + esc(locatorOf(e)) + "</span>");
+      if (e.section) {
+        // 章节标题去掉编号前缀，否则和左边的 §4 重复
+        h.push('<span class="sec">' +
+          esc(e.section.replace(/^\s*\d{1,2}(?:\.\d{1,2}){0,2}[\s.]+/, "")) +
+          "</span>");
+      }
+      if (e.verified === false) {
+        h.push('<span class="raw">未在原文定位到原话</span>');
+      }
+      h.push("</div>");
+      h.push('<div class="ev-src">' + esc(e.quote) + "</div>");
+      if (e.quote_zh && e.quote_zh !== e.quote) {
+        h.push('<div class="ev-zh">' + esc(e.quote_zh) + "</div>");
+      }
+      h.push("</div>");
+    });
+    h.push("</div>");
+    return h.join("");
+  }
+
+  function askBtn(key, dark) {
+    return '<button class="ask-btn' + (dark ? " dark" : "") + '" type="button" data-ask="' +
+      esc(key) + '" title="把这块内容加入追问"><svg viewBox="0 0 24 24" fill="none" ' +
+      'stroke="currentColor" stroke-width="2.4" stroke-linecap="round">' +
+      '<path d="M12 5v14M5 12h14"/></svg>追问</button>';
+  }
+
+  // 把一块内容压成纯文本交给模型。带上是哪一段、原文怎么说的，
+  // 模型才知道「这个」指什么。
+  function askPayload(key) {
+    if (key.indexOf("b:") === 0) {
+      var bid = key.slice(2);
+      var found = null;
+      D.groups.forEach(function (g) {
+        g.blocks.forEach(function (b) { if (b.id === bid) { found = b; } });
+      });
+      if (!found && hero && hero.id === bid) { found = hero; }
+      if (!found) { return null; }
+      var text = found.content || "";
+      (found.evidence || []).forEach(function (e) {
+        text += "\n依据［" + locatorOf(e) + "］" + e.quote +
+                (e.quote_zh && e.quote_zh !== e.quote ? "\n译文：" + e.quote_zh : "");
+      });
+      return { key: key, title: found.title, text: text };
+    }
+    if (key.indexOf("n:") === 0 && CHAIN) {
+      var nid = key.slice(2);
+      var node = null;
+      (CHAIN.nodes || []).forEach(function (n) { if (n.id === nid) { node = n; } });
+      if (!node) { return null; }
+      var t = "［" + typeLabel(node.type) + "］" + node.label;
+      if (node.detail) { t += "\n" + node.detail; }
+      if (node.metric) {
+        t += "\n指标：" + node.metric.value + (node.metric.unit || "") +
+             "（" + (node.metric.label || "") + "）";
+      }
+      (node.evidence || []).forEach(function (e) {
+        t += "\n依据［" + locatorOf(e) + "］" + e.quote +
+             (e.quote_zh && e.quote_zh !== e.quote ? "\n译文：" + e.quote_zh : "");
+      });
+      return { key: key, title: node.label, text: t };
+    }
+    return null;
+  }
+
+  function renderChips() {
+    askCtx.innerHTML = ASK.ctx.map(function (c, i) {
+      return '<span class="ctx-chip"><span>' + esc(c.title) + "</span>" +
+        '<button type="button" data-drop="' + i + '" aria-label="移除">×</button></span>';
+    }).join("");
+    askFab.classList.toggle("has-ctx", ASK.ctx.length > 0);
+  }
+
+  function openAsk() {
+    askPanel.classList.add("open");
+    askPanel.setAttribute("aria-hidden", "false");
+    if (ASK.live) { setTimeout(function () { askText.focus(); }, 120); }
+  }
+  function closeAsk() {
+    askPanel.classList.remove("open");
+    askPanel.setAttribute("aria-hidden", "true");
+  }
+
+  function addContext(key) {
+    var item = askPayload(key);
+    if (!item) { openAsk(); return; }
+    var dup = false;
+    ASK.ctx.forEach(function (c) { if (c.key === key) { dup = true; } });
+    if (!dup) { ASK.ctx.push(item); }
+    renderChips();
+    openAsk();
+  }
+
+  function hideHint() {
+    var h = askLog.querySelector(".ask-hint");
+    if (h) { h.remove(); }
+  }
+
+  function pushMsg(role, text) {
+    var node = document.createElement("div");
+    node.className = "msg " + (role === "user" ? "user" : "bot");
+    if (role === "user") {
+      node.textContent = text;
+    } else {
+      node.innerHTML = '<div class="who">paperatomy</div><div class="body"></div>';
+      node.querySelector(".body").innerHTML = formatText(text);
+    }
+    askLog.appendChild(node);
+    askLog.scrollTop = askLog.scrollHeight;
+    return node;
+  }
+
+  function showError(msg) {
+    var node = document.createElement("div");
+    node.className = "msg err";
+    node.textContent = msg;
+    askLog.appendChild(node);
+    askLog.scrollTop = askLog.scrollHeight;
+  }
+
+  function send(question) {
+    if (ASK.busy || !ASK.live) { return; }
+    var q = (question || askText.value || "").trim();
+    if (!q) { return; }
+
+    askText.value = "";
+    askText.style.height = "auto";
+    hideHint();
+
+    pushMsg("user", q);
+    ASK.history.push({ role: "user", content: q });
+
+    var ctx = ASK.ctx.map(function (c) { return { title: c.title, text: c.text }; });
+    ASK.ctx = [];
+    renderChips();
+
+    var bubble = pushMsg("bot", "").querySelector(".body");
+    var caret = document.createElement("span");
+    caret.className = "caret";
+    bubble.appendChild(caret);
+
+    ASK.busy = true;
+    askSend.disabled = true;
+
+    var answer = "";
+    var painted = Date.now();
+
+    fetch("/api/ask", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        question: q,
+        context: ctx,
+        history: ASK.history.slice(-8, -1)
+      })
+    }).then(function (res) {
+      if (!res.ok || !res.body) { throw new Error("HTTP " + res.status); }
+      var reader = res.body.getReader();
+      var decoder = new TextDecoder();
+      var buffer = "";
+
+      // 增量是逐 token 来的，每来一个就重排会卡。
+      // 攒到 70ms 才画一次，结束时无论如何再画一遍——
+      // 「最终值必须由确定的一步给出」，这条上一版在数字滚动上踩过。
+      function pump() {
+        return reader.read().then(function (chunk) {
+          if (chunk.done) { return; }
+          buffer += decoder.decode(chunk.value, { stream: true });
+          var blocks = buffer.split("\n\n");
+          buffer = blocks.pop();
+          blocks.forEach(function (raw) {
+            raw.split("\n").forEach(function (line) {
+              if (line.indexOf("data:") !== 0) { return; }
+              var obj;
+              try { obj = JSON.parse(line.slice(5).trim()); } catch (err) { return; }
+              if (obj.delta) {
+                answer += obj.delta;
+                if (Date.now() - painted > 70) {
+                  painted = Date.now();
+                  bubble.innerHTML = formatText(answer);
+                }
+              }
+              if (obj.error) { showError(obj.error); }
+            });
+          });
+          return pump();
+        });
+      }
+      return pump();
+    }).catch(function (err) {
+      showError("连不上本地服务：" + (err && err.message ? err.message : err));
+    }).then(function () {
+      if (caret.parentNode) { caret.remove(); }
+      if (answer) {
+        bubble.innerHTML = formatText(answer);
+        ASK.history.push({ role: "assistant", content: answer });
+      }
+      ASK.busy = false;
+      askSend.disabled = false;
+      askLog.scrollTop = askLog.scrollHeight;
+    });
+  }
+
+  function initAsk() {
+    if (!ASK_CFG) {
+      askFab.classList.add("offline");
+      askSub.textContent = "未连接本地服务";
+      askText.disabled = true;
+      askSend.disabled = true;
+      askText.placeholder = "需要在本地运行 paperatomy serve";
+      askLog.innerHTML =
+        '<div class="ask-hint"><b>提问需要本地服务。</b><br>' +
+        "这份报告是静态文件：它没有模型凭据，也不会替你花钱。在终端里跑——" +
+        '<div style="font-family:var(--mono);font-size:12px;background:#fff;' +
+        'border:1px solid var(--line);border-radius:6px;padding:7px 10px;margin-top:9px">' +
+        "paperatomy serve out/报告.json" + "</div>" +
+        "然后打开它给出的地址，这个按钮就能用了。报告里的证据定位、中英对照不用服务也能看。</div>";
+      return;
+    }
+    ASK.live = true;
+    askSub.innerHTML = "<b>●</b> 已连接 · 只依据这篇论文";
+    askLog.innerHTML =
+      '<div class="ask-hint"><b>报告先回答了「一般读者会问什么」。</b><br>' +
+      "剩下的疑问在这里问。答案只从这篇论文的材料里来，找不到它会说找不到。" +
+      '<a class="ask-eg" data-q="这篇论文最核心的贡献是什么？用三句话说清。">' +
+      "试试：核心贡献是什么</a></div>";
+    askText.disabled = false;
+    askSend.disabled = false;
+  }
+
+  askFab.addEventListener("click", function () {
+    if (askPanel.classList.contains("open")) { closeAsk(); } else { openAsk(); }
+  });
+  askClose.addEventListener("click", closeAsk);
+  askSend.addEventListener("click", function () { send(); });
+
+  askText.addEventListener("keydown", function (e) {
+    // Enter 发送、Shift+Enter 换行——聊天框的通用约定
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      send();
+    }
+  });
+  askText.addEventListener("input", function () {
+    askText.style.height = "auto";
+    askText.style.height = Math.min(askText.scrollHeight, 132) + "px";
+  });
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && askPanel.classList.contains("open")) { closeAsk(); }
+  });
+
+  // 全部走委托：卡片是 innerHTML 生成的，逐个绑定会漏
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest("[data-ask]");
+    if (btn) {
+      e.preventDefault();
+      e.stopPropagation();   // 否则会触发卡片折叠
+      addContext(btn.getAttribute("data-ask"));
+      return;
+    }
+    var drop = e.target.closest("[data-drop]");
+    if (drop) {
+      e.stopPropagation();
+      ASK.ctx.splice(Number(drop.getAttribute("data-drop")), 1);
+      renderChips();
+      return;
+    }
+    var eg = e.target.closest("[data-q]");
+    if (eg) {
+      e.preventDefault();
+      send(eg.getAttribute("data-q"));
+    }
+  });
+
+  initAsk();
+
+  // 打开 http://127.0.0.1:8770/#ask 直接展开面板，省一次点击
+  if (location.hash === "#ask" && ASK.live) { openAsk(); }
+
 })();
 </script>
 </body>

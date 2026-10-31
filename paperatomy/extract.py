@@ -59,7 +59,8 @@ _SCHEMA_HINT = """\
       "block_id": "板块 id，必须来自给定列表",
       "content": "这一块的内容",
       "evidence": [
-        {"page": 3, "quote": "原文摘录，保持原语言不翻译"}
+        {"page": 3, "quote": "原文摘录，保持原语言不翻译",
+         "quote_zh": "上面这句摘录的中文译文；原文是中文时留空"}
       ],
       "confidence": "high | medium | low"
     }
@@ -68,7 +69,9 @@ _SCHEMA_HINT = """\
 
 规则：
 1. findings 必须覆盖所有必填板块，block_id 不能自创，也不能改字。
-2. evidence.page 用材料里 [page N] 标记的数字；quote 从原文直接复制，不要翻译、不要改写。
+2. evidence.page 用材料里 [page N] 标记的数字；quote 从原文直接复制，不要翻译、不要改写、
+   不要拼接两处不相邻的话。quote_zh 是这条摘录的中文译文，要完整通顺地译出，
+   不要省略、不要加解释；原文本身就是中文时，quote_zh 写空字符串。
 3. confidence 反映你在材料中找到的直接支撑程度：
    high = 原文有明确陈述；medium = 需要归纳；low = 推断为主或材料不足。
 4. content 只写这一块要求的范围，不要越界替别的板块作答。
@@ -199,13 +202,8 @@ def parse_response(
 
         evidence: list[Evidence] = []
         for ev in item.get("evidence") or []:
-            if isinstance(ev, dict):
-                evidence.append(Evidence(
-                    page=_as_int(ev.get("page")),
-                    quote=str(ev.get("quote", "") or "").strip(),
-                ))
-            elif isinstance(ev, str) and ev.strip():
-                evidence.append(Evidence(page=0, quote=ev.strip()))
+            if isinstance(ev, dict) or isinstance(ev, str):
+                evidence.append(Evidence.from_dict(ev))
 
         confidence = str(item.get("confidence", "medium") or "medium").lower()
         if confidence not in ("high", "medium", "low"):

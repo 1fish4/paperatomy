@@ -126,8 +126,10 @@ def _chain_lines(chain: Chain) -> list[str]:
             out.extend("   " + line for line in _taxonomy_lines(node.root, 0))
 
         for ev in node.evidence:
-            loc = f"p.{ev.page}" if ev.page else "页码未标注"
-            out.append(f"   - _{loc}：{ev.quote}_")
+            mark = "　⚠ 未在原文定位" if ev.verified is False else ""
+            out.append(f"   - _{ev.locator}_{mark}：{ev.quote}")
+            if ev.quote_zh and ev.quote_zh != ev.quote:
+                out.append(f"     {ev.quote_zh}")
         out.append("")
     return out
 
@@ -194,10 +196,15 @@ def to_markdown(
             lines.append("<details><summary>原文依据</summary>")
             lines.append("")
             for ev in finding.evidence:
-                loc = f"p.{ev.page}" if ev.page else "页码未标注"
                 quote = ev.quote.replace("\n", " ").strip()
-                if quote:
-                    lines.append(f"- **{loc}** — {quote}")
+                if not quote:
+                    continue
+                mark = "　⚠ 未在原文定位到原话" if ev.verified is False else ""
+                lines.append(f"- **{ev.locator}**{mark}")
+                lines.append(f"  - 原文：{quote}")
+                if ev.quote_zh and ev.quote_zh != ev.quote:
+                    zh = ev.quote_zh.replace("\n", " ").strip()
+                    lines.append(f"  - 译文：{zh}")
             lines.append("")
             lines.append("</details>")
             lines.append("")
@@ -233,9 +240,7 @@ def to_json(
                 "block_id": f.block_id,
                 "content": f.content,
                 "confidence": f.confidence,
-                "evidence": [
-                    {"page": e.page, "quote": e.quote} for e in f.evidence
-                ],
+                "evidence": [e.to_dict() for e in f.evidence],
             }
             for f in extraction.findings
         ],
@@ -282,9 +287,7 @@ def to_html(
                 "content": "" if empty else finding.content,
                 "confidence": "medium" if empty else finding.confidence,
                 "empty": empty,
-                "evidence": [] if empty else [
-                    {"page": e.page, "quote": e.quote} for e in finding.evidence
-                ],
+                "evidence": [] if empty else [e.to_dict() for e in finding.evidence],
             })
         if blocks:
             groups.append({"name": name or "未分组", "blocks": blocks})
