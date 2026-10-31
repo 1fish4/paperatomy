@@ -110,7 +110,7 @@
   <div class="kicker">paperatomy · 论文解剖</div>
   <h1>把一篇论文拆成一张结构图</h1>
   <p class="lede">不是和它聊天，是让它自己交代清楚：研究问题、背景、方法、数据、结论、局限。</p>
-  <p class="sub">每块都附页码与原文摘录，可以逐条核对。方法流程与分类框架还能逐段播放。</p>
+  <p class="sub">每块都附「§章节 · 第几段 · 页码」与原文摘录（配中文译文），可以逐条核对；读完还有疑问，就在页面里直接追问。</p>
 
   <h2>在线示例</h2>
   <div class="demos">
@@ -145,20 +145,39 @@
 
   <h2>它长什么样</h2>
   <div class="shot"><img src="images/report-survey.png" alt="综述报告效果"></div>
-  <p class="cap">正文每一块底部列出原文页码与摘录；低置信度的判断会单独标出。</p>
+  <p class="cap">正文每一块底部列出「§章节 · 第几段 · 页码」与原文摘录（英文原话 + 中文译文）；在原文里找不到原话的引文会打「未核实」标记，不混进正常证据里。</p>
+
+  <h2>证据细到「第几章第几段」</h2>
+  <p style="color:var(--ink2);margin:0 0 24px">
+    只给页码，你还得在一整页两栏里自己找；让模型自报段号，它数不准——它看到的文本没有段落边界。
+    所以这件事由程序做：<b>解析时就把全文切段编号，模型只负责逐字抄回原话，
+    程序拿引文回原文匹配，命中哪段就报哪段</b>。匹配不上本身就是信息：
+    那条引文多半是模型改写的，会被标出来，而不是混在正常证据里。
+    一篇 35 页综述实测：42 条证据定位成功 40 条，未命中的逐条检查确认都是改写。
+    英文摘录下面直接给中文译文，核对时不用切出去查翻译。
+  </p>
+
+  <h2>读完还有疑问？当场问</h2>
+  <p style="color:var(--ink2);margin:0 0 24px">
+    本地运行 <code>paperatomy serve out/paper.json</code>，报告页右下角就是提问入口；
+    每个板块右上角的「追问」按钮把那块内容直接带进对话。
+    答案<b>只用这篇论文的材料</b>，材料里没有的它会明说「论文没提到」；
+    材料被压缩过的部分它会建议你看原文页码，而不是猜。key 留在本地配置里，
+    页面只跟 127.0.0.1 通信——静态托管的这份示例因此没有提问功能，这是有意的。
+  </p>
 
   <h2>这台机器上跑出来的数</h2>
   <div class="facts">
-    <div class="fact"><b>35 页</b><span>单篇综述，8 个章节全部识别</span></div>
+    <div class="fact"><b>40 / 42</b><span>证据在原文定位成功（含章节与段号）</span></div>
     <div class="fact"><b>25 秒</b><span>论证链抽取，含一轮自动修复</span></div>
-    <div class="fact"><b>8 个</b><span>链条节点，从资源代价到精度代价</span></div>
+    <div class="fact"><b>3 秒</b><span>页面内追问的首次回答（流式）</span></div>
   </div>
 
   <h2>为什么不是「和 PDF 聊天」</h2>
   <p style="color:var(--ink2);margin:0 0 24px">
-    聊天工具要求你先知道该问什么 —— 而「不知道该问什么」正是读不懂的状态。
-    这里骨架是预设的，打开即完整，不需要你提问。
-    另外每句话都有出处：聊天给你一段话，你不知道它从哪来。
+    聊天是一问一答，没有骨架；回答不带出处，你不知道它说的是论文的话还是它自己编的。
+    这里先把骨架给全，打开即完整；你自己的疑问再进对话问，
+    而对话的答案同样受证据约束——找不到原文依据就承认找不到。
   </p>
 
   <h2>三条不许破的规矩</h2>
@@ -176,7 +195,9 @@ pip install -e ".[dev]"
 
 paperatomy config set --api-key sk-xxx --model deepseek-chat
 paperatomy extract paper.pdf -t survey -l zh -o out/paper
-paperatomy chain out/paper.json     # 已有报告单独补论证链</code></pre>
+paperatomy chain out/paper.json     # 已有报告单独补论证链
+paperatomy locate out/paper.json    # 给旧报告补证据定位（不调模型，零成本）
+paperatomy serve out/paper.json     # 起本地服务，报告页里直接追问</code></pre>
   <p style="font-size:13.5px;color:var(--ink3)">
     产出三个文件：<code>.json</code>（结构化）、<code>.md</code>（贴笔记）、
     <code>.html</code>（单文件报告，含可播放的演示）。
@@ -188,7 +209,7 @@ paperatomy chain out/paper.json     # 已有报告单独补论证链</code></pre
   </div>
 
   <footer>
-    <span>MIT 协议 · 81 项测试</span>
+    <span>MIT 协议 · 124 项测试</span>
     <span>
       <a href="https://github.com/1fish4/paperatomy">GitHub</a> ·
       <a href="https://gitee.com/not-even-xianyu-can-handle-it/paperatomy">Gitee</a>

@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "paperatomy"
-version = "0.3.0"
-description = "把一篇论文解剖成结构图与一条可播放的论证链：每块带原文出处，链条由论文自己决定"
+version = "0.4.0"
+description = "把一篇论文解剖成结构图与一条可播放的论证链：证据细到章节与段号，中英对照，页面内可追问"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }

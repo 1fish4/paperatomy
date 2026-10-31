@@ -319,6 +319,10 @@
     background: rgba(111,179,217,.22); border-color: #6FB3D9;
     color: #fff; font-weight: 600;
   }
+  /* 改动前的高亮走暖色，和左侧那一栏的边框同色系 */
+  .delta-col.before .dg-bl.hl {
+    background: rgba(232,131,107,.2); border-color: #E8836B;
+  }
 
   .dg-text { margin: 0; font-size: 12.5px; line-height: 1.65; color: #A9BACC; }
 
@@ -409,6 +413,202 @@
     article.card { break-inside: avoid; border-color: #ccc; }
     .c-body { display: block !important; }
   }
+
+  /* ---------- 证据：章节 · 段号 · 中英对照 ---------- */
+  /* 从「p.13」升级到「§4.2 · 第 3 段 · p.11」：页码只告诉你在哪一页，
+     段号才告诉你在哪一段。英文原文保留，中文译文放在下面一行。 */
+  .ev-item {
+    display: block;
+    margin-bottom: 14px; padding-left: 12px;
+    border-left: 2px solid var(--line2);
+  }
+  .ev-item:last-child { margin-bottom: 0; }
+  .ev-loc {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+    margin-bottom: 5px;
+  }
+  .ev-loc .chip {
+    font-family: var(--mono); font-size: 11px; color: var(--accent);
+    background: var(--soft); border-radius: 5px; padding: 1px 7px;
+  }
+  .ev-loc .sec {
+    font-size: 11.5px; color: var(--ink3);
+    max-width: 30ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .ev-loc .raw {
+    font-size: 10.5px; color: var(--warn); background: var(--warnSoft);
+    border-radius: 5px; padding: 0 6px; white-space: nowrap;
+  }
+  .ev-src {
+    font-size: 12.5px; line-height: 1.62; color: var(--ink3);
+    font-style: italic; margin-bottom: 3px;
+  }
+  .ev-zh { font-size: 13.5px; line-height: 1.72; color: var(--ink2); }
+  .ev-zh.none { color: var(--ink3); font-size: 12.5px; }
+
+  /* ---------- 追问：悬浮按钮与侧栏 ---------- */
+  .ask-fab {
+    position: fixed; right: 26px; bottom: 26px; z-index: 60;
+    width: 52px; height: 52px; border-radius: 50%;
+    border: none; cursor: pointer; padding: 0;
+    background: linear-gradient(150deg, #3C87A8, #2E6F8E);
+    color: #fff; display: grid; place-items: center;
+    box-shadow: 0 8px 22px rgba(46,111,142,.34), 0 2px 6px rgba(0,0,0,.10);
+    transition: transform .18s cubic-bezier(.2,.8,.3,1), box-shadow .18s;
+  }
+  .ask-fab:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(46,111,142,.42); }
+  .ask-fab:active { transform: translateY(0) scale(.97); }
+  .ask-fab svg { width: 23px; height: 23px; }
+  .ask-fab .dot {
+    position: absolute; top: 7px; right: 8px; width: 9px; height: 9px;
+    border-radius: 50%; background: #F0B26B; border: 2px solid #FFFDFA;
+    opacity: 0; transition: opacity .2s;
+  }
+  .ask-fab.has-ctx .dot { opacity: 1; }
+  .ask-fab.offline { background: linear-gradient(150deg, #99A2AE, #7E8792); }
+
+  .ask-panel {
+    position: fixed; top: 0; right: 0; bottom: 0; z-index: 70;
+    width: 432px; max-width: 100vw;
+    background: #FFFDFA; border-left: 1px solid var(--line);
+    box-shadow: -20px 0 60px rgba(24,34,44,.14);
+    display: none; flex-direction: column;
+  }
+  /* 显隐用 display 控制，动画只做入场装饰。
+     用 transition 做显隐的写法，一旦过渡没跑完，元素就停在隐藏态——
+     任何「最终状态由动画给出」的写法都不安全。 */
+  .ask-panel.open { display: flex; }
+
+  .ask-head {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 18px 20px 14px; border-bottom: 1px solid var(--line);
+  }
+  .ask-title { font-size: 15px; font-weight: 600; letter-spacing: -.01em; }
+  .ask-sub {
+    font-size: 11.5px; color: var(--ink3); margin-top: 3px;
+    font-family: var(--mono);
+  }
+  .ask-sub b { color: var(--ok); font-weight: 500; }
+  .ask-close {
+    margin-left: auto; flex: none; width: 28px; height: 28px;
+    border: 1px solid var(--line); background: #fff; border-radius: 8px;
+    color: var(--ink3); font-size: 17px; line-height: 1; cursor: pointer;
+    transition: all .16s;
+  }
+  .ask-close:hover { color: var(--ink); border-color: #D8D1C3; }
+
+  .ask-log {
+    flex: 1; overflow-y: auto; padding: 18px 20px 6px;
+    display: flex; flex-direction: column; gap: 14px;
+    scroll-behavior: smooth;
+  }
+  .ask-hint {
+    color: var(--ink3); font-size: 13px; line-height: 1.75;
+    background: var(--bg); border: 1px dashed var(--line);
+    border-radius: 10px; padding: 14px 16px;
+  }
+  .ask-hint b { color: var(--ink2); font-weight: 600; }
+  .ask-eg {
+    display: block; margin-top: 8px; font-size: 12.5px;
+    color: var(--accent); cursor: pointer; text-decoration: none;
+  }
+  .ask-eg:hover { text-decoration: underline; }
+
+  .msg { font-size: 14px; line-height: 1.78; }
+  .msg.user {
+    align-self: flex-end; max-width: 88%;
+    background: var(--soft); color: var(--ink);
+    border-radius: 12px 12px 3px 12px; padding: 9px 14px;
+  }
+  .msg.bot {
+    align-self: flex-start; max-width: 100%;
+    color: var(--ink2);
+  }
+  .msg.bot .who {
+    font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--ink3); font-family: var(--mono); margin-bottom: 5px;
+  }
+  .msg.bot p { margin: 0 0 9px; }
+  .msg.bot p:last-child { margin-bottom: 0; }
+  .msg.err { color: var(--warn); background: var(--warnSoft);
+             border-radius: 10px; padding: 10px 13px; font-size: 13px; }
+  .caret {
+    display: inline-block; width: 7px; height: 15px; margin-left: 2px;
+    background: var(--accent2); vertical-align: -2px;
+    animation: blink 1s steps(2) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .ask-ctx { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 20px; }
+  .ask-ctx:not(:empty) { padding-top: 10px; }
+  .ctx-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11.5px; color: var(--accent);
+    background: var(--soft); border-radius: 999px; padding: 3px 6px 3px 10px;
+    max-width: 100%;
+  }
+  .ctx-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 22ch; }
+  .ctx-chip button {
+    border: none; background: rgba(46,111,142,.12); color: var(--accent);
+    width: 16px; height: 16px; border-radius: 50%; cursor: pointer;
+    font-size: 12px; line-height: 1; padding: 0; flex: none;
+  }
+  .ctx-chip button:hover { background: rgba(46,111,142,.24); }
+
+  .ask-input {
+    display: flex; gap: 8px; align-items: flex-end;
+    padding: 12px 20px 18px; border-top: 1px solid var(--line);
+    margin-top: 10px;
+  }
+  .ask-input textarea {
+    flex: 1; resize: none; border: 1px solid var(--line); border-radius: 10px;
+    padding: 9px 12px; font-family: var(--sans); font-size: 13.5px;
+    line-height: 1.6; color: var(--ink); background: #fff;
+    max-height: 132px; outline: none; transition: border-color .16s;
+  }
+  .ask-input textarea:focus { border-color: var(--accent2); }
+  .ask-input textarea:disabled { background: var(--bg); color: var(--ink3); }
+  .ask-send {
+    flex: none; width: 38px; height: 38px; border-radius: 10px;
+    border: none; cursor: pointer; background: var(--accent); color: #fff;
+    display: grid; place-items: center; transition: background .16s, opacity .16s;
+  }
+  .ask-send:hover:not(:disabled) { background: #255B75; }
+  .ask-send:disabled { opacity: .4; cursor: not-allowed; }
+  .ask-send svg { width: 17px; height: 17px; }
+
+  /* 「追问」小按钮：挂在每个板块与论证链节点上 */
+  .ask-btn {
+    flex: none; border: 1px solid var(--line); background: #fff;
+    color: var(--ink3); font-size: 11.5px; line-height: 1;
+    padding: 4px 9px; border-radius: 999px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 4px;
+    transition: all .16s; white-space: nowrap;
+  }
+  .ask-btn:hover { color: var(--accent); border-color: var(--accent2); background: var(--soft); }
+  .ask-btn svg { width: 11px; height: 11px; }
+  .ask-btn.dark {
+    background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.16);
+    color: rgba(233,239,246,.66);
+  }
+  .ask-btn.dark:hover { background: rgba(111,179,217,.18); border-color: rgba(143,210,240,.5); color: #DCEAF6; }
+  .cd-head .ask-btn { margin-left: auto; }
+
+  /* 论证链里的证据改成竖排：中英要两行，横排放不下 */
+  .cd-ev {
+    margin-top: 11px; display: flex; flex-direction: column; gap: 3px;
+    font-size: 11.5px; color: #7A8B9D;
+    border-left: 2px solid rgba(143,210,240,.22); padding-left: 10px;
+  }
+  .cd-ev b { color: #8FD2F0; font-family: var(--mono); font-weight: 500; }
+  .cd-ev span { font-style: italic; }
+  .cd-ev .zh { font-style: normal; color: #C3D2E0; }
+
+  @media (max-width: 640px) {
+    .ask-panel { width: 100%; }
+    .ask-fab { right: 16px; bottom: 16px; }
+  }
+
 </style>
 </head>
 <body>
@@ -431,7 +631,44 @@
   </footer>
 </div>
 
-<script id="paper-data" type="application/json">{"paper_title":"Resource-efficient Algorithms and Systems of Foundation Models: A Survey","template_name":"综述","model":"deepseek-chat","lang":"zh","pages":35,"blocks":8,"groups":[{"name":"概览","blocks":[{"id":"tl_dr","title":"一句话结论","content":"该综述覆盖大基础模型（LLM、ViT、扩散模型、多模态模型）的资源高效算法与系统，按模型架构、算法（预训练/微调/推理/压缩）、系统（分布式训练/云边服务）三条主线组织，旨在降低训练与部署的算力、内存、存储和带宽开销而不牺牲性能。","confidence":"high","empty":false,"evidence":[{"page":1,"quote":"This survey delves into the critical importance of such research, examining both algorithmic and systemic aspects."}]},{"id":"scope","title":"收录范围","content":"领域边界：仅涵盖算法与系统创新，明确排除硬件设计；资源定义限于物理资源（计算、内存、存储、带宽等），排除训练数据（标签）与隐私；文献主要来自CSRankings顶会及arXiv高影响力论文；时间上主要收录2020年之后的论文。未给出具体文献数量统计。","confidence":"high","empty":false,"evidence":[{"page":2,"quote":"We survey only algorithm and system innovations; we exclude a huge body of work at hardware design;"},{"page":2,"quote":"The definition of resource in this survey is limited to mainly physical ones, including computing, memory, storage, bandwidth, etc; we exclude training data (labels) and privacy that can also be regarded as resources;"},{"page":2,"quote":"We mainly survey papers published on top-tier CS conferences, i.e., those included in CSRankings. We also manually pick related and potentially high-impact papers from arXiv."},{"page":2,"quote":"We mainly survey papers published after the year of 2020, since the innovation of AI is going fast with old knowledge and methods being overturned frequently."}]},{"id":"problem","title":"领域要解决的问题","content":"整个领域的问题：基础模型的可扩展性带来巨大资源需求（算力、内存、存储、带宽），且训练与部署集中在少数大厂云端，导致隐私难以保护、设备端难以运行大模型。领域卡在如何在不牺牲性能的前提下降低资源足迹，并推动模型向边缘/设备下沉。具体到方法层面：注意力机制二次复杂度导致长序列训练/推理瓶颈；预训练需万亿级token与巨大算力；微调全参数成本高；自回归解码效率低；KV cache内存开销大；量化中激活异常值导致精度下降；分布式训练面临故障、通信、存储与异构GPU挑战；端侧推理受内存墙与I/O限制。","confidence":"high","empty":false,"evidence":[{"page":1,"quote":"However, the scalability comes at a cost of huge resource demand."},{"page":2,"quote":"Till the end of 2023, there are only a few major players capable of training and deploying the state-of-the-art FMs, who thereby have powerful control over the public and can potentially manipulate them in a way they prefer."},{"page":4,"quote":"The attention mechanism in large FMs faces significant computational bottlenecks primarily due to its quadratic complexity."},{"page":10,"quote":"Pre-training for large FMs relies on a substantial amount of computation resources. For instance, GPT-3-175B consumes 3.14×10^23 FLOPs and LLaMA-70B takes 1.7×10^6 GPU hours."},{"page":18,"quote":"Compared to traditional DNNs, LLMs exhibit a higher frequency of activation outliers, which are crucial for maintaining model accuracy. Standard quantization often removes these outliers, leading to a significant performance drop."}]}]},{"name":"框架","blocks":[{"id":"taxonomy","title":"分类框架","content":"作者按“架构→算法→系统”三层组织，每层再细分。\n\n一、资源高效架构（第3节）：\n1. 高效注意力：稀疏注意力（Longformer、ETC、BIGBIRD、HEPOS、MATE、TDANet）；近似注意力（Linformer、Reformer、Katharopoulos等、Polysketchformer、Mega、Deformable Attention、CrossViT）；无注意力方法（Hyena、SSM/Mamba、Recurrent-Style Transformers、RWKV、RetNet）。\n2. 动态神经网络：Mixture-of-Experts（Switch Transformer、GLaM、V-MoE、LIMoE、Mistral1、MoEfication、Sparse upcycling、FFF）；Early Exiting（He et al.等）。\n3. 扩散模型优化：高效扩散（DDIM、PNDM、DPM-Solver）；潜空间扩散（LDM/Stable Diffusion、LD-ZNet、SALAD）；扩散架构变体（SnapFusion、ScaleCrafter、ERNIE-ViLG、Mobile diffusion）。\n4. ViT专用优化（LeViT、MobileViT、EfficientFormer、EfficientViT、FastViT、LightViT、EdgeViT）。\n\n二、资源高效算法（第4节，按生命周期分）：\n1. 预训练算法：训练数据质量控制（DataComp、DFN、DataCompDR）、训练数据缩减（去重、图像块移除：TRIPS、MAE、MixMAE、COPA、PatchDropout）、渐进学习（Stacking BERT、CompoundGrow、Staged training、Knowledge inheritance、AutoProg、LiGO）、混合精度训练（Mesa、GACT）。\n2. 微调算法：加性调优（Adapter tuning：ADA、MetaTroll、ST-Adapter、HiWi、AdaMix、MEFT、Residual Adapters；Prompt tuning：PromptTuning、ATTEMPT、BioInstruct、DualPL、MPrompt；Prefix tuning：UAPT、Prefix-diffusion、DOP、DAPA、PIP）；选择性调优（SAM、SmartFRZ、FiSH-DiP、Token Mixing、VL-PET）；重参数调优（LoRA及其变体：QLoRA、PEQA、QALoRA、LoftQ、GLoRA、PELA、LongLoRA、LBP-WHT、DSEE、Delta-LoRA、PiSSA、DoRA、LoRA+）。\n3. 推理算法：机会解码（Speculative decoding、SpecTr、ProphetNet、Draft & Verify、Medusa、Look-ahead decoding、SpecInfer、LLMCad）；输入过滤与压缩（Prompt压缩：LLMLingua、EntropyRank、LLMZip、AutoCompressors、ICAE、Nugget 2D、CoT-Max；Token剪枝：PoWER-BERT、Length-Adaptive Transformer、TR-BERT、DynamicViT、AdaViT、A-ViT、SPViT、PuMer）；KV cache（H2O、Dynamic Context Pruning、Scissorhands、Landmark Attention）；长上下文（LM-Infinite、StreamingLLM、PCW、LongNet、SLED）。\n4. 模型压缩：剪枝（结构化/非结构化/上下文剪枝）、知识蒸馏（白盒KD：MiniLLM、GKD、TED；黑盒KD：Meta-ICL、Metal-ICL、Multitask-ICT、Fine-tune-CoT等）、量化（QAT：LLM-QAT、QuantGPT、BitNet；PTQ：仅权重量化如SpQR、LLM.int8()、AWQ、OWQ、SqueezeLLM、GPTQ、QuIP；权重-激活联合量化如SmoothQuant、RPTQ、OliVe、Outlier Suppression+、QLLM、LLM-FP4、ZeroQuant、FlexRound、ATOM）、低秩分解（TensorGPT、LoSparse、ViTALiTy等）。\n\n三、资源高效系统（第5节）：\n1. 分布式训练：容错（Varuna、Gemini、Bamboo、activation checkpointing、Oobleck）、并行（数据并行/DeepSpeed ZeRO、模型并行/张量并行与流水线并行、序列并行、Galvatron）、通信优化、存储优化（ZeRO-Offload、FlashNeuron、Behemoth）、异构GPU（Hetpipe、Whale）、MoE训练系统（MegaBlocks、Brainstorm、FlexMoE、Tutel、SmartMoE、Janus、MoE-Mamba）。\n2. 硬件感知优化（EdgeBERT、FlightLLM、SpAtten、A3）。\n3. 云端服务：调度（Sarathi-Serve、dLoRA）、内存节省（DeepSpeed-Inference、FlexGen、vLLM/PagedAttention、S-LoRA、SGLang）、新兴平台（SpotServe、HexGen）。\n4. 边缘服务：边云协同（EdgeFM）、端侧MoE（EdgeMoe、PC-MoE）、内存优化（LLMCad、PowerInfer）、I/O优化（STI、LLM in a flash）、内核优化（llm.npu等）。","confidence":"high","empty":false,"evidence":[{"page":5,"quote":"As summarized in Fig. 3, numerous efforts have been invested to mitigate the huge resource cost of attention-based transformer architecture."},{"page":9,"quote":"This section focuses on resoruce-efficient large FMs techniques at the algorithm level. Compared to traditional DNNs, large FMs exhibit new characteristics such as its huge parameter set and autoregressive inference. This disparity has led to the emergence of numerous resource-efficient algorithms, which are categorized based on the lifecycle of FMs: pre-training, fine-tuning, serving algorithms, and model compression."},{"page":20,"quote":"This section investigates the system research to enable resource-efficient large FMs, notable at four aspects: (1) distributed training; (2) hardware-aware optimizations; (3) serving in cloud, and (4) serving in edge."}]},{"id":"comparison","title":"各类方法对比","content":"论文未提供统一的实验对比表格，各方法结果来自不同论文、不同设置，不可直接比较。以下按类归纳核心思路、优势、局限与适用场景（基于原文描述）。\n\n1. 高效注意力：稀疏注意力降低复杂度至线性，但可能损失精度；近似注意力（低秩、核方法）减少内存但引入近似误差；无注意力架构（Mamba、RWKV、RetNet）实现线性复杂度，Mamba比Transformer快5倍，RetNet训练内存节省25-50%、加速7倍，但可能牺牲通用性。适用长序列场景。\n2. 动态神经网络：MoE以稀疏激活扩展参数，Switch Transformer达万亿参数、2048专家；V-MoE 15B参数匹配稠密模型且训练时间更少；Sparse upcycling减少约50%预训练成本；FFF比原FFN快220倍但约5%精度损失。局限：路由与负载均衡开销。Early exiting在置信度高时提前终止，但需设计退出策略。\n3. 扩散优化：DDIM加速采样；DPM-Solver仅需10-20步去噪；LDM在潜空间扩散大幅降低内存；SnapFusion在移动端2秒内生成512×512图像。局限：生成质量与步数权衡。\n4. ViT专用：LeViT、MobileViT、EfficientFormer等混合CNN-Transformer实现轻量；EfficientViT线性注意力在超分任务比Restormer快6.4倍。局限：针对视觉任务定制。\n5. 预训练算法：数据去重减少训练步数；渐进学习复用计算；混合精度减半内存。局限：需调整训练流程。\n6. 微调算法：加性调优（Adapter/Prompt/Prefix）冻结主干，成本低但可能不如全微调；选择性调优更新少量参数；重参数调优（LoRA）最流行，但存在性能差距，Delta-LoRA、PiSSA、DoRA、LoRA+等改进收敛与性能。\n7. 推理算法：投机解码在T5X上提升2-3倍，SpecTr壁钟时间提升2.13倍；Token剪枝动态减少计算；KV cache驱逐策略H2O降低延迟1.9倍、吞吐提升29倍，Scissorhands减少5倍KV内存；长上下文方法支持128k至1B token。局限：可能影响生成质量。\n8. 模型压缩：剪枝需重训练；蒸馏分白盒/黑盒，黑盒依赖API；量化中QAT成本高，PTQ易部署但无反馈调整，GPTQ可将175B模型量化至3-4比特而精度损失小；低秩分解压缩率高（TensorGPT嵌入层压缩38.40倍）。\n9. 系统：分布式训练并行策略混合使用，Galvatron自动选择；容错方法各有开销；云端服务vLLM的PagedAttention优化KV内存；边缘服务受内存墙限制，PowerInfer利用稀疏性。","confidence":"medium","empty":false,"evidence":[{"page":5,"quote":"The time and space complexity comparison is shown in Table 1."},{"page":6,"quote":"Mamba seamlessly integrates selective SSMs into a streamlined neural network architecture, eliminating attention and MLP blocks. This model achieves a notable 5× speed increase over traditional transformers and exhibits linear scaling with sequence length."},{"page":6,"quote":"RetNet introduces an architecture that replaces multi-head attention with a multi-scale retention mechanism. During training, RetNet demonstrates a 25-50% memory saving and a 7× acceleration compared to the standard Transformer."},{"page":13,"quote":"Yaniv et al. [141] report a 2–3× improvement in performance using speculative decoding on the T5X model, while a concurrent study [36] demonstrates similar speedups on a 70B Chinchilla model."},{"page":14,"quote":"H2O demonstrates the capability to reduce latency by up to 1.9× and increase throughput by 29×."},{"page":15,"quote":"Scissorhands utilizes an innovative compact KV cache and results in a notable reduction in KV cache inference memory usage, achieving up to a 5× reducation while maintaining model quality."},{"page":18,"quote":"GPTQ reduces the bit-width of each weight to 3 or 4 bits, allowing quantization of GPT models with 175 billion parameters with minimal accuracy loss."}]}]},{"name":"结论","blocks":[{"id":"consensus","title":"领域现状与共同前提","content":"论文未集中汇总领域共识，但从多处可归纳出以下共享前提与默认做法：(1) 大多数基础模型基于Transformer架构，其注意力二次复杂度是主要瓶颈，因此大量工作围绕降低注意力成本展开；(2) 资源效率研究普遍以不牺牲性能为前提，追求在同等精度下降低算力/内存/存储/带宽；(3) 模型压缩（剪枝、蒸馏、量化、低秩分解）是部署阶段的通用手段，其中量化因部署成本低而被广泛采用；(4) 微调阶段普遍采用参数高效微调（PEFT），LoRA被视为最流行的参数高效微调方法；(5) 系统层面普遍采用混合并行策略训练大模型，云端服务普遍关注KV cache内存管理；(6) 领域普遍承认端侧部署受内存墙和I/O限制，边云协同是常见思路。以上归纳依据分散于第3-5节及结论。","confidence":"medium","empty":false,"evidence":[{"page":4,"quote":"Since most FMs are based on transformer architecture, we briefly analyze the resource cost of it."},{"page":13,"quote":"LoRA, as the most popular parameter-efficient fine-tuning method, still exhibits performance gaps when compared to full fine-tuning."},{"page":18,"quote":"Due to its low deployment cost, PTQ is also the most easily deployable and widely applicable technique in model compression."},{"page":21,"quote":"In practice, these parallelisms are usually used in a hybrid way."},{"page":23,"quote":"Since large FMs often rely on large parameter sizes and on-device memory resources are scarce (e.g., 8GB), inferring large FMs on devices faces the challenge of “memory wall”."}]},{"id":"open","title":"开放问题与方向","content":"作者在结论中列出5条未来方向：(1) 云边混合部署：使基础模型下沉到近用户设备，实现泛在、隐私保护、高可用的通用智能；尚未解决因为模型规模与设备资源矛盾，目前仅初步将LLaMA-7B带到手机/PC，杀手级应用待探索。(2) 利用模型稀疏性：模型越大，给定任务激活比例越小，即使稠密训练的非MoE模型也存在运行时激活稀疏性；尚未解决因为需要更高效的稀疏架构（超越MoE）来利用激活稀疏性降低推理时间与内存。(3) 基础模型即服务：模型成为像Web和数据库一样的通用服务；尚未解决因为对调度、负载均衡、安全与隔离的系统基础设施提出新挑战，同时带来软硬件协同设计机会。(4) 以Agent为整体系统优化：LLM作为构建Agent的关键模块，其效率不应孤立考虑，需适配Agent工作流；尚未解决因为多模型协作存在逻辑依赖，为每个任务选择合适模型并在给定硬件上调度以最大化Agent性能的设计空间巨大。(5) 实用隐私保护基础模型：用户数据上云增加隐私担忧，现有方法包括联邦学习等；尚未解决因为隐私保护与资源效率的联合优化仍不成熟。","confidence":"high","empty":false,"evidence":[{"page":24,"quote":"(1) Cloud-edge hybrid deployment. To enable ubiquitous, privacy-preserving, and highly available general intelligence, many FMs will ultimately sink to near-user devices."},{"page":24,"quote":"(2) Exploiting the model sparsity. With model being larger, the activated ratio of model will go smaller for a given task."},{"page":24,"quote":"(3) Large FM as a service. On both clouds and devices, large FMs are unifying the DNN ecosystem [293]. Ultimately, it becomes a universal service to be invoked just as today’s Web and Database."},{"page":24,"quote":"(4) Agent as a holistic system to optimize. In the future, FMs especially LLMs will be used as a key building block for establishing agents [151, 262]."},{"page":24,"quote":"(5) Practical privacy-preserving FM. As the volume of user data uploaded to the cloud for FM processing continues to increase, the severity of privacy concerns correspondingly escalates."}]}]},{"name":"判断","blocks":[{"id":"questions","title":"值得追问的问题","content":"1. 分类框架中“架构优化”与“算法优化”存在重叠（如动态神经网络中的MoE既属架构又涉及系统训练优化，LoRA既属微调又属低秩分解压缩），作者如何保证分类互斥且完备？是否遗漏了“数据高效”这一角度（如数据选择、合成数据）？2. 综述明确排除硬件设计，但硬件感知优化（如FlightLLM、SpAtten）又被纳入系统章节，边界是否一致？排除硬件是否导致对能效（energy）这一关键资源的讨论不足？3. 结论中提出“利用模型稀疏性”作为方向，但正文对激活稀疏性的讨论仅零星提及（如PowerInfer），是否低估了稀疏性在训练和推理中的潜力？后续工作（如MoE与Mamba结合）是否已部分回应？","confidence":"low","empty":false,"evidence":[{"page":2,"quote":"We survey only algorithm and system innovations; we exclude a huge body of work at hardware design;"},{"page":21,"quote":"Some hardware-aware methods are also proposed to optimize FM."},{"page":24,"quote":"Recent literature [175] finds that even a densely trained non-MoE model exhibits runtime activation sparsity, which can be exploited to reduce inference time and memory footprint."}]}]}],"chain":{"thesis":"基础模型的能力来自规模，但规模带来巨大的算力、存储、带宽开销；本文按「架构—算法—系统」三层梳理现有工作，说明在不牺牲性能的前提下压缩这些资源开销的可行路径。","confidence":"medium","note":"综述无单一方法改动与自测数字，change/effect 落在被引代表性工作上。为满足 3–8 节点，合并了架构层与算法层的改动，并删去与主链重复的 KV cache 节点，保留其效果作为算法层证据。","nodes":[{"id":"n1","type":"problem","label":"规模换性能，资源代价高","detail":"FMs 的通用性与零样本能力随参数和数据增长，但训练与部署的硬件开销同步膨胀，只有少数机构能承担最先进模型的训练与部署。","evidence":[{"page":10,"quote":"GPT-3-175B consumes 3.14×1023FLOPs and LLaMA-70B takes 1.7×106GPU hours."}],"metric":{"value":"1.7","unit":"百万 GPU 小时","label":"LLaMA-70B 预训练开销"}},{"id":"n2","type":"insight","label":"瓶颈在注意力与 FFN","detail":"多数 FMs 基于 transformer，注意力为 O(T²D)、FFN 为 O(TD²)；实测 FFN 是最耗算力的部件，embedding 与 LM head 占存储但几乎不耗 FLOPs，因此优化要分层打在不同部件上。","evidence":[{"page":5,"quote":"the computation complexity of attention is 𝑂(𝑇2𝐷), while that of FFN is 𝑂(𝑇𝐷2)"},{"page":5,"quote":"The FFN layer is the most computationally intensive component."}]},{"id":"n3","type":"change","label":"注意力由二次改为线性","detail":"架构层把标准二次自注意力替换为稀疏注意力、近似注意力或无注意力结构（SSM/RNN 式），复杂度从 O(T²d) 降到 O(Td) 或 O(T log T d)。","evidence":[{"page":5,"quote":"Transformer [246] 𝑂(𝑇2𝑑) 𝑂(𝑇2+𝑇𝑑) ... RetNet [231] 𝑂(𝑇𝑑) 𝑂(𝑇𝑑) RWKV [207] 𝑂(𝑇𝑑) 𝑂(𝑑)"}],"before":{"kind":"blocks","items":["QK^T 全对全","Softmax","AV"],"highlight":0},"after":{"kind":"blocks","items":["稀疏/低秩近似","线性或 SSM 递推"],"highlight":1}},{"id":"n4","type":"mechanism","label":"不再计算全对全注意力矩阵","detail":"稀疏化只保留局部窗口与全局 token 的内积，近似法把注意力矩阵投影到低秩空间或用核函数结合矩阵乘法结合律，SSM 用隐状态递推替代显式注意力，从而消掉 T² 项。","evidence":[{"page":6,"quote":"decompose conventional attention into local windowed attention and task-specific global attention, effectively reducing self-attention complexity to linear."}]},{"id":"n5","type":"effect","label":"Mamba 提速 5×","detail":"Mamba 相对传统 transformer 报告 5× 加速并随序列长度线性扩展；RetNet 训练时省 25–50% 显存、加速 7×。","evidence":[{"page":6,"quote":"This model achieves a notable 5× speed increase over traditional transformers and exhibits linear scaling with sequence length."},{"page":6,"quote":"RetNet demonstrates a 25-50% memory saving and a 7× acceleration compared to the standard Transformer."}],"metric":{"value":"5","unit":"×","label":"Mamba 推理加速"}},{"id":"n6","type":"change","label":"解码改为先猜后验","detail":"算法层用 speculative decoding：小模型自回归草稿若干 token，大模型一次并行验证，把多次串行前向压成一次；KV cache 侧则按注意力分数逐出最不重要的条目。","evidence":[{"page":13,"quote":"It involves generating sequences autoregressively with a cost-efficient small model, followed by parallel token verification using a larger model."},{"page":14,"quote":"This strategy employs attention scores to identify and select the least important KV cache tokens in the current state for eviction."}],"before":{"kind":"tokens","n":8,"label":"大模型逐 token 串行","cadence":1.4},"after":{"kind":"tokens","n":8,"label":"小模型草稿 + 大模型并行验证","cadence":0.45}},{"id":"n7","type":"effect","label":"解码提速 2–3 倍","detail":"在 T5X 上报告 2–3× 提升，70B Chinchilla 上有类似加速；SpecTr 进一步达到 2.13× 墙钟加速并额外 1.37×；H2O 吞吐提升 29×、延迟降 1.9×。","evidence":[{"page":13,"quote":"Yaniv et al. [141] report a 2–3× improvement in performance using speculative decoding on the T5X model"},{"page":14,"quote":"H2O demonstrates the capability to reduce latency by up to 1.9× and increase throughput by 29×."}],"metric":{"value":"2","unit":"×","label":"T5X 解码加速（区间下界）"}},{"id":"n8","type":"cost","label":"加速伴随精度与工程代价","detail":"FFN 拆叶方案 FFF 虽快 220× 但损失约 5% 精度；量化需专门处理激活离群值否则精度显著下降；QAT 训练成本仍高；稀疏注意力未必减少 KV 显存。","evidence":[{"page":7,"quote":"being up to 220× faster than the original feed-forward layer with about 5% accuracy loss"},{"page":18,"quote":"LLMs exhibit a higher frequency of activation outliers, which are crucial for maintaining model accuracy. Standard quantization often removes these outliers, leading to a significant performance drop."},{"page":14,"quote":"most sparse attention designs ... do not necessarily lead to a reduction in KV cache memory consumption"}]}],"evidence":[],"warnings":[],"types":{"problem":{"label":"问题","color":"#E8836B"},"insight":{"label":"洞察","color":"#D9B45E"},"change":{"label":"改动","color":"#6FB3D9"},"mechanism":{"label":"机制","color":"#8FBF9F"},"effect":{"label":"效果","color":"#7ED0A8"},"cost":{"label":"代价","color":"#C58FB0"},"taxonomy":{"label":"框架","color":"#9B9BE0"},"question":{"label":"待解","color":"#93A4B8"}}}}</script>
+
+<button class="ask-fab" id="askFab" type="button" aria-label="追问这篇论文">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+       stroke-linecap="round" stroke-linejoin="round">
+    <path d="M20 14.5a2 2 0 0 1-2 2H8l-4 3.5V6.5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2z"/>
+    <path d="M8.5 9.8h7M8.5 12.8h4.5"/>
+  </svg>
+  <i class="dot"></i>
+</button>
+
+<aside class="ask-panel" id="askPanel" aria-hidden="true">
+  <div class="ask-head">
+    <div>
+      <div class="ask-title">追问这篇论文</div>
+      <div class="ask-sub" id="askSub">正在检查本地服务…</div>
+    </div>
+    <button class="ask-close" id="askClose" type="button" aria-label="关闭">×</button>
+  </div>
+
+  <div class="ask-log" id="askLog"></div>
+
+  <div class="ask-ctx" id="askCtx"></div>
+
+  <div class="ask-input">
+    <textarea id="askText" rows="1" placeholder="问点什么，比如：这个改动为什么能成立？"></textarea>
+    <button class="ask-send" id="askSend" type="button" aria-label="发送" disabled>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+           stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4.5 12h13M11.5 6l6 6-6 6"/>
+      </svg>
+    </button>
+  </div>
+</aside>
+
+<!-- 本地服务会把这一行替换成实际端口；静态打开时保持 null -->
+<script>window.__PA_SERVE__ = null;</script>
+
+<script id="paper-data" type="application/json">{"paper_title":"Resource-efficient Algorithms and Systems of Foundation Models: A Survey","template_name":"综述","model":"deepseek-chat","lang":"zh","pages":35,"blocks":8,"groups":[{"name":"概览","blocks":[{"id":"tl_dr","title":"一句话结论","content":"该综述覆盖大基础模型（LLM、ViT、扩散模型、多模态模型）的资源高效化研究，按模型架构、算法（预训练、微调、推理、压缩）与系统（分布式训练、云/边服务）三条主线组织，系统梳理了降低计算、内存、存储、带宽开销的策略，并指出云边混合部署、模型稀疏性利用、FM-as-a-service、智能体整体优化与实用隐私保护是未来方向。","confidence":"high","empty":false,"evidence":[{"page":1,"quote":"This survey delves into the critical importance of such research, examining both algorithmic and systemic aspects. It offers a comprehensive analysis and valuable insights gleaned from existing literature, encompassing a broad array of topics from cutting-edge model architectures and training/serving algorithms to practical system designs and implementations.","quote_zh":"本综述深入探讨了此类研究的关键重要性，同时考察算法与系统两个方面。它对现有文献进行了全面分析与提炼，涵盖从前沿模型架构、训练/服务算法到实际系统设计与实现的广泛主题。","section":"Abstract","para":1,"verified":true}]},{"id":"scope","title":"收录范围","content":"领域边界：聚焦基础模型（语言、视觉、多模态）的资源高效化，仅涵盖算法与系统创新，明确排除硬件设计；资源限定为计算、内存、存储、带宽等物理资源，排除训练数据（标签）与隐私；主要收录 CSRankings 顶级会议论文，并手动补充 arXiv 上相关且潜在高影响力的工作；主要收录 2020 年之后的论文。时间跨度：模型演进图截至 2024 年 1 月。文献数量：论文未给出精确统计。","confidence":"high","empty":false,"evidence":[{"page":2,"quote":"Scope and rationales. (i) We survey only algorithm and system innovations; we exclude a huge body of work at hardware design; (ii) The definition of resource in this survey is limited to mainly physical ones, including computing, memory, storage, bandwidth, etc; we exclude training data (labels) and privacy that can also be regarded as resources; (iii) We mainly survey papers published on top-tier CS conferences, i.e., those included in CSRankings. We also manually pick related and potentially high-impact papers from arXiv. (iv) We mainly survey papers published after the year of 2020, since the innovation of AI is going fast with old knowledge and methods being overturned frequently.","quote_zh":"范围与理由。(i) 我们只综述算法与系统创新；我们排除了硬件设计方面的大量工作；(ii) 本综述中资源的定义主要限于物理资源，包括计算、内存、存储、带宽等；我们排除了训练数据（标签）和隐私，它们也可被视为资源；(iii) 我们主要综述发表在顶级计算机科学会议（即 CSRankings 收录的会议）上的论文。我们还从 arXiv 手动挑选相关且潜在高影响力的论文。(iv) 我们主要综述 2020 年之后发表的论文，因为人工智能创新进展迅速，旧知识和方法频繁被推翻。","section":"1 INTRODUCTION","section_no":"1","para":12,"verified":true},{"page":3,"quote":"Fig. 1 illustrates the evolutionary trace of popular foundation models (FMs) up to Jan. 2024.","quote_zh":"图 1 展示了截至 2024 年 1 月流行基础模型（FM）的演进轨迹。","section":"2 FOUNDATION MODEL OVERVIEW","section_no":"2","para":5,"verified":true}]},{"id":"problem","title":"领域要解决的问题","content":"领域问题：基础模型（LLM、ViT、扩散模型、多模态模型）凭借可扩展性在性能与通用性上大幅提升，但带来巨大的硬件资源开销（如 GPT-3-175B 消耗 3.14×10^23 FLOPs，LLaMA-70B 需 1.7×10^6 GPU 小时），且仅少数大玩家能训练部署最先进模型，导致控制权集中、隐私难以保护、设备端部署受限（<10B）。因此需要在不牺牲性能的前提下降低资源足迹。卡点：注意力机制二次复杂度 O(T^2 D)、FFN 的 O(T D^2) 计算瓶颈；自回归解码的 KV cache 内存开销；训练数据冗余；微调全参数成本高；云服务内存与调度压力；端侧“内存墙”与 I/O 瓶颈。","confidence":"high","empty":false,"evidence":[{"page":1,"quote":"However, the substantial advancements in versatility and performance these models offer come at a significant cost in terms of hardware resources.","quote_zh":"然而，这些模型在通用性和性能上的大幅进步是以显著的硬件资源成本为代价的。","section":"Abstract","para":1,"verified":true},{"page":2,"quote":"Till the end of 2023, there are only a few major players capable of training and deploying the state-of-the-art FMs, who thereby have powerful control over the public and can potentially manipulate them in a way they prefer. The models are served on clouds instead of devices as many lightweight DNNs do [277, 303]; it makes data privacy preservation almost impossible.","quote_zh":"截至 2023 年底，只有少数主要参与者能够训练和部署最先进的基础模型，他们因此对公众拥有强大的控制力，并可能以他们偏好的方式操纵公众。这些模型像许多轻量级 DNN 那样在云端而非设备上提供服务[277, 303]；这使得数据隐私保护几乎不可能。","section":"1 INTRODUCTION","section_no":"1","para":10,"verified":true},{"page":4,"quote":"The attention mechanism in large FMs faces significant computational bottlenecks primarily due to its quadratic complexity.","quote_zh":"大型基础模型中的注意力机制面临显著的计算瓶颈，主要由于其二次复杂度。","section":"2 FOUNDATION MODEL OVERVIEW","section_no":"2","para":16,"verified":true}]}]},{"name":"框架","blocks":[{"id":"taxonomy","title":"分类框架","content":"作者按“资源高效化的层次”建立一级维度：架构、算法、系统。\n\n一、资源高效架构（第3节）\n1. 高效注意力：稀疏注意力（Longformer、ETC、BIGBIRD、HEPOS、MATE、TDANet）；近似注意力（Linformer、Reformer、Katharopoulos 核方法、Polysketchformer、Mega、Deformable Attention、CrossViT）；无注意力（Hyena、SSM/Mamba、Recurrent-Style Transformers、RWKV、RetNet）。\n2. 动态神经网络：混合专家 MoE（Switch Transformer、GLaM、V-MoE、LIMoE、Mistral1、MoEfication、Sparse upcycling、FFF）；早退出（He et al. 等）。\n3. 扩散模型优化：高效扩散（改进 DDPM、DDIM、PNDM、DPM-Solver）；潜空间扩散（LDM/Stable Diffusion、LD-ZNet、SALAD）；扩散架构变体（SnapFusion、ScaleCrafter、ERNIE-ViLG、Mobile diffusion）。\n4. ViT 专用优化：LeViT、MobileViT、EfficientFormer、EfficientViT、FastViT、LightViT、EdgeViT。\n\n二、资源高效算法（第4节，按 FM 生命周期划分）\n1. 预训练算法：训练数据质量控制（DataComp、DFN、DataCompDR）；训练数据缩减（文本去重、图像 patch 移除：TRIPS、MAE、MixMAE、COPA、PatchDropout）；渐进学习（StackingBERT、CompoundGrow、Staged training、Knowledge inheritance、AutoProg、LiGO）；混合精度训练（Mesa、GACT）。\n2. 微调算法：加性调优（adapter tuning：ADA、MetaTroll、ST-Adapter、HiWi、AdaMix、MEFT、Residual Adapters；prompt tuning：PromptTuning、ATTEMPT、BioInstruct、DualPL、MPrompt；prefix tuning：UAPT、Prefix-diffusion、DOP、DAPA、PIP）；选择性调优（SAM、SmartFRZ、FiSH-DiP、Token Mixing、VL-PET）；重参数调优（LoRA 系列：EfficientDM、QLoRA、PEQA、QALoRA、LoftQ、GLoRA、PELA、LongLoRA、LBP-WHT、DSEE、Delta-LoRA、PiSSA、DoRA、LoRA+）。\n3. 推理算法：机会式解码（speculative decoding、SpecTr、ProphetNet、Draft & Verify、Medusa、Look-ahead decoding、SpecInfer、LLMCad）；输入过滤与压缩（prompt 压缩：LLMLingua、EntropyRank、LLMZip、AutoCompressors、ICAE、Nugget 2D、CoT-Max；token 剪枝：PoWER-BERT、Length-Adaptive Transformer、TR-BERT、DynamicViT、AdaViT、A-ViT、SPViT、PuMer）；KV cache（H2O、Dynamic Context Pruning、Scissorhands、Landmark Attention）；长上下文（LM-Infinite、StreamingLLM、PCW、LongNet、SLED）。\n4. 模型压缩：剪枝（结构化、非结构化、上下文剪枝）；知识蒸馏（白盒 KD：MiniLLM、GKD、TED；黑盒 KD：ICL 蒸馏、CoT 蒸馏）；量化（QAT：LLM-QAT、QuantGPT、BitNet；PTQ：权重仅量化 SpQR、LLM.int8()、AWQ、OWQ、SqueezeLLM、GPTQ、QuIP；权重-激活联合量化 SmoothQuant、RPTQ、OliVe、Outlier Suppression+、QLLM、LLM-FP4、ZeroQuant、FlexRound、ATOM）；低秩分解（TensorGPT、LoSparse、ViTALiTy）。\n\n三、资源高效系统（第5节）\n1. 分布式训练：容错（Varuna、Gemini、Bamboo、activation checkpointing、Oobleck）；并行（DP/ZeRO、TP、PP、SP、Galvatron）；通信优化；存储卸载（ZeRO-Offload、FlashNeuron、Behemoth）；异构 GPU（Hetpipe、Whale）；MoE 训练系统（MegaBlocks、Brainstorm、FlexMoE、Tutel、SmartMoE、Janus、MoE-Mamba）。\n2. 硬件感知优化：edgebert、FlightLLM、SpAtten、A3。\n3. 云端服务：prefill/decoding 调度（Sarathi-Serve、dLoRA）；内存节省（DeepSpeed-Inference、FlexGen、vLLM/PagedAttention、S-LoRA、SGLang）；新兴平台（SpotServe、HexGen）。\n4. 边缘服务：边云协同（EdgeFM）；端侧 MoE（EdgeMoe、PC-MoE）；内存优化（LLMCad、PowerInfer）；I/O 优化（STI、LLM in a flash）；内核优化（32-bit 整数边缘内核、llm.npu）。","confidence":"high","empty":false,"evidence":[{"page":3,"quote":"Organization. Section 2 overviews the classical foundation models and their runtime cost. Section 3 investigates the architectural innovations that revise or replace the existing foundation model architectures. Section 4 and Section 5 examine the algorithm-level and system-level literature towards more resource-efficient foundation models. Section 6 concludes the survey and presents potential future directions.","quote_zh":"组织结构。第 2 节概述经典基础模型及其运行时成本。第 3 节考察修改或替换现有基础模型架构的架构创新。第 4 节和第 5 节考察面向更资源高效基础模型的算法级和系统级文献。第 6 节总结本综述并提出潜在未来方向。","section":"2 FOUNDATION MODEL OVERVIEW","section_no":"2","para":3,"verified":true},{"page":9,"quote":"This section focuses on resoruce-efficient large FMs techniques at the algorithm level. Compared to traditional DNNs, large FMs exhibit new characteristics such as its huge parameter set and autoregressive inference. This disparity has led to the emergence of numerous resource-efficient algorithms, which are categorized based on the lifecycle of FMs: pre-training, fine-tuning, serving algorithms, and model compression.","quote_zh":"本节聚焦算法层面的资源高效大型基础模型技术。与传统 DNN 相比，大型基础模型展现出新特征，如庞大的参数集和自回归推理。这种差异催生了大量资源高效算法，这些算法按基础模型生命周期分类：预训练、微调、服务算法和模型压缩。","section":"4 RESOURCE-EFFICIENT ALGORITHMS","section_no":"4","para":5,"verified":true},{"page":20,"quote":"This section investigates the system research to enable resource-efficient large FMs, notable at four aspects: (1) distributed training; (2) hardware-aware optimizations; (3) serving in cloud, and (4) serving in edge.","quote_zh":"本节考察实现资源高效大型基础模型的系统研究，主要集中在四个方面：(1) 分布式训练；(2) 硬件感知优化；(3) 云端服务；(4) 边缘服务。","section":"5 RESOURCE-EFFICIENT SYSTEMS","section_no":"5","para":6,"verified":true}]},{"id":"comparison","title":"各类方法对比","content":"论文未提供统一的实验对比，各方法的结果来自不同论文、不同模型与基准，不可直接比较。以下按类别归纳核心思路、优势、局限与适用场景，并引用原文给出的关键数字。\n\n1. 高效注意力：稀疏注意力将复杂度降至线性（Longformer 等），但可能损失长程依赖；近似注意力（Linformer、Reformer）降低内存，但近似误差影响精度；无注意力架构（Mamba 5× 加速、RetNet 训练内存节省 25-50% 且 7× 加速）在长序列上高效，但生态与通用性尚待验证。适用长序列训练/推理。\n2. 动态神经网络：MoE 以稀疏激活扩展参数（Switch Transformer 达 1 万亿参数、2048 专家；V-MoE 15B 匹配稠密模型且训练时间更少；Sparse upcycling 减少约 50% 预训练成本；FFF 快 220× 但约 5% 精度损失），局限是路由与负载均衡、通信开销；早退出在置信度高时提前终止，适合资源受限推理，但可能牺牲精度。\n3. 扩散优化：DDIM、PNDM、DPM-Solver 加速采样（DPM-Solver 仅需 10-20 步去噪）；潜空间扩散（LDM）大幅降低高分辨率生成的内存；SnapFusion 在移动端 2 秒内生成 512×512 图像；ERNIE-ViLG 零样本 FID-30k 6.75。局限是生成质量与步数的权衡。\n4. ViT 专用优化：LeViT、MobileViT、EfficientFormer 等混合 CNN-Transformer 架构面向端侧低延迟；EfficientViT 线性注意力在超分任务上比 Restormer 快 6.4×；FastViT 降低内存访问成本。局限是通用性受限。\n5. 预训练算法：数据去重与 patch 移除（TRIPS 减少 40% 计算）降低数据开销；渐进学习（StackingBERT、LiGO）复用计算；混合精度减半内存。局限是可能影响最终精度。\n6. 微调算法：加性调优（adapter/prompt/prefix）冻结主干、成本低，但多任务存储开销（AdaMix 合并权重缓解）；选择性调优更新少量参数，但选择策略影响性能；重参数调优（LoRA 系列）最流行，但与全量微调仍有性能差距（Delta-LoRA、PiSSA、DoRA、LoRA+ 致力于缩小差距）。\n7. 推理算法：speculative decoding 在 T5X 上 2-3× 加速、70B Chinchilla 类似；SpecTr 墙钟时间 2.13× 提升；Draft & Verify 在 Llama-2 上 1.73×；Medusa 无需辅助模型；prompt/token 压缩降低输入开销；KV cache 驱逐（H2O 延迟降低 1.9×、吞吐提升 29×；Scissorhands 内存降低 5×）；长上下文方法（LM-Infinite O(n)、LongNet 支持 1B token、SLED 无需专门预训练）。局限是额外模型/验证开销与精度损失。\n8. 模型压缩：剪枝需大量重预训练或特殊结构；KD 分白盒/黑盒，黑盒依赖 API 质量；量化中 QAT 成本高、PTQ 易部署但异常值敏感（GPTQ 3-4 bit 量化 175B 模型；AWQ 保护 top 1% 权重；SmoothQuant 联合量化）；低秩分解（TensorGPT 嵌入层压缩 38.40×）压缩率高但可能损失表达力。\n9. 系统：分布式训练通过容错、并行、通信隐藏、卸载与异构 GPU 支持大规模训练，但复杂度高；云端服务（vLLM PagedAttention、S-LoRA、SGLang）优化内存与调度；边缘服务（EdgeFM、PowerInfer、LLMCad、STI）应对内存墙与 I/O，但受设备资源限制。","confidence":"medium","empty":false,"evidence":[{"page":5,"quote":"The time and space complexity comparison is shown in Table 1.","quote_zh":"时间与空间复杂度对比见表 1。","section":"3 RESOURCE-EFFICIENT ARCHITECTURES","section_no":"3","para":8,"verified":true},{"page":6,"quote":"Mamba [83] seamlessly integrates selective SSMs into a streamlined neural network architecture, eliminating attention and MLP blocks. This model achieves a notable 5× speed increase over traditional transformers and exhibits linear scaling with sequence length.","quote_zh":"Mamba[83] 将选择性 SSM 无缝集成到精简的神经网络架构中，消除了注意力与 MLP 块。该模型相比传统 Transformer 实现了显著的 5 倍加速，并随序列长度呈线性扩展。","section":"3 RESOURCE-EFFICIENT ARCHITECTURES","section_no":"3","para":14,"verified":true},{"page":6,"quote":"RetNet [231] introduces an architecture that replaces multi-head attention with a multi-scale retention mechanism. During training, RetNet demonstrates a 25-50% memory saving and a 7× acceleration compared to the standard Transformer.","quote_zh":"RetNet[231] 引入了一种用多尺度保留机制替代多头注意力的架构。在训练期间，RetNet 相比标准 Transformer 展现出 25-50% 的内存节省和 7 倍加速。","section":"3 RESOURCE-EFFICIENT ARCHITECTURES","section_no":"3","para":14,"verified":true},{"page":7,"quote":"Sparse upcycling [129] initializes sparsely activated MoE from dense checkpoints, reducing about 50% of the original dense pretraining costs. FFF [24] divides the feed-forward layer into separate leaves instead of copying the entire feed-forward layer as an expert, being up to 220× faster than the original feed-forward layer with about 5% accuracy loss.","quote_zh":"Sparse upcycling[129] 从稠密检查点初始化稀疏激活的 MoE，减少约 50% 的原始稠密预训练成本。FFF[24] 将前馈层划分为独立的叶子而非复制整个前馈层作为专家，比原始前馈层快达 220 倍，精度损失约 5%。","section":"3 RESOURCE-EFFICIENT ARCHITECTURES","section_no":"3","para":17,"verified":true},{"page":8,"quote":"DPM-Solver [176] utilizes a high-order solver that exploits the semi-linear structure of diffusion ODEs, facilitating fast and high-quality sample generation. Remarkably, DPM-Solver achieves this with as few as 10-20 denoising steps, highlighting the latency efficiency in sample generation.","quote_zh":"DPM-Solver[176] 利用高阶求解器，利用扩散 ODE 的半线性结构，促进快速高质量的样本生成。值得注意的是，DPM-Solver 仅需 10-20 步去噪即可实现，凸显了样本生成的延迟效率。","section":"3 RESOURCE-EFFICIENT ARCHITECTURES","section_no":"3","para":26,"verified":true},{"page":8,"quote":"SnapFusion [150] introduces an optimized text-to-image diffusion model for mobile devices, featuring a resource-efficient network architecture. This model overcomes the computational and latency limitations of existing models through a redesigned network architecture and improved step distillation. It generates high-quality 512×512 images in under 2 seconds with fewer denoising steps.","quote_zh":"SnapFusion[150] 为移动设备引入了一种优化的文本到图像扩散模型，具有资源高效的网络架构。该模型通过重新设计的网络架构和改进的步骤蒸馏，克服了现有模型的计算和延迟限制。它以更少的去噪步骤在 2 秒内生成高质量的 512×512 图像。","section":"3 RESOURCE-EFFICIENT ARCHITECTURES","section_no":"3","para":29,"verified":true},{"page":9,"quote":"EfficientViT [29] introduces a linear attention mechanism to alleviate the computational cost linked with the high overhead of softmax in non-linear attention. In the domain of super-resolution, EfficientViT achieves a speedup of up to 6.4 × compared to Restormer [296].","quote_zh":"EfficientViT[29] 引入线性注意力机制，以缓解非线性注意力中 softmax 高开销带来的计算成本。在超分辨率领域，EfficientViT 相比 Restormer[296] 实现了高达 6.4 倍的加速。","section":"4 RESOURCE-EFFICIENT ALGORITHMS","section_no":"4","para":4,"verified":true},{"page":10,"quote":"TRIPS [114] employs a patch selection layer to reduce image patches. This layer computes attentive image tokens through text guidance, resulting in a 40% reduction in computation resources, compared to previous pre-training vision-language models.","quote_zh":"TRIPS[114] 采用 patch 选择层来减少图像 patch。该层通过文本引导计算注意力图像 token，相比之前的预训练视觉-语言模型，计算资源减少 40%。","section":"4 RESOURCE-EFFICIENT ALGORITHMS","section_no":"4","para":13,"verified":true},{"page":13,"quote":"LoRA, as the most popular parameter-efficient fine-tuning method, still exhibits performance gaps when compared to full fine-tuning.","quote_zh":"LoRA 作为最流行的参数高效微调方法，与全量微调相比仍存在性能差距。","section":"4 RESOURCE-EFFICIENT ALGORITHMS","section_no":"4","para":32,"verified":true},{"page":13,"quote":"Yaniv et al. [141] report a 2–3× improvement in performance using speculative decoding on the T5X model, while a concurrent study [36] demonstrates similar speedups on a 70B Chinchilla model. SpecTr [232] further enhances speculative decoding by increasing the number of candidate tokens and improving the draft selection process, resulting in a 2.13× improvement in wall clock speed and an additional 1.37× speedup on standard benchmarks.","quote_zh":"Yaniv 等人[141] 报告在 T5X 模型上使用推测解码性能提升 2-3 倍，而同期研究[36] 在 70B Chinchilla 模型上展示了类似加速。SpecTr[232] 通过增加候选 token 数量和改进草稿选择过程进一步增强推测解码，在标准基准上实现墙钟时间 2.13 倍提升和额外 1.37 倍加速。","section":"4 RESOURCE-EFFICIENT ALGORITHMS","section_no":"4","para":34,"verified":true},{"page":14,"quote":"H2O [307] introduces a KV cache eviction strategy designed for optimal memory efficiency. This strategy employs attention scores to identify and select the least important KV cache tokens in the current state for eviction. When compared to robust baselines, H2O demonstrates the capability to reduce latency by up to 1.9× and increase throughput by 29×.","quote_zh":"H2O[307] 引入了一种旨在实现最优内存效率的 KV cache 驱逐策略。该策略利用注意力分数识别并选择当前状态下最不重要的 KV cache token 进行驱逐。与稳健基线相比，H2O 展现出将延迟降低高达 1.9 倍、吞吐提升 29 倍的能力。","section":"4 RESOURCE-EFFICIENT ALGORITHMS","section_no":"4","para":44,"verified":true},{"page":15,"quote":"Scissorhands [173] utilizes an innovative compact KV cache and results in a notable reduction in KV cache inference memory usage, achieving up to a 5× reducation while maintaining model quality.","quote_zh":"Scissorhands[173] 利用创新的紧凑 KV cache，显著降低 KV cache 推理内存使用，在保持模型质量的同时实现高达 5 倍的减少。","verified":false},{"page":15,"quote":"LongNet [55] introduces dilated attention, expanding the attentive field exponentially as the distance increases. This innovation allows LongNet to scale Transformers efficiently, enabling them to handle sequences of up to 1B tokens.","quote_zh":"LongNet[55] 引入膨胀注意力，随距离增加指数级扩展注意力场。这一创新使 LongNet 能够高效扩展 Transformer，使其能够处理长达 10 亿 token 的序列。","section":"4 RESOURCE-EFFICIENT ALGORITHMS","section_no":"4","para":48,"verified":true},{"page":18,"quote":"GPTQ [71] employs layer-wise quantization with OBQ [69], utilizing inverse Hessian information to update weights. GPTQ reduces the bit-width of each weight to 3 or 4 bits, allowing quantization of GPT models with 175 billion parameters with minimal accuracy loss.","quote_zh":"GPTQ[71] 采用逐层量化与 OBQ[69]，利用逆 Hessian 信息更新权重。GPTQ 将每个权重的位宽降至 3 或 4 位，允许对 1750 亿参数的 GPT 模型进行量化且精度损失极小。","section":"4 RESOURCE-EFFICIENT ALGORITHMS","section_no":"4","para":73,"verified":true},{"page":19,"quote":"TensorGPT [278] proposes an approach based on the tensor-train decomposition, where each token embedding is treated as a matrix product state that can be efficiently computed in a distributed manner. Through TensorGPT, the embedding layer can be compressed by a factor of up to 38.40×.","quote_zh":"TensorGPT[278] 提出一种基于张量列分解的方法，将每个 token 嵌入视为可分布式高效计算的矩阵乘积态。通过 TensorGPT，嵌入层可压缩高达 38.40 倍。","section":"4 RESOURCE-EFFICIENT ALGORITHMS","section_no":"4","para":79,"verified":true}]}]},{"name":"结论","blocks":[{"id":"consensus","title":"领域现状与共同前提","content":"论文未集中汇总领域共识，但从多处可归纳出以下共享前提与默认做法：(1) 基础模型普遍基于 Transformer 架构，因此注意力二次复杂度与 FFN 计算是共同瓶颈（第2、3节）；(2) 资源高效化以不牺牲性能为前提，多数工作以精度-效率权衡为评价维度，但缺乏统一基准，结果不可直接比较；(3) 模型压缩（剪枝、KD、量化、低秩分解）与参数高效微调（LoRA 等）被广泛采用，但普遍承认与全量微调/原模型存在性能差距（如 LoRA 性能差距、FFF 约 5% 精度损失）；(4) 云端服务与端侧部署并重，端侧受内存墙与 I/O 限制是共同承认的瓶颈；(5) 缩放定律持续有效，模型规模将继续增长，因此资源高效研究长期重要。","confidence":"medium","empty":false,"evidence":[{"page":2,"quote":"An impressive evidence is the scaling law [119]: it describes how the performance of transformer-based models can predictably improve with more model size and data volume; until today, the scaling law stands still.","quote_zh":"一个令人印象深刻的证据是缩放定律[119]：它描述了基于 Transformer 的模型性能如何随模型规模和数据量的增加而可预测地提升；直到今天，缩放定律依然成立。","section":"1 INTRODUCTION","section_no":"1","para":8,"verified":true},{"page":4,"quote":"Since most FMs are based on transformer architecture, we briefly analyze the resource cost of it.","quote_zh":"由于大多数基础模型基于 Transformer 架构，我们简要分析其资源成本。","section":"2 FOUNDATION MODEL OVERVIEW","section_no":"2","para":16,"verified":true},{"page":13,"quote":"LoRA, as the most popular parameter-efficient fine-tuning method, still exhibits performance gaps when compared to full fine-tuning.","quote_zh":"LoRA 作为最流行的参数高效微调方法，与全量微调相比仍存在性能差距。","section":"4 RESOURCE-EFFICIENT ALGORITHMS","section_no":"4","para":32,"verified":true},{"page":23,"quote":"While small language models [177, 290] have been developed for on-device deployment, the runtime efficiency (decoding speed, memory footprint, energy consumption, etc) still remains a key challenge.","quote_zh":"尽管已开发出用于设备端部署的小型语言模型[177, 290]，但运行时效率（解码速度、内存占用、能耗等）仍是一个关键挑战。","section":"5 RESOURCE-EFFICIENT SYSTEMS","section_no":"5","para":37,"verified":true}]},{"id":"open","title":"开放问题与方向","content":"作者在第6节列出5条未来方向：\n(1) 云边混合部署：为使通用智能无处不在、保护隐私且高可用，许多基础模型最终将下沉到近用户设备；初步工作已将 LLaMA-7B 带到智能手机和 PC。未来基础模型能在设备上以何种规模和速度运行，将成为硬件厂商商业模式的关键竞争力。尚未解决的原因：端侧资源（内存、能耗、解码速度）仍受限，且缺乏大规模实际部署。\n(2) 利用模型稀疏性：模型越大，给定任务下激活比例越小；近期文献发现即使稠密训练的非 MoE 模型也存在运行时激活稀疏性，可用于降低推理时间与内存。作者认为利用模型与激活稀疏性是可持续扩展模型规模的有前景方向，可能出现 MoE 之外更高效的稀疏架构。尚未解决的原因：稀疏性利用尚不充分，高效稀疏架构仍待探索。\n(3) 基础模型即服务：在云端和设备上，基础模型正在统一 DNN 生态，最终成为像 Web 和数据库一样被调用的通用服务。这既带来硬件-算法协同设计优化的机会，也在调度、负载均衡、安全与隔离等系统基础设施设计上提出新挑战。尚未解决的原因：服务化带来的系统与基础设施问题尚未解决。\n(4) 以智能体作为整体系统优化：未来基础模型尤其是 LLM 将成为构建智能体的关键模块，其效率不应作为独立 LLM 服务考虑，而需迎合特定智能体工作流；例如智能体系统可能需要多个基础模型协作，存在内在逻辑依赖，为每个任务选择合适的模型并在给定硬件资源上调度以最大化智能体性能的设计空间巨大。尚未解决的原因：设计空间巨大，缺乏整体优化方法。\n(5) 实用的隐私保护基础模型：随着上传到云端供基础模型处理的用户数据量持续增加，隐私问题日益严重；现有方法包括联邦学习等。尚未解决的原因：隐私保护与资源效率的实用结合仍待突破。","confidence":"high","empty":false,"evidence":[{"page":24,"quote":"The research opportunity of resource-efficient large FM is extremely large, notably: (1) Cloud-edge hybrid deployment. ... (2) Exploiting the model sparsity. ... (3) Large FM as a service. ... (4) Agent as a holistic system to optimize. ... (5) Practical privacy-preserving FM.","quote_zh":"资源高效大型基础模型的研究机会极其巨大，尤其是：(1) 云边混合部署。……(2) 利用模型稀疏性。……(3) 基础模型即服务。……(4) 以智能体作为整体系统优化。……(5) 实用的隐私保护基础模型。","section":"6 CONCLUSIONS AND FUTURE DIRECTIONS","section_no":"6","para":9,"verified":true}]}]},{"name":"判断","blocks":[{"id":"questions","title":"值得追问的问题","content":"1. 分类框架的互斥性与完备性：架构、算法、系统三个维度存在交叉（如 MoE 既属架构又属系统，量化既属算法又用于微调），作者如何界定边界？是否遗漏了“数据为中心”的高效化（如数据筛选、合成数据）作为独立维度？\n2. 综述明确排除硬件设计与隐私，但未来方向(5)又强调实用隐私保护，且硬件-算法协同设计在方向(3)中被提及；这种排除是否削弱了对端侧部署与隐私保护交叉问题的覆盖？\n3. 综述主要收录 2020 年后顶级会议论文，且承认各方法结果不可直接比较；在缺乏统一基准的情况下，作者如何判断哪类方法“更优”？后续工作（如 Mamba 系列、更高效的 MoE 路由）是否已推翻文中某些结论（如稀疏注意力必然降低 KV cache 内存）？","confidence":"low","empty":false,"evidence":[{"page":2,"quote":"Scope and rationales. (i) We survey only algorithm and system innovations; we exclude a huge body of work at hardware design; (ii) The definition of resource in this survey is limited to mainly physical ones, including computing, memory, storage, bandwidth, etc; we exclude training data (labels) and privacy that can also be regarded as resources;","quote_zh":"范围与理由。(i) 我们只综述算法与系统创新；我们排除了硬件设计方面的大量工作；(ii) 本综述中资源的定义主要限于物理资源，包括计算、内存、存储、带宽等；我们排除了训练数据（标签）和隐私，它们也可被视为资源；","section":"1 INTRODUCTION","section_no":"1","para":12,"verified":true},{"page":14,"quote":"However, it’s noteworthy that most sparse attention designs, which primarily target the reduction of computational complexity [25, 295], do not necessarily lead to a reduction in KV cache memory consumption.","quote_zh":"然而，值得注意的是，大多数稀疏注意力设计主要针对降低计算复杂度[25, 295]，并不必然导致 KV cache 内存消耗的减少。","section":"4 RESOURCE-EFFICIENT ALGORITHMS","section_no":"4","para":44,"verified":true}]}]}],"chain":{"thesis":"基础模型的能力来自规模，但规模带来巨大硬件开销；综述按架构、算法、系统三层梳理降低计算/内存/带宽等物理资源消耗的研究，并指出云边混合、稀疏性、FM-as-a-service 等未来方向。","confidence":"medium","note":"这是一篇综述，没有单一方法改动与实验数字，因此 change 节点只能给出「综述所归纳的改动范式」的前后对照，effect 数字均取自被引工作的原文报告；链条按「问题→关键判断→三层改动→机制→效果→代价→待解」串成一条线。","nodes":[{"id":"n1","type":"problem","label":"规模换性能代价高","detail":"FMs 的精度与泛化随参数和数据持续增长（scaling law 仍成立），但训练与部署的硬件资源开销随之暴涨，且只有少数大厂能承担。","evidence":[{"page":10,"quote":"For instance, GPT-3-175B consumes 3.14×1023FLOPs and LLaMA-70B takes 1.7×106GPU hours.","quote_zh":"例如，GPT-3-175B 消耗 3.14×10^23 FLOPs，LLaMA-70B 需要 1.7×10^6 GPU 小时。","section":"4 RESOURCE-EFFICIENT ALGORITHMS","section_no":"4","para":8,"verified":true},{"page":2,"quote":"However, the scalability comes at a cost of huge resource demand.","quote_zh":"然而，这种可扩展性是以巨大的资源需求为代价的。","section":"1 INTRODUCTION","section_no":"1","para":9,"verified":true}],"metric":{"value":"1.7","unit":"百万 GPU 小时","label":"LLaMA-70B 预训练开销"}},{"id":"n2","type":"insight","label":"开销集中在注意力与 FFN","detail":"作者实测各 FMs 的 FLOPs 与存储分布，判断资源瓶颈可定位：注意力为 O(T²D)、FFN 为 O(TD²)，FFN 计算最密集、embedding/LM head 占存储但计算少。","evidence":[{"page":5,"quote":"In quantitative terms, the computation complexity of attention is 𝑂(𝑇2𝐷), while that of FFN is 𝑂(𝑇𝐷2), where 𝑇represents the sequence length and 𝐷the hidden state dimension of the model [161].","quote_zh":"定量地说，注意力的计算复杂度是 O(T²D)，而 FFN 的是 O(TD²)，其中 T 表示序列长度，D 表示模型的隐藏状态维度。","section":"3 RESOURCE-EFFICIENT ARCHITECTURES","section_no":"3","para":5,"verified":true},{"page":5,"quote":"The FFN layer is the most computationally intensive component.","quote_zh":"FFN 层是计算最密集的组件。","section":"3 RESOURCE-EFFICIENT ARCHITECTURES","section_no":"3","para":7,"verified":true}]},{"id":"n3","type":"change","label":"按架构/算法/系统三层改","detail":"综述把全部降本工作组织为三条改动线：改架构（高效注意力、MoE、早退、扩散/ViT 专用）、改算法（预训练、微调、推理、压缩）、改系统（分布式训练、云/边服务）。","evidence":[{"page":3,"quote":"Section 3 investigates the architectural innovations that revise or replace the existing foundation model architecture. Section 4 and Section 5 examine the algorithm-level and system-level literature towards more resource-efficient foundation models.","quote_zh":"第 3 节考察修正或替换现有基础模型架构的架构创新。第 4 节和第 5 节考察面向更资源高效基础模型的算法级与系统级文献。","section":"2 FOUNDATION MODEL OVERVIEW","section_no":"2","para":3,"verified":true}],"before":{"kind":"blocks","items":["Transformer 全注意力","稠密 FFN","全参数微调","逐 token 自回归解码","单机全精度训练"],"highlight":0},"after":{"kind":"blocks","items":["稀疏/近似/无注意力","MoE 稀疏激活","LoRA/Adapter/Prompt","投机解码 + KV cache 管理","分布式并行 + 量化/卸载"],"highlight":0}},{"id":"n4","type":"taxonomy","label":"生命周期四段切算法","detail":"算法层按 FMs 生命周期切成预训练、微调、推理、模型压缩四段，每段再列具体技术族。","evidence":[{"page":9,"quote":"This disparity has led to the emergence of numerous resource-efficient algorithms, which are categorized based on the lifecycle of FMs: pre-training, fine-tuning, serving algorithms, and model compression.","quote_zh":"这种差异催生了大量资源高效算法，它们按 FMs 的生命周期分类：预训练、微调、服务算法和模型压缩。","verified":false}],"root":{"name":"资源高效算法","children":[{"name":"预训练","what":"降低训练开销","children":[{"name":"数据质量控制"},{"name":"训练数据削减"},{"name":"渐进学习"},{"name":"混合精度训练"}]},{"name":"微调","what":"降低适配开销","children":[{"name":"Additive Tuning"},{"name":"Selective Tuning"},{"name":"Re-parameter Tuning"}]},{"name":"推理","what":"降低解码开销","children":[{"name":"Opportunistic Decoding"},{"name":"输入过滤与压缩"},{"name":"KV Cache"},{"name":"长上下文"}]},{"name":"模型压缩","what":"降低存储与计算","children":[{"name":"Pruning"},{"name":"Knowledge Distillation"},{"name":"Quantization"},{"name":"Low-Rank Decomposition"}]}]}},{"id":"n5","type":"mechanism","label":"改复杂度或改激活比例","detail":"各条改动通过两种量起作用：把注意力的 O(T²D) 降为线性/次二次（稀疏、低秩、SSM），或只激活部分参数/层/token（MoE、早退、剪枝、投机解码），从而直接削减 FLOPs 与 KV cache 内存。","evidence":[{"page":5,"quote":"The implementation of a KV cache in the decoder can substantially mitigate computational costs by reusing key and value vectors across various positions [134].","quote_zh":"在解码器中实现 KV cache 可以通过在不同位置复用键和值向量来大幅降低计算成本。","section":"3 RESOURCE-EFFICIENT ARCHITECTURES","section_no":"3","para":6,"verified":true},{"page":6,"quote":"This model achieves a notable 5× speed increase over traditional transformers and exhibits linear scaling with sequence length.","quote_zh":"该模型相比传统 transformer 实现了显著的 5× 加速，并随序列长度呈线性扩展。","section":"3 RESOURCE-EFFICIENT ARCHITECTURES","section_no":"3","para":14,"verified":true}]},{"id":"n6","type":"effect","label":"多处报告 2–7× 加速","detail":"综述汇总的被引工作给出可测收益：投机解码在 T5X 上 2–3×、RetNet 训练 7×、Mamba 5×、H2O 吞吐 29×、Scissorhands KV cache 内存降 5×。","evidence":[{"page":13,"quote":"Yaniv et al. [141] report a 2–3× improvement in performance using speculative decoding on the T5X model, while a concurrent study [36] demonstrates similar speedups on a 70B Chinchilla model.","quote_zh":"Yaniv 等人 [141] 报告在 T5X 模型上使用投机解码带来 2–3× 的性能提升，而一项同期研究 [36] 在 70B Chinchilla 模型上展示了类似的加速。","section":"4 RESOURCE-EFFICIENT ALGORITHMS","section_no":"4","para":34,"verified":true},{"page":6,"quote":"During training, RetNet demonstrates a 25-50% memory saving and a 7× acceleration compared to the standard Transformer.","quote_zh":"在训练期间，RetNet 相比标准 Transformer 展现出 25–50% 的内存节省和 7× 的加速。","section":"3 RESOURCE-EFFICIENT ARCHITECTURES","section_no":"3","para":14,"verified":true},{"page":14,"quote":"When compared to robust baselines, H2O demonstrates the capability to reduce latency by up to 1.9× and increase throughput by 29×.","quote_zh":"与稳健的基线相比，H2O 展现出将延迟最多降低 1.9×、将吞吐提升 29× 的能力。","section":"4 RESOURCE-EFFICIENT ALGORITHMS","section_no":"4","para":44,"verified":true}],"metric":{"value":"2","unit":"×","label":"投机解码加速（区间 2–3×）"}},{"id":"n7","type":"cost","label":"精度损失与重训开销","detail":"压缩与稀疏化通常以精度或额外训练为代价：FFF 快 220× 但损失约 5% 精度；QAT 训练成本仍高；PTQ 缺少训练反馈回路；多数稀疏注意力并不降低 KV cache 内存。","evidence":[{"page":7,"quote":"FFF [24] divides the feed-forward layer into separate leaves instead of copying the entire feed-forward layer as an expert, being up to 220× faster than the original feed-forward layer with about 5% accuracy loss.","quote_zh":"FFF [24] 将前馈层划分为独立的叶子，而不是把整个前馈层复制为专家，比原始前馈层快最多 220×，精度损失约 5%。","section":"3 RESOURCE-EFFICIENT ARCHITECTURES","section_no":"3","para":17,"verified":true},{"page":14,"quote":"However, it’s noteworthy that most sparse attention designs, which primarily target the reduction of computational complexity [25, 295], do not necessarily lead to a reduction in KV cache memory consumption.","quote_zh":"然而值得注意的是，大多数稀疏注意力设计主要针对降低计算复杂度 [25, 295]，并不必然带来 KV cache 内存消耗的降低。","section":"4 RESOURCE-EFFICIENT ALGORITHMS","section_no":"4","para":44,"verified":true},{"page":18,"quote":"However, unlike QAT and distillation, PTQ lacks the feedback loop for adjusting precision through training.","quote_zh":"然而，与 QAT 和蒸馏不同，PTQ 缺少通过训练调整精度的反馈回路。","section":"4 RESOURCE-EFFICIENT ALGORITHMS","section_no":"4","para":69,"verified":true}]},{"id":"n8","type":"question","label":"云边混合与稀疏性待解","detail":"作者指出未来方向：云边混合部署、利用模型/激活稀疏性、FM 作为服务、以 agent 为整体优化、实用隐私保护；设备端仍受解码速度、内存、能耗制约。","evidence":[{"page":24,"quote":"We believe that exploiting the model and activation sparsity will be a promising direction towards sustainable model size scaling.","quote_zh":"我们认为，利用模型与激活稀疏性将是通向可持续模型规模扩展的一个有前景的方向。","section":"6 CONCLUSIONS AND FUTURE DIRECTIONS","section_no":"6","para":7,"verified":true},{"page":23,"quote":"While small language models [177, 290] have been developed for on-device deployment, the runtime efficiency (decoding speed, memory footprint, energy consumption, etc) still remains a key challenge.","quote_zh":"尽管已为设备端部署开发了小语言模型 [177, 290]，但运行时效率（解码速度、内存占用、能耗等）仍是关键挑战。","section":"5 RESOURCE-EFFICIENT SYSTEMS","section_no":"5","para":37,"verified":true}]}],"evidence":[],"warnings":[],"types":{"problem":{"label":"问题","color":"#E8836B"},"insight":{"label":"洞察","color":"#D9B45E"},"change":{"label":"改动","color":"#6FB3D9"},"mechanism":{"label":"机制","color":"#8FBF9F"},"effect":{"label":"效果","color":"#7ED0A8"},"cost":{"label":"代价","color":"#C58FB0"},"taxonomy":{"label":"框架","color":"#9B9BE0"},"question":{"label":"待解","color":"#93A4B8"}}}}</script>
 <script>
 (function () {
   var D = JSON.parse(document.getElementById("paper-data").textContent);
@@ -470,13 +707,7 @@
     var hh = ['<div class="hero"><div class="label">' + esc(hero.title) + "</div>"];
     hh.push("<p>" + esc(hero.content || "论文未提及。") + "</p>");
     if (hero.evidence && hero.evidence.length) {
-      hh.push('<div class="ev"><div class="ev-title">原文依据</div>');
-      hero.evidence.forEach(function (e) {
-        hh.push('<div class="ev-item"><span class="ev-page">' +
-                esc(e.page ? "p." + e.page : "页?") + "</span>");
-        hh.push('<span class="ev-quote">' + esc(e.quote) + "</span></div>");
-      });
-      hh.push("</div>");
+      hh.push(evHTML(hero.evidence));
     }
     hh.push("</div>");
     main.push(hh.join(""));
@@ -511,6 +742,7 @@
       if (b.confidence === "low") {
         main.push('<span class="badge low">低置信</span>');
       }
+      main.push(askBtn("b:" + b.id));
       main.push('<svg class="chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" ' +
                 'stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">' +
                 '<path d="M6 4l4 4-4 4"/></svg>');
@@ -523,13 +755,7 @@
         main.push('<div class="txt">' + formatText(b.content) + "</div>");
       }
       if (b.evidence && b.evidence.length) {
-        main.push('<div class="ev"><div class="ev-title">原文依据</div>');
-        b.evidence.forEach(function (e) {
-          var page = e.page ? "p." + e.page : "页码未标注";
-          main.push('<div class="ev-item"><span class="ev-page">' + esc(page) + "</span>");
-          main.push('<span class="ev-quote">' + esc(e.quote) + "</span></div>");
-        });
-        main.push("</div>");
+        main.push(evHTML(b.evidence));
       }
       main.push("</div></article>");
     });
@@ -671,7 +897,8 @@
     var h = ['<div class="cd-head">'];
     h.push('<span class="cd-badge" style="color:' + typeColor(n.type) + '">' +
            esc(typeLabel(n.type)) + "</span>");
-    h.push('<span class="cd-title">' + esc(n.label) + "</span></div>");
+    h.push('<span class="cd-title">' + esc(n.label) + "</span>");
+    h.push(askBtn("n:" + n.id, true) + "</div>");
 
     if (n.detail) { h.push('<p class="cd-text">' + esc(n.detail) + "</p>"); }
 
@@ -694,9 +921,12 @@
 
     if (n.evidence && n.evidence.length) {
       var ev = n.evidence[0];
-      h.push('<div class="cd-ev"><b>' +
-             (ev.page ? "p." + ev.page : "页码?") + "</b><span>" +
-             esc(trunc(ev.quote, 140)) + "</span></div>");
+      h.push('<div class="cd-ev"><b>' + esc(locatorOf(ev)) + "</b>");
+      h.push("<span>" + esc(trunc(ev.quote, 170)) + "</span>");
+      if (ev.quote_zh && ev.quote_zh !== ev.quote) {
+        h.push('<span class="zh">' + esc(trunc(ev.quote_zh, 170)) + "</span>");
+      }
+      h.push("</div>");
     }
     return h.join("");
   }
@@ -939,6 +1169,316 @@
     s = String(s || "");
     return s.length > n ? s.slice(0, n) + "…" : s;
   }
+
+  // ======================= 追问这篇论文 =======================
+  // 静态打开时 window.__PA_SERVE__ 是 null，按钮会显示「未连接」并给出命令；
+  // 由 paperatomy serve 提供页面时，服务端会把它替换成实际端口。
+  var ASK_CFG = window.__PA_SERVE__ || null;
+  var ASK = { ctx: [], history: [], busy: false, live: false };
+
+  var askPanel = document.getElementById("askPanel");
+  var askLog = document.getElementById("askLog");
+  var askText = document.getElementById("askText");
+  var askSend = document.getElementById("askSend");
+  var askSub = document.getElementById("askSub");
+  var askCtx = document.getElementById("askCtx");
+  var askFab = document.getElementById("askFab");
+
+  // 出处坐标：和 Markdown、命令行完全一致（这里必须是同一套规则，
+  // 否则同一份报告换个地方看就对不上了）
+  function locatorOf(e) {
+    var parts = [];
+    if (e.section_no) { parts.push("§" + e.section_no); }
+    if (e.para) { parts.push("第 " + e.para + " 段"); }
+    if (e.page) { parts.push("p." + e.page); }
+    return parts.join(" · ") || "出处未标注";
+  }
+
+  function evHTML(list) {
+    var h = ['<div class="ev"><div class="ev-title">原文依据</div>'];
+    list.forEach(function (e) {
+      h.push('<div class="ev-item"><div class="ev-loc">');
+      h.push('<span class="chip">' + esc(locatorOf(e)) + "</span>");
+      if (e.section) {
+        // 章节标题去掉编号前缀，否则和左边的 §4 重复
+        h.push('<span class="sec">' +
+          esc(e.section.replace(/^\s*\d{1,2}(?:\.\d{1,2}){0,2}[\s.]+/, "")) +
+          "</span>");
+      }
+      if (e.verified === false) {
+        h.push('<span class="raw">未在原文定位到原话</span>');
+      }
+      h.push("</div>");
+      h.push('<div class="ev-src">' + esc(e.quote) + "</div>");
+      if (e.quote_zh && e.quote_zh !== e.quote) {
+        h.push('<div class="ev-zh">' + esc(e.quote_zh) + "</div>");
+      }
+      h.push("</div>");
+    });
+    h.push("</div>");
+    return h.join("");
+  }
+
+  function askBtn(key, dark) {
+    return '<button class="ask-btn' + (dark ? " dark" : "") + '" type="button" data-ask="' +
+      esc(key) + '" title="把这块内容加入追问"><svg viewBox="0 0 24 24" fill="none" ' +
+      'stroke="currentColor" stroke-width="2.4" stroke-linecap="round">' +
+      '<path d="M12 5v14M5 12h14"/></svg>追问</button>';
+  }
+
+  // 把一块内容压成纯文本交给模型。带上是哪一段、原文怎么说的，
+  // 模型才知道「这个」指什么。
+  function askPayload(key) {
+    if (key.indexOf("b:") === 0) {
+      var bid = key.slice(2);
+      var found = null;
+      D.groups.forEach(function (g) {
+        g.blocks.forEach(function (b) { if (b.id === bid) { found = b; } });
+      });
+      if (!found && hero && hero.id === bid) { found = hero; }
+      if (!found) { return null; }
+      var text = found.content || "";
+      (found.evidence || []).forEach(function (e) {
+        text += "\n依据［" + locatorOf(e) + "］" + e.quote +
+                (e.quote_zh && e.quote_zh !== e.quote ? "\n译文：" + e.quote_zh : "");
+      });
+      return { key: key, title: found.title, text: text };
+    }
+    if (key.indexOf("n:") === 0 && CHAIN) {
+      var nid = key.slice(2);
+      var node = null;
+      (CHAIN.nodes || []).forEach(function (n) { if (n.id === nid) { node = n; } });
+      if (!node) { return null; }
+      var t = "［" + typeLabel(node.type) + "］" + node.label;
+      if (node.detail) { t += "\n" + node.detail; }
+      if (node.metric) {
+        t += "\n指标：" + node.metric.value + (node.metric.unit || "") +
+             "（" + (node.metric.label || "") + "）";
+      }
+      (node.evidence || []).forEach(function (e) {
+        t += "\n依据［" + locatorOf(e) + "］" + e.quote +
+             (e.quote_zh && e.quote_zh !== e.quote ? "\n译文：" + e.quote_zh : "");
+      });
+      return { key: key, title: node.label, text: t };
+    }
+    return null;
+  }
+
+  function renderChips() {
+    askCtx.innerHTML = ASK.ctx.map(function (c, i) {
+      return '<span class="ctx-chip"><span>' + esc(c.title) + "</span>" +
+        '<button type="button" data-drop="' + i + '" aria-label="移除">×</button></span>';
+    }).join("");
+    askFab.classList.toggle("has-ctx", ASK.ctx.length > 0);
+  }
+
+  function openAsk() {
+    askPanel.classList.add("open");
+    askPanel.setAttribute("aria-hidden", "false");
+    if (ASK.live) { setTimeout(function () { askText.focus(); }, 120); }
+  }
+  function closeAsk() {
+    askPanel.classList.remove("open");
+    askPanel.setAttribute("aria-hidden", "true");
+  }
+
+  function addContext(key) {
+    var item = askPayload(key);
+    if (!item) { openAsk(); return; }
+    var dup = false;
+    ASK.ctx.forEach(function (c) { if (c.key === key) { dup = true; } });
+    if (!dup) { ASK.ctx.push(item); }
+    renderChips();
+    openAsk();
+  }
+
+  function hideHint() {
+    var h = askLog.querySelector(".ask-hint");
+    if (h) { h.remove(); }
+  }
+
+  function pushMsg(role, text) {
+    var node = document.createElement("div");
+    node.className = "msg " + (role === "user" ? "user" : "bot");
+    if (role === "user") {
+      node.textContent = text;
+    } else {
+      node.innerHTML = '<div class="who">paperatomy</div><div class="body"></div>';
+      node.querySelector(".body").innerHTML = formatText(text);
+    }
+    askLog.appendChild(node);
+    askLog.scrollTop = askLog.scrollHeight;
+    return node;
+  }
+
+  function showError(msg) {
+    var node = document.createElement("div");
+    node.className = "msg err";
+    node.textContent = msg;
+    askLog.appendChild(node);
+    askLog.scrollTop = askLog.scrollHeight;
+  }
+
+  function send(question) {
+    if (ASK.busy || !ASK.live) { return; }
+    var q = (question || askText.value || "").trim();
+    if (!q) { return; }
+
+    askText.value = "";
+    askText.style.height = "auto";
+    hideHint();
+
+    pushMsg("user", q);
+    ASK.history.push({ role: "user", content: q });
+
+    var ctx = ASK.ctx.map(function (c) { return { title: c.title, text: c.text }; });
+    ASK.ctx = [];
+    renderChips();
+
+    var bubble = pushMsg("bot", "").querySelector(".body");
+    var caret = document.createElement("span");
+    caret.className = "caret";
+    bubble.appendChild(caret);
+
+    ASK.busy = true;
+    askSend.disabled = true;
+
+    var answer = "";
+    var painted = Date.now();
+
+    fetch("/api/ask", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        question: q,
+        context: ctx,
+        history: ASK.history.slice(-8, -1)
+      })
+    }).then(function (res) {
+      if (!res.ok || !res.body) { throw new Error("HTTP " + res.status); }
+      var reader = res.body.getReader();
+      var decoder = new TextDecoder();
+      var buffer = "";
+
+      // 增量是逐 token 来的，每来一个就重排会卡。
+      // 攒到 70ms 才画一次，结束时无论如何再画一遍——
+      // 「最终值必须由确定的一步给出」，这条上一版在数字滚动上踩过。
+      function pump() {
+        return reader.read().then(function (chunk) {
+          if (chunk.done) { return; }
+          buffer += decoder.decode(chunk.value, { stream: true });
+          var blocks = buffer.split("\n\n");
+          buffer = blocks.pop();
+          blocks.forEach(function (raw) {
+            raw.split("\n").forEach(function (line) {
+              if (line.indexOf("data:") !== 0) { return; }
+              var obj;
+              try { obj = JSON.parse(line.slice(5).trim()); } catch (err) { return; }
+              if (obj.delta) {
+                answer += obj.delta;
+                if (Date.now() - painted > 70) {
+                  painted = Date.now();
+                  bubble.innerHTML = formatText(answer);
+                }
+              }
+              if (obj.error) { showError(obj.error); }
+            });
+          });
+          return pump();
+        });
+      }
+      return pump();
+    }).catch(function (err) {
+      showError("连不上本地服务：" + (err && err.message ? err.message : err));
+    }).then(function () {
+      if (caret.parentNode) { caret.remove(); }
+      if (answer) {
+        bubble.innerHTML = formatText(answer);
+        ASK.history.push({ role: "assistant", content: answer });
+      }
+      ASK.busy = false;
+      askSend.disabled = false;
+      askLog.scrollTop = askLog.scrollHeight;
+    });
+  }
+
+  function initAsk() {
+    if (!ASK_CFG) {
+      askFab.classList.add("offline");
+      askSub.textContent = "未连接本地服务";
+      askText.disabled = true;
+      askSend.disabled = true;
+      askText.placeholder = "需要在本地运行 paperatomy serve";
+      askLog.innerHTML =
+        '<div class="ask-hint"><b>提问需要本地服务。</b><br>' +
+        "这份报告是静态文件：它没有模型凭据，也不会替你花钱。在终端里跑——" +
+        '<div style="font-family:var(--mono);font-size:12px;background:#fff;' +
+        'border:1px solid var(--line);border-radius:6px;padding:7px 10px;margin-top:9px">' +
+        "paperatomy serve out/报告.json" + "</div>" +
+        "然后打开它给出的地址，这个按钮就能用了。报告里的证据定位、中英对照不用服务也能看。</div>";
+      return;
+    }
+    ASK.live = true;
+    askSub.innerHTML = "<b>●</b> 已连接 · 只依据这篇论文";
+    askLog.innerHTML =
+      '<div class="ask-hint"><b>报告先回答了「一般读者会问什么」。</b><br>' +
+      "剩下的疑问在这里问。答案只从这篇论文的材料里来，找不到它会说找不到。" +
+      '<a class="ask-eg" data-q="这篇论文最核心的贡献是什么？用三句话说清。">' +
+      "试试：核心贡献是什么</a></div>";
+    askText.disabled = false;
+    askSend.disabled = false;
+  }
+
+  askFab.addEventListener("click", function () {
+    if (askPanel.classList.contains("open")) { closeAsk(); } else { openAsk(); }
+  });
+  askClose.addEventListener("click", closeAsk);
+  askSend.addEventListener("click", function () { send(); });
+
+  askText.addEventListener("keydown", function (e) {
+    // Enter 发送、Shift+Enter 换行——聊天框的通用约定
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      send();
+    }
+  });
+  askText.addEventListener("input", function () {
+    askText.style.height = "auto";
+    askText.style.height = Math.min(askText.scrollHeight, 132) + "px";
+  });
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && askPanel.classList.contains("open")) { closeAsk(); }
+  });
+
+  // 全部走委托：卡片是 innerHTML 生成的，逐个绑定会漏
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest("[data-ask]");
+    if (btn) {
+      e.preventDefault();
+      e.stopPropagation();   // 否则会触发卡片折叠
+      addContext(btn.getAttribute("data-ask"));
+      return;
+    }
+    var drop = e.target.closest("[data-drop]");
+    if (drop) {
+      e.stopPropagation();
+      ASK.ctx.splice(Number(drop.getAttribute("data-drop")), 1);
+      renderChips();
+      return;
+    }
+    var eg = e.target.closest("[data-q]");
+    if (eg) {
+      e.preventDefault();
+      send(eg.getAttribute("data-q"));
+    }
+  });
+
+  initAsk();
+
+  // 打开 http://127.0.0.1:8770/#ask 直接展开面板，省一次点击
+  if (location.hash === "#ask" && ASK.live) { openAsk(); }
+
 })();
 </script>
 </body>
