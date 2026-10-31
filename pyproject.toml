@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "paperatomy"
-version = "0.4.0"
+version = "0.5.0"
 description = "把一篇论文解剖成结构图与一条可播放的论证链：证据细到章节与段号，中英对照，页面内可追问"
 readme = "README.md"
 requires-python = ">=3.10"

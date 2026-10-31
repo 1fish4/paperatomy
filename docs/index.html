@@ -194,7 +194,11 @@ cd paperatomy
 pip install -e ".[dev]"
 
 paperatomy config set --api-key sk-xxx --model deepseek-chat
-paperatomy extract paper.pdf -t survey -l zh -o out/paper
+
+# 两条路任选：
+paperatomy serve                    # 网页工作台：拖 PDF 进去，全自动出报告
+paperatomy extract paper.pdf -t survey -l zh -o out/paper   # 或命令行
+
 paperatomy chain out/paper.json     # 已有报告单独补论证链
 paperatomy locate out/paper.json    # 给旧报告补证据定位（不调模型，零成本）
 paperatomy serve out/paper.json     # 起本地服务，报告页里直接追问</code></pre>
