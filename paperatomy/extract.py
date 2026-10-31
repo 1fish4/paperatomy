@@ -23,9 +23,10 @@ from __future__ import annotations
 
 import json
 import re
+from dataclasses import replace
 from typing import Callable
 
-from .llm import LLMConfig, chat, load_config
+from .llm import LLMConfig, LLMError, chat, load_config
 from .model import (
     Block,
     Evidence,
@@ -233,6 +234,57 @@ def _as_int(value) -> int:
     return int(m.group()) if m else 0
 
 
+def _extract_once(
+    paper: Paper,
+    template: Template,
+    cfg: LLMConfig,
+    *,
+    lang: str,
+    max_chars: int,
+    repair_rounds: int,
+    say: Callable[[str], None],
+    label: str,
+) -> tuple[Extraction, list[str]]:
+    """对一份（可能是板块子集的）模板跑「抽取 → 校验 → 修复」。"""
+    messages = build_messages(paper, template, lang=lang, max_chars=max_chars)
+    say(f"{label}调用 {cfg.model}（材料约 {min(paper.chars, max_chars):,} 字符）…")
+
+    raw = chat(messages, cfg)
+    result = parse_response(raw, template, lang=lang, model=cfg.model)
+    issues = validate_extraction(result, template)
+    say(f"  第 1 轮：{len(result.findings)} 块，校验问题 {len(issues)} 个")
+
+    round_no = 1
+    while issues and round_no <= repair_rounds:
+        say("  修复第 %d 轮：%s%s" % (
+            round_no, "；".join(issues[:3]), "…" if len(issues) > 3 else ""))
+        messages = messages + [
+            {"role": "assistant", "content": raw},
+            {"role": "user", "content": _REPAIR_TEMPLATE.format(
+                issues="\n".join(f"- {i}" for i in issues))},
+        ]
+        raw = chat(messages, cfg)
+        result = parse_response(raw, template, lang=lang, model=cfg.model)
+        issues = validate_extraction(result, template)
+        round_no += 1
+        say(f"  第 {round_no} 轮：{len(result.findings)} 块，"
+            f"校验问题 {len(issues)} 个")
+
+    if issues:
+        say("  ⚠ 仍未解决：" + "；".join(issues))
+    return result, issues
+
+
+def _missing_block_ids(issues: list[str]) -> list[str]:
+    """从校验问题里抠出「缺少必填板块 xxx」的板块 id。"""
+    ids = []
+    for issue in issues:
+        m = re.match(r"缺少必填板块 (\S+)", issue)
+        if m:
+            ids.append(m.group(1))
+    return ids
+
+
 def extract(
     paper: Paper,
     template: Template,
@@ -243,7 +295,16 @@ def extract(
     repair_rounds: int = 2,
     on_progress: Callable[[str], None] | None = None,
 ) -> Extraction:
-    """抽取一篇论文。
+    """按模板抽取一篇论文。
+
+    **多板块模板按组分批抽取。** 12 块的 deep 模板连同中英对照证据
+    一次输出会撞上模型 8k token 的输出上限，JSON 被截断后整轮作废
+    ——实测一次 deep 抽取 12 块全空、连标题都没解析出来。
+    按模板的分组分次调用，每组独立预算；论文材料作为公共前缀放在
+    固定位置，DeepSeek 的上下文缓存让多次调用的输入成本几乎不变。
+
+    全部板块都解析失败时抛 :class:`LLMError`：空结果对用户是比
+    「任务失败」更糟的谎言，工作台必须把它当失败展示。
 
     参数
     ----
@@ -258,45 +319,75 @@ def extract(
     max_chars : int
         送给模型的材料上限。超出时按章节压缩。
     repair_rounds : int
-        校验不通过时的最大修复轮数。0 表示不修复。
+        每组校验不通过时的最大修复轮数。
     on_progress : callable, 可选
-        进度回调，用于命令行输出。
+        进度回调，用于命令行输出与工作台进度条。
 
     返回
     ----
     Extraction
-        即使修复失败也会返回最后一轮结果，由调用方决定是否接受。
+        各组合并后的结果。即使某组部分缺失也会返回，
+        由调用方根据界面提示决定是否接受。
     """
     cfg = cfg or load_config()
     say = on_progress or (lambda _msg: None)
 
-    messages = build_messages(paper, template, lang=lang, max_chars=max_chars)
-    say(f"调用 {cfg.model} 抽取（材料约 {min(paper.chars, max_chars):,} 字符）…")
+    groups = template.groups()
+    findings: list[Finding] = []
+    title = ""
 
-    raw = chat(messages, cfg)
-    result = parse_response(raw, template, lang=lang, model=cfg.model)
-    issues = validate_extraction(result, template)
-    say(f"第 1 轮：{len(result.findings)} 块，校验问题 {len(issues)} 个")
+    for gi, (gz, ge) in enumerate(groups, 1):
+        blocks = [b for b in template.blocks if (b.group, b.group_en) == (gz, ge)]
+        sub = replace(template, blocks=blocks)
+        label = (f"抽取正文 第 {gi}/{len(groups)} 组「{gz}」（{len(blocks)} 块）："
+                 if len(groups) > 1 else "抽取正文：")
+        result, _ = _extract_once(
+            paper, sub, cfg, lang=lang, max_chars=max_chars,
+            repair_rounds=repair_rounds, say=say, label=label)
+        findings.extend(result.findings)
+        title = title or result.paper_title
 
-    round_no = 1
-    while issues and round_no <= repair_rounds:
-        say(f"修复第 {round_no} 轮：" + "；".join(issues[:3])
-            + ("…" if len(issues) > 3 else ""))
-        messages = messages + [
-            {"role": "assistant", "content": raw},
-            {"role": "user", "content": _REPAIR_TEMPLATE.format(
-                issues="\n".join(f"- {i}" for i in issues))},
-        ]
-        raw = chat(messages, cfg)
-        result = parse_response(raw, template, lang=lang, model=cfg.model)
-        issues = validate_extraction(result, template)
-        round_no += 1
-        say(f"第 {round_no} 轮：{len(result.findings)} 块，"
-            f"校验问题 {len(issues)} 个")
+    merged = Extraction(
+        template_id=template.id, paper_title=title,
+        lang=lang, model=cfg.model, findings=findings,
+    )
+
+    # 跨组补抽：某组仍有「缺少必填板块」时，把这些块单独再要一轮。
+    issues = validate_extraction(merged, template)
+    missing = [template.block(bid) for bid in _missing_block_ids(issues)]
+    missing = [b for b in missing if b is not None]
+    if missing and repair_rounds:
+        sub = replace(template, blocks=missing)
+        say(f"补抽 {len(missing)} 个缺失板块 …")
+        result, _ = _extract_once(
+            paper, sub, cfg, lang=lang, max_chars=max_chars,
+            repair_rounds=1, say=say, label="补抽：")
+        patched = {f.block_id: f for f in result.findings if not f.is_empty}
+        seen = set()
+        findings = []
+        for f in merged.findings:
+            if f.block_id in patched:
+                findings.append(patched[f.block_id])
+            else:
+                findings.append(f)
+            seen.add(f.block_id)
+        for bid, f in patched.items():
+            if bid not in seen:
+                findings.append(f)
+        merged = Extraction(
+            template_id=template.id,
+            paper_title=title or result.paper_title,
+            lang=lang, model=cfg.model, findings=findings,
+        )
+        issues = validate_extraction(merged, template)
 
     if issues:
-        say("⚠ 仍有未解决的问题：" + "；".join(issues))
+        say("⚠ 仍未解决的问题：" + "；".join(issues))
     else:
         say("✓ 校验通过")
 
-    return result
+    if not merged.findings or all(f.is_empty for f in merged.findings):
+        raise LLMError(
+            "模型输出全部无法解析（常见原因：单次输出超出模型上限被截断）。\n"
+            "  已按组分批抽取仍失败——请换输出上限更高的模型后重试。")
+    return merged
