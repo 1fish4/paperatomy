@@ -3,11 +3,11 @@
 三种产物，各有用途：
 
 - **Markdown** —— 终端/编辑器里一路读下去，每块末尾把证据缩进列出
-- **JSON** —— 机器可消费的完整数据（含可视化脚本），也是重建其他产物的源
+- **JSON** —— 机器可消费的完整数据（含论证链），也是重建其他产物的源
 - **HTML** —— 单文件报告，数据内嵌、零外部依赖，可直接丢到静态托管
 
-可视化章节只做「脚本摘要」：原文里列清楚这段演示演什么、分几步。
-真正的动画在前端，因为动画要动，文本表达不了。
+论证链在 Markdown 里只出「结构摘要」，真正的动画在 HTML 里——
+动画要动，文本表达不了。
 """
 
 from __future__ import annotations
@@ -15,14 +15,15 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from .chain import NODE_TYPES, Chain, chain_warnings
 from .model import Extraction, Template
 
 __all__ = [
     "to_markdown",
     "to_json",
     "to_html",
-    "visuals_from_json",
-    "visual_payload",
+    "chain_from_json",
+    "chain_payload",
     "CONFIDENCE_MARK",
     "REPORT_TEMPLATE",
 ]
@@ -38,69 +39,109 @@ CONFIDENCE_MARK = {
 }
 
 
-def _visual_lines(visual, index: int) -> list[str]:
-    """把一个可视化脚本渲染成可读的文字摘要。
+# ---------------------------------------------------------------------------
+# 论证链
+# ---------------------------------------------------------------------------
 
-    只列结构，不描述动画——动画在 HTML 里。
+def chain_payload(chain: Chain) -> dict:
+    """序列化论证链，并把「不影响渲染但该让人知道」的警告一并带上。
+
+    警告在生成时就算好，前端只负责显示——前端不做判断，只做呈现。
     """
-    from .visuals import PRIMITIVES
+    payload = chain.to_dict()
+    payload["warnings"] = chain_warnings(chain)
+    # 类型的中文名与配色下发给前端，避免前后端各写一份枚举
+    payload["types"] = {
+        name: {"label": spec.label, "color": spec.color}
+        for name, spec in NODE_TYPES.items()
+    }
+    return payload
 
-    spec = PRIMITIVES.get(visual.primitive)
-    label = spec.label if spec else visual.primitive
-    out = [f"### {index}. {visual.title or '（未命名演示）'}", ""]
-    out.append(f"_原语：{label}（`{visual.primitive}`）_")
-    out.append("")
 
-    params = visual.params or {}
-    if visual.primitive == "pipeline":
-        for i, st in enumerate(params.get("stages") or [], 1):
-            name = str(st.get("name", "")).strip()
-            what = str(st.get("what", "")).strip()
-            why = str(st.get("why", "")).strip()
-            out.append(f"{i}. **{name}** —— {what}")
-            out.append(f"   - 为什么必须有：{why or '（原文未说明）'}")
-    elif visual.primitive == "example":
-        out.append(f"**设定**：{params.get('scenario', '')}")
+def chain_from_json(data: dict) -> Chain:
+    """从 JSON 载荷还原论证链。"""
+    raw = data.get("chain")
+    if not isinstance(raw, dict):
+        return Chain()
+    return Chain.from_dict(raw)
+
+
+def _diagram_text(spec: dict) -> str:
+    """把图示规格压成一句人能读的话（Markdown 不画图）。"""
+    kind = spec.get("kind", "")
+    label = str(spec.get("label", "") or "").strip()
+    if kind == "tokens":
+        n = spec.get("n", "?")
+        cadence = spec.get("cadence")
+        pace = ""
+        if isinstance(cadence, (int, float)):
+            pace = "，节奏慢" if cadence >= 1.0 else "，节奏快"
+        return f"{n} 个 token 逐个生成{pace}" + (f"（{label}）" if label else "")
+    if kind == "blocks":
+        items = "、".join(str(x) for x in (spec.get("items") or []))
+        return f"模块：{items}" + (f"（{label}）" if label else "")
+    if kind == "bars":
+        parts = [
+            f"{it.get('label', '')} {it.get('value', '')}"
+            for it in (spec.get("items") or [])
+            if isinstance(it, dict)
+        ]
+        return "对比：" + " / ".join(parts)
+    return str(spec.get("text", "")).strip() or label or "（无图示）"
+
+
+def _taxonomy_lines(node, depth: int) -> list[str]:
+    if not isinstance(node, dict):
+        return []
+    pad = "  " * depth
+    what = str(node.get("what", "") or "").strip()
+    line = f"{pad}- {node.get('name', '')}" + (f"：{what}" if what else "")
+    out = [line]
+    for child in node.get("children") or []:
+        out.extend(_taxonomy_lines(child, depth + 1))
+    return out
+
+
+def _chain_lines(chain: Chain) -> list[str]:
+    """把论证链渲染成 Markdown：一条带编号的推理线。"""
+    out: list[str] = []
+    if chain.thesis:
+        out.append(f"> **主张**：{chain.thesis}")
         out.append("")
-        for i, st in enumerate(params.get("steps") or [], 1):
-            state = str(st.get("state", "")).strip()
-            issue = str(st.get("issue") or "").strip()
-            if issue:
-                out.append(f"{i}. {state}  ⟵ **卡点：{issue}**")
-            else:
-                out.append(f"{i}. {state}")
-    elif visual.primitive == "taxonomy":
-        def walk(node, depth: int) -> None:
-            if not isinstance(node, dict):
-                return
-            pad = "  " * depth
-            what = str(node.get("what", "")).strip()
-            out.append(f"{pad}- **{node.get('name', '')}**"
-                       + (f" —— {what}" if what else ""))
-            for child in node.get("children") or []:
-                walk(child, depth + 1)
 
-        walk(params.get("root"), 0)
+    for i, node in enumerate(chain.nodes, 1):
+        out.append(f"{i}. **{node.label}**　`{node.type_label}`")
+        if node.detail:
+            out.append(f"   {node.detail}")
 
-    out.append("")
-    if visual.evidence:
-        out.append("<details><summary>原文依据</summary>")
-        out.append("")
-        for ev in visual.evidence:
+        if node.type == "change" and node.before and node.after:
+            out.append(f"   - 改动前：{_diagram_text(node.before)}")
+            out.append(f"   - 改动后：{_diagram_text(node.after)}")
+        if node.type == "effect" and node.metric:
+            value = node.metric.get("value", "")
+            unit = node.metric.get("unit", "")
+            label = node.metric.get("label", "")
+            out.append(f"   - 数字：**{value}{unit}**（{label}）")
+        if node.type == "taxonomy" and node.root:
+            out.extend("   " + line for line in _taxonomy_lines(node.root, 0))
+
+        for ev in node.evidence:
             loc = f"p.{ev.page}" if ev.page else "页码未标注"
-            out.append(f"- **{loc}** — {ev.quote}")
-        out.append("")
-        out.append("</details>")
+            out.append(f"   - _{loc}：{ev.quote}_")
         out.append("")
     return out
 
+
+# ---------------------------------------------------------------------------
+# 三种产物
+# ---------------------------------------------------------------------------
 
 def to_markdown(
     extraction: Extraction,
     template: Template,
     *,
     lang: str = "zh",
-    visuals: list | None = None,
+    chain: Chain | None = None,
 ) -> str:
     """把结果渲染成 Markdown。"""
     lines: list[str] = []
@@ -114,13 +155,12 @@ def to_markdown(
     lines.append("  ·  ".join(meta))
     lines.append("")
 
-    if visuals:
-        lines.append("## 动态演示")
+    if chain is not None and chain.nodes:
+        lines.append("## 论证链")
         lines.append("")
-        lines.append("> 在 HTML 报告里可播放；这里只列出脚本结构。")
+        lines.append("> 在 HTML 报告里可以逐段播放；这里只列结构。")
         lines.append("")
-        for i, v in enumerate(visuals, 1):
-            lines.extend(_visual_lines(v, i))
+        lines.extend(_chain_lines(chain))
 
     by_block = extraction.by_block()
     current_group = ""
@@ -165,29 +205,16 @@ def to_markdown(
     return "\n".join(lines).rstrip() + "\n"
 
 
-def visual_payload(visual) -> dict:
-    """序列化一个可视化脚本，并把「不影响渲染但该让人知道」的警告一并带上。
-
-    最典型的是 pipeline 某阶段没有 ``why``——说明论文没讲清这一步的必要性。
-    这条信息在生成时就算好，前端只负责显示。
-    """
-    from .visuals import visual_warnings
-
-    payload = visual.to_dict()
-    payload["warnings"] = visual_warnings(visual)
-    return payload
-
-
 def to_json(
     extraction: Extraction,
     template: Template,
     *,
     paper=None,
-    visuals: list | None = None,
+    chain: Chain | None = None,
 ) -> str:
     """序列化为 JSON。
 
-    元信息（页数、来源）与可视化脚本一并存下来，这样 ``paperatomy render``
+    元信息（页数、来源）与论证链一并存下来，这样 ``paperatomy render``
     能从 JSON 单独重建 HTML，不需要回头再读 PDF、也不用重新调模型。
     """
     payload = {
@@ -212,20 +239,9 @@ def to_json(
             }
             for f in extraction.findings
         ],
-        "visuals": [visual_payload(v) for v in (visuals or [])],
+        "chain": chain_payload(chain) if chain is not None and chain.nodes else None,
     }
     return json.dumps(payload, ensure_ascii=False, indent=2)
-
-
-def visuals_from_json(data: dict) -> list:
-    """从 JSON 载荷还原可视化脚本列表。"""
-    from .visuals import Visual
-
-    return [
-        Visual.from_dict(item)
-        for item in (data.get("visuals") or [])
-        if isinstance(item, dict)
-    ]
 
 
 def to_html(
@@ -235,19 +251,19 @@ def to_html(
     lang: str = "zh",
     paper=None,
     pages: int = 0,
-    visuals: list | None = None,
+    chain: Chain | None = None,
 ) -> str:
     """渲染成单文件 HTML 报告。
 
-    产物把数据与可视化脚本内嵌进 ``<script type="application/json">``，
+    产物把数据与论证链内嵌进 ``<script type="application/json">``，
     不依赖任何外部资源——双击能打开，也能直接丢到静态托管上。
 
     参数
     ----
     paper : Paper, 可选
         传入后可以显示页数等元信息。
-    visuals : list[Visual], 可选
-        可视化脚本。为空时报告里不出现动态演示章节。
+    chain : Chain, 可选
+        论证链。为空时报告里不出现论证链章节。
     """
     by_block = extraction.by_block()
     groups: list[dict] = []
@@ -281,7 +297,7 @@ def to_html(
         "pages": pages or (getattr(paper, "total_pages", 0) if paper is not None else 0),
         "blocks": sum(len(g["blocks"]) for g in groups),
         "groups": groups,
-        "visuals": [visual_payload(v) for v in (visuals or [])],
+        "chain": chain_payload(chain) if chain is not None and chain.nodes else None,
     }
 
     blob = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
