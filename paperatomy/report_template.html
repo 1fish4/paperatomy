@@ -469,16 +469,16 @@
   }
   .net-node:hover circle { stroke-width: 3; }
   .net-node text {
-    font-family: var(--mono); font-size: 9px; fill: var(--ink3);
-    pointer-events: none;
+    font-family: var(--mono); font-size: 10px; font-weight: 500;
+    fill: var(--ink2); pointer-events: none;
   }
   .net-center text {
     font-family: var(--sans); font-size: 12.5px; font-weight: 600;
     fill: var(--ink); text-anchor: middle;
   }
   .net-leaf {
-    font-family: var(--mono); font-size: 10px; letter-spacing: .1em;
-    fill: var(--ink3); text-anchor: middle;
+    font-family: var(--mono); font-size: 11px; letter-spacing: .1em;
+    fill: var(--ink2); text-anchor: middle; font-weight: 500;
   }
   .net-legend {
     display: flex; gap: 20px; margin-top: 6px; flex-wrap: wrap;
@@ -518,6 +518,27 @@
   }
   .net-d-reasons { font-size: 12.5px; color: var(--ink2); line-height: 1.75; }
   .net-d-note { font-size: 11px; color: var(--ink3); margin-top: 8px; }
+  .nc-info {
+    border: 1px solid var(--line); border-radius: 10px;
+    padding: 10px 14px 12px; margin: 0 0 14px;
+    background: var(--soft);
+  }
+  .nc-row { margin: 3px 0; font-size: 13.5px; line-height: 2; color: var(--ink); }
+  .nc-label {
+    display: inline-block; width: 86px; flex: none;
+    color: var(--ink2); font-size: 12.5px; letter-spacing: 1px;
+  }
+  .nc-hint { color: var(--ink2); font-size: 12px; margin-left: 8px; }
+  .nc-none { color: var(--ink3); }
+  .kw-chip {
+    display: inline-block; margin: 3px 6px 3px 0; padding: 3px 13px;
+    border: 1px solid rgba(46,111,142,.45); border-radius: 999px;
+    background: var(--card); color: var(--accent);
+    font-size: 13px; font-weight: 500; cursor: pointer; font-family: inherit;
+    transition: background .15s, border-color .15s;
+  }
+  .kw-chip:hover { background: #E2EFF6; border-color: var(--accent); }
+  .kw-chip.all { border-style: dashed; color: var(--ink2); }
   .net-d-note b { color: var(--ok); font-weight: 600; }
   .net-empty {
     color: var(--ink3); font-size: 13px; padding: 22px 0 14px; text-align: center;
@@ -1317,12 +1338,46 @@
       (st.matched || 0) + " 条命中 OpenAlex · 展示 " +
       (N.nodes.length) + " 个节点</span>");
     h.push("</div>");
+    var C = N.center || {};
+    if (C.venue || C.ccf || (C.topics && C.topics.length) ||
+        (C.search_terms && C.search_terms.length)) {
+      h.push('<div class="nc-info">');
+      h.push('<div class="nc-row"><span class="nc-label">发表场所</span>');
+      if (C.venue) { h.push(esc(C.venue)); }
+      if (C.ccf) { h.push(' <span class="ccf-tag">CCF-' + esc(C.ccf) + "</span>"); }
+      if (!C.venue && !C.ccf) {
+        h.push('<span class="nc-none">数据库未收录（新论文常见，无法查证）</span>');
+      }
+      h.push("</div>");
+      if (C.topics && C.topics.length) {
+        h.push('<div class="nc-row"><span class="nc-label">研究领域</span>');
+        C.topics.forEach(function (tp) {
+          var parts = [tp.field_zh || tp.field,
+                       tp.subfield_zh || tp.subfield, tp.name];
+          h.push('<span class="topic-tag">' +
+                 esc(parts.filter(Boolean).join(" · ")) + "</span>");
+        });
+        h.push("</div>");
+      }
+      if (C.search_terms && C.search_terms.length) {
+        h.push('<div class="nc-row"><span class="nc-label">检索关键词</span>' +
+          '<span class="nc-hint">点一下即复制——找同方向工作，拿它去学术搜索最准</span></div>');
+        h.push('<div class="nc-kws" id="ncKws">');
+        C.search_terms.forEach(function (k) {
+          h.push('<button class="kw-chip" type="button" data-kw="' +
+                 esc(k) + '">' + esc(k) + "</button>");
+        });
+        h.push('<button class="kw-chip all" type="button" id="ncKwAll">复制全部</button>');
+        h.push("</div>");
+      }
+      h.push("</div>");
+    }
     h.push('<div id="netViz"></div>');
     h.push('<div class="net-legend">');
     h.push('<span><i class="net-dot" style="background:#2E6F8E"></i>相关度高</span>');
     h.push('<span><i class="net-dot" style="background:#C9D4DC"></i>相关度低</span>');
     h.push("<span>节点大小 = 被引影响力</span>");
-    h.push("<span>点击节点查看等级、领域与 DOI</span>");
+    h.push("<span>点击节点查看领域、出处与 DOI</span>");
     h.push("</div>");
     h.push('<div class="net-detail" id="netDetail"></div>');
     h.push("</div></section>");
@@ -1392,8 +1447,15 @@
       s.push('<circle cx="' + n._x.toFixed(1) + '" cy="' + n._y.toFixed(1) +
              '" r="' + r.toFixed(1) + '" fill="' + color(n.relevance) + '"/>');
       var label = String(n.year || "");
-      s.push("<text x=\"" + n._x.toFixed(1) + "\" y=\"" + (n._y + r + 11).toFixed(1) +
-             '" text-anchor="middle">' + esc(label) + "</text>");
+      if (label) {
+        // 年份放在节点**外侧**（沿半径外推），不压在圆上、不与邻点重叠
+        var wdx = n._x - cx, wdy = n._y - cy;
+        var wlen = Math.sqrt(wdx * wdx + wdy * wdy) || 1;
+        var tx = n._x + wdx / wlen * (r + 12);
+        var ty = n._y + wdy / wlen * (r + 12) + 3;
+        s.push("<text x=\"" + tx.toFixed(1) + "\" y=\"" + ty.toFixed(1) +
+               '" text-anchor="middle">' + esc(label) + "</text>");
+      }
       s.push("<title>" + esc(trunc(n.title, 90)) + " · 相关度 " +
              Math.round(n.relevance * 100) + "% · 被引 " + n.cited_by + "</title>");
       s.push("</g>");
@@ -1401,12 +1463,6 @@
 
     s.push("</svg>");
     box.innerHTML = s.join("");
-
-    function ccfBadge(n) {
-      if (!n.ccf) { return ""; }
-      var kind = n.impact ? "期刊 · IF " + esc(n.impact) : "会议";
-      return ' · <span class="ccf-tag">CCF-' + esc(n.ccf) + " " + kind + "</span>";
-    }
 
     function show(n) {
       var d = document.getElementById("netDetail");
@@ -1423,12 +1479,14 @@
       h.push("</div>");
       h.push('<div class="net-d-meta">' +
         [n.year || null, esc(n.venue || ""), "被引 " + n.cited_by + " 次", doi]
-          .filter(Boolean).join(" · ") + ccfBadge(n) + "</div>");
+          .filter(Boolean).join(" · ") + "</div>");
 
       if (n.topics && n.topics.length) {
         h.push('<div class="net-d-topics">');
         n.topics.forEach(function (tp) {
-          var label = (tp.field ? tp.field + " · " : "") + tp.name;
+          var parts = [tp.field_zh || tp.field,
+                       tp.subfield_zh || tp.subfield, tp.name];
+          var label = parts.filter(Boolean).join(" · ");
           h.push('<span class="topic-tag">' + esc(label) + "</span>");
         });
         h.push("</div>");
@@ -1441,7 +1499,7 @@
         return "· " + esc(r);
       }).join("<br>") + "</div>");
       h.push('<div class="net-d-note"><b>✓ 数据来源：' + esc(src) +
-        '。</b>节点、被引数、CCF 等级为目录与数据库实录，非模型生成；' +
+        '。</b>节点与被引数为数据库实录，非模型生成；' +
         "相关度为基于共引与关键词的计算值，依据如上。</div>");
       d.innerHTML = h.join("");
       d.classList.add("show");
@@ -1458,6 +1516,42 @@
       var edge = svg.querySelector("#ne" + i);
       if (edge) { edge.classList.add("hot"); }
     });
+
+    // 检索关键词：点击复制。clipboard API 在 file:// 下可能受限，留 execCommand 兜底。
+    var kwBox = document.getElementById("ncKws");
+    if (kwBox) {
+      function fallbackCopy(txt) {
+        var ta = document.createElement("textarea");
+        ta.value = txt; document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand("copy"); } catch (e2) {}
+        document.body.removeChild(ta);
+      }
+      function copyText(txt, el) {
+        var done = function () {
+          var old = el.textContent;
+          el.textContent = "已复制 ✓";
+          setTimeout(function () { el.textContent = old; }, 1400);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(txt).then(done,
+            function () { fallbackCopy(txt); done(); });
+        } else { fallbackCopy(txt); done(); }
+      }
+      kwBox.addEventListener("click", function (e) {
+        var b = e.target.closest(".kw-chip");
+        if (!b) { return; }
+        if (b.id === "ncKwAll") {
+          var all = Array.prototype.map.call(
+            kwBox.querySelectorAll(".kw-chip:not(.all)"),
+            function (x) { return x.getAttribute("data-kw"); }
+          ).join(", ");
+          copyText(all, b);
+        } else {
+          copyText(b.getAttribute("data-kw") || "", b);
+        }
+      });
+    }
   }
 
   // ======================= 追问这篇论文 =======================

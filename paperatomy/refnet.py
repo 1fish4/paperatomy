@@ -37,7 +37,7 @@ from dataclasses import dataclass, field
 __all__ = ["RefNode", "split_references", "extract_title", "build_network"]
 
 #: OpenAlex 的礼让间隔（无 key 限速 10/s，我们只用一半）。
-_REQUEST_GAP = 0.12
+_REQUEST_GAP = 0.18
 
 #: 直连失败后改走的本地代理端口（与本项目其他联网组件一致）。
 _PROXY = "http://127.0.0.1:7897"
@@ -193,6 +193,19 @@ class OpenAlex:
                 with opener.open(req, timeout=20) as resp:
                     self.ok = True
                     return json.loads(resp.read().decode("utf-8"))
+            except urllib.error.HTTPError as exc:
+                # 429：短时突发限流，退避后原样重试一次（仍失败才降级）
+                if exc.code == 429 and last_err != "backoff":
+                    last_err = "backoff"
+                    time.sleep(2.5)
+                    try:
+                        with opener.open(req, timeout=20) as resp:
+                            self.ok = True
+                            return json.loads(resp.read().decode("utf-8"))
+                    except Exception as exc2:  # noqa: BLE001
+                        last_err = exc2
+                        continue
+                last_err = exc
             except Exception as exc:  # noqa: BLE001 —— 网络失败逐级回退
                 last_err = exc
         self.ok = False
@@ -206,7 +219,7 @@ class OpenAlex:
                + urllib.parse.quote(title[:120])
                + "&per_page=3&select=id,doi,title,display_name,"
                  "publication_year,cited_by_count,referenced_works,"
-                 "primary_location,topics")
+                 "primary_location,topics,keywords")
         data = self._fetch(url)
         if not data:
             return None
@@ -245,6 +258,11 @@ class OpenAlex:
                 for tp in sorted(best.get("topics") or [],
                                  key=lambda x: -(x.get("score") or 0))[:3]
             ],
+            "keywords": [
+                str(k.get("display_name") or "").strip()
+                for k in (best.get("keywords") or [])
+                if k.get("display_name")
+            ][:6],
             "match": round(best_score, 2),
         }
 
@@ -330,6 +348,135 @@ def ccf_lookup(venue: str) -> dict | None:
 # 相关度：可解释的计算值
 # ---------------------------------------------------------------------------
 
+# OpenAlex field/subfield 英→中：只翻译 OpenAlex 已有的标注，属翻译而非判断。
+# 未列入的层级原样展示英文，不硬凑。
+_FIELD_ZH = {
+    "Computer Science": "计算机科学",
+    "Mathematics": "数学",
+    "Physics": "物理学",
+    "Chemistry": "化学",
+    "Biology": "生物学",
+    "Medicine": "医学",
+    "Materials Science": "材料科学",
+    "Engineering": "工程学",
+    "Environmental Science": "环境科学",
+    "Geology": "地质学",
+    "Geography": "地理学",
+    "Social Sciences": "社会科学",
+    "Psychology": "心理学",
+    "Economics": "经济学",
+    "Business": "商学",
+    "Education": "教育学",
+    "Law": "法学",
+    "Philosophy": "哲学",
+    "Political science": "政治学",
+    "Art": "艺术学",
+    "History": "历史学",
+    "Literature": "文学",
+    "Linguistics": "语言学",
+}
+_SUBFIELD_ZH = {
+    "Artificial Intelligence": "人工智能",
+    "Computational Theory and Mathematics": "计算理论与数学",
+    "Computer Vision and Pattern Recognition": "计算机视觉与模式识别",
+    "Computer Networks and Communications": "计算机网络与通信",
+    "Computer Security and Reliability": "计算机安全与可靠性",
+    "Control and Systems Engineering": "控制与系统工程",
+    "Distributed and Parallel Computing": "分布式与并行计算",
+    "Human-Computer Interaction": "人机交互",
+    "Hardware and Architecture": "硬件与体系结构",
+    "Information Systems": "信息系统",
+    "Software": "软件",
+    "Theoretical Computer Science": "理论计算机科学",
+    "Electrical and Electronic Engineering": "电子电气工程",
+    "Signal Processing": "信号处理",
+    "Library and Information Science": "图书情报",
+    "Applied Mathematics": "应用数学",
+    "Statistics and Probability": "统计与概率",
+    "Numerical Analysis": "数值分析",
+    "Computational Mechanics": "计算力学",
+    "Energy": "能源",
+    "Environmental Engineering": "环境工程",
+    "Management Science and Operations Research": "管理科学与运筹学",
+    "Marketing": "市场营销",
+    "Strategy, Management and Accounting": "战略、管理与会计",
+    "Business and International Management": "商业与国际管理",
+    "Cognitive Science": "认知科学",
+    "Sociology and Political Science": "社会与政治学",
+    "Developmental and Educational Psychology": "发展与教育心理学",
+    "Public Health, Environmental and Occupational Health":
+        "公共卫生与环境职业健康",
+    "Biochemistry": "生物化学",
+    "Molecular Biology": "分子生物学",
+    "Atomic and Molecular Physics, and Optics": "原子分子物理与光学",
+    "General Medicine": "临床医学（综合）",
+    "Organic Chemistry": "有机化学",
+    "Mechanics of Materials": "材料力学",
+    "Industrial and Manufacturing Engineering": "工业与制造工程",
+    "Safety, Risk, Reliability and Quality": "安全、风险与质量",
+    "Renewable Energy, Sustainability and the Environment":
+        "可再生能源与可持续环境",
+    "Building and Construction": "建筑与土木",
+    "Transportation": "交通运输",
+}
+
+
+def topic_bilingual(tp: dict) -> dict:
+    """给 OpenAlex 领域标注的 field / subfield 层附中文名。"""
+    out = dict(tp)
+    for layer in ("field", "subfield"):
+        zh = _FIELD_ZH.get(out.get(layer) or "")             or _SUBFIELD_ZH.get(out.get(layer) or "")
+        if zh:
+            out[layer + "_zh"] = zh
+    return out
+
+
+_GENERIC = {
+    "this", "that", "these", "those", "paper", "work", "study", "approach",
+    "method", "methods", "model", "models", "propose", "proposed", "results",
+    "result", "show", "shows", "shown", "experiment", "experiments",
+    "experimental", "evaluation", "performance", "system", "systems",
+    "problem", "which", "their", "when", "where", "while", "such", "also",
+    "than", "then", "into", "over", "between", "each", "other", "more",
+    "most", "well", "only", "our", "its", "have", "has", "are", "were",
+    "been", "can", "may", "will", "one", "two", "three", "first", "second",
+    "third", "however", "there", "them", "they", "what", "with", "from",
+    "both", "some", "each", "same", "time", "case", "cases", "number",
+    "large", "small", "high", "low", "new", "novel", "different", "given",
+    "section", "figure", "table", "note", "terms", "term", "data",
+}
+
+
+def _local_keywords(paper, top: int = 8) -> list[str]:
+    """从论文真实正文抽高频术语，作搜索关键词的兜底来源。
+
+    纯 n-gram 频率统计：不经模型、不经词典推荐，每个词都出自 PDF。
+    """
+    from collections import Counter
+
+    corpus = paper.title or ""
+    body = " ".join(s.text for s in paper.sections if not s.is_reference)[:20000]
+    corpus += " " + body
+    words = [w.lower() for w in re.findall(r"[A-Za-z][A-Za-z\-]{3,}", corpus)]
+    words = [w for w in words if w not in _STOP and w not in _GENERIC]
+    uni = Counter(words)
+    bi = Counter(zip(words, words))
+    cands: list[tuple[str, int]] = []
+    for (a, b), c in bi.items():
+        if c >= 2 and a != b:  # (w,w) 型是解析噪声，不是术语
+            cands.append((a + " " + b, c * 2))  # 二元术语更具检索指向性
+    for w, c in uni.items():
+        cands.append((w, c))
+    cands.sort(key=lambda x: -x[1])
+    out: list[str] = []
+    for term, _c in cands:
+        if term not in out:
+            out.append(term)
+        if len(out) >= top:
+            break
+    return [t.title() for t in out]
+
+
 def _keywords(text: str) -> set[str]:
     return {w for w in _norm(text).split() if len(w) >= 4 and w not in _STOP}
 
@@ -375,10 +522,6 @@ class RefNode:
             out["venue"] = self.venue
         if self.openalex_id:
             out["openalex_id"] = self.openalex_id
-        if self.ccf:
-            out["ccf"] = self.ccf
-        if self.impact:
-            out["impact"] = self.impact
         if self.topics:
             out["topics"] = self.topics
         return out
@@ -433,11 +576,8 @@ def build_network(
             node.year = m["year"]
             node.cited_by = m["cited_by"]
             node.venue = m["venue"]
-            node.topics = m.get("topics") or []
-            cc = ccf_lookup(m["venue"])
-            if cc:
-                node.ccf = cc.get("r", "")
-                node.impact = cc.get("if", "") or ""
+            node.topics = [topic_bilingual(tp)
+                           for tp in (m.get("topics") or [])]
             # 相关度①：标题关键词与本文重合
             kw_node = _keywords(node.title)
             overlap = kw_center & kw_node
@@ -483,11 +623,8 @@ def build_network(
             recency = max(0, 1 - max(0, node.year - 2020) / 10)
             node.relevance += 0.20 * (recency if node.year else 0.5)
             node.reasons.append(f"{node.year} 年发表，直接引用了本文")
-            node.topics = w.get("topics") or []
-            cc = ccf_lookup(node.venue)
-            if cc:
-                node.ccf = cc.get("r", "")
-                node.impact = cc.get("if", "") or ""
+            node.topics = [topic_bilingual(tp)
+                           for tp in (w.get("topics") or [])]
             citing.append(node)
     else:
         say("中心未收录，跳过「引用本文」方向")
@@ -515,16 +652,26 @@ def build_network(
     say(f"网络就绪：命中 {matched}/{len(entries)}，"
         f"后续工作 {len(citing)}，取 {len(picked)} 个节点")
 
+    # 搜索关键词：不是推荐文章——给用户拿去自己搜的真实词条。
+    # 优先 OpenAlex 对本文的官方 keywords 标注（收录后才有）；
+    # 未收录或稀疏时，用本地 n-gram 高频术语兜底。都不经过模型。
+    oa_kw = list((center or {}).get("keywords") or [])
+    seen = {k.lower() for k in oa_kw}
+    search_terms = (oa_kw + [x for x in _local_keywords(paper)
+                             if x.lower() not in seen])[:8]
+
     return {
         "center": {
             "title": center_title,
             "year": (center or {}).get("year", 0) if center else 0,
             "doi": (center or {}).get("doi", "") if center else "",
             "matched": bool(center),
-            "topics": (center or {}).get("topics") or [],
+            "topics": [topic_bilingual(tp)
+                       for tp in (center or {}).get("topics") or []],
             "venue": (center or {}).get("venue", "") if center else "",
             "ccf": ccf_lookup((center or {}).get("venue", "")).get("r", "")
                    if center and ccf_lookup((center or {}).get("venue", "")) else "",
+            "search_terms": search_terms,
         },
         "nodes": [n.to_dict() for n in picked],
         "stats": stats,
