@@ -561,6 +561,31 @@ def _sections_from_text(pages: list[Page]) -> list[Section]:
     return sections
 
 
+def _find_reference_section(pages: list[Page]) -> Section | None:
+    """书签切章后补找 References 章节。
+
+    出版社的 PDF 书签经常只列正文章节，漏掉 References（实测 A02：
+    书签 9 章，References 只在正文第 16 页）。从后往前找第一个
+    References 标题行，它到文末的内容就是参考文献——
+    从后找是为了避开附录里偶然出现的同名小节。
+    """
+    for pg in reversed(pages):
+        lines = pg.text.split("\n")
+        for idx in range(len(lines) - 1, -1, -1):
+            line = lines[idx].strip()
+            if not _REFERENCE_RE.match(line):
+                continue
+            rest = "\n".join(lines[idx + 1:])
+            later = "\n".join(p.text for p in pages[pg.number:])
+            text = (rest + "\n" + later).strip()
+            # 真正的参考文献章节不会太短；太短多半是目录里的同名行
+            if len(text) > 800:
+                return Section(title=line, start_page=pg.number,
+                               text=text, is_reference=True)
+            return None
+    return None
+
+
 def _is_body_like(title: str) -> bool:
     """排除正文里形似标题的行（全小写、过长、像句子）。"""
     if len(title) > 60:
@@ -613,6 +638,11 @@ def parse(path: str | Path) -> Paper:
         sections = _sections_from_toc(doc, pages)
         if not sections:
             sections = _sections_from_text(pages)
+        # 书签经常漏掉 References——两条件路径都可能缺它，统一补一次
+        if sections and not any(s.is_reference for s in sections):
+            ref = _find_reference_section(pages)
+            if ref is not None:
+                sections.append(ref)
         if not sections:
             sections = [Section(title="全文", start_page=1,
                                 text="\n".join(p.text for p in pages))]

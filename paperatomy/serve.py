@@ -310,7 +310,7 @@ class _State:
                 task.detail = msg
                 for key, stage in (("解析", "解析 PDF"), ("抽取正文", "抽取正文"),
                                    ("论证链", "抽取论证链"), ("证据定位", "证据定位"),
-                                   ("渲染", "渲染报告")):
+                                   ("文献网络", "文献网络"), ("渲染", "渲染报告")):
                     if msg.startswith(key):
                         task.stage = stage
 

@@ -144,6 +144,7 @@ def to_markdown(
     *,
     lang: str = "zh",
     chain: Chain | None = None,
+    network: dict | None = None,
 ) -> str:
     """把结果渲染成 Markdown。"""
     lines: list[str] = []
@@ -163,6 +164,20 @@ def to_markdown(
         lines.append("> 在 HTML 报告里可以逐段播放；这里只列结构。")
         lines.append("")
         lines.extend(_chain_lines(chain))
+
+    if network and network.get("nodes"):
+        lines.append("## 文献网络")
+        lines.append("")
+        st = network.get("stats") or {}
+        lines.append(f"> {st.get('reference_entries', '?')} 条参考文献中 "
+                     f"{st.get('matched', '?')} 条在 OpenAlex 命中并补全了 DOI 与被引数；"
+                     "节点全部来自真实数据，非模型生成。")
+        lines.append("")
+        for n in network["nodes"][:12]:
+            doi = f" [DOI](https://doi.org/{n['doi']})" if n.get("doi") else ""
+            lines.append(f"- **{n['title']}**（{n.get('year') or '?'}，"
+                         f"被引 {n['cited_by']}，相关度 {int(n['relevance']*100)}%）{doi}")
+        lines.append("")
 
     by_block = extraction.by_block()
     current_group = ""
@@ -218,6 +233,7 @@ def to_json(
     *,
     paper=None,
     chain: Chain | None = None,
+    network: dict | None = None,
 ) -> str:
     """序列化为 JSON。
 
@@ -245,6 +261,7 @@ def to_json(
             for f in extraction.findings
         ],
         "chain": chain_payload(chain) if chain is not None and chain.nodes else None,
+        "network": network,
     }
     return json.dumps(payload, ensure_ascii=False, indent=2)
 
@@ -257,6 +274,7 @@ def to_html(
     paper=None,
     pages: int = 0,
     chain: Chain | None = None,
+    network: dict | None = None,
 ) -> str:
     """渲染成单文件 HTML 报告。
 
@@ -301,6 +319,7 @@ def to_html(
         "blocks": sum(len(g["blocks"]) for g in groups),
         "groups": groups,
         "chain": chain_payload(chain) if chain is not None and chain.nodes else None,
+        "network": network,
     }
 
     blob = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))

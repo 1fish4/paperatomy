@@ -92,6 +92,14 @@ def build_parser() -> argparse.ArgumentParser:
                        help="补完后自动重建 Markdown 与 HTML（默认开启）")
     p_loc.add_argument("--no-rebuild", dest="rebuild", action="store_false")
 
+    p_net = sub.add_parser(
+        "network", help="给已有报告补文献网络（不调模型；需联网访问 OpenAlex）")
+    p_net.add_argument("json", help="extract 产出的 JSON 文件")
+    p_net.add_argument("--max-nodes", type=int, default=24, help="节点上限，默认 24")
+    p_net.add_argument("--rebuild", action="store_true", default=True,
+                       help="补完后自动重建 Markdown 与 HTML（默认开启）")
+    p_net.add_argument("--no-rebuild", dest="rebuild", action="store_false")
+
     p_srv = sub.add_parser(
         "serve", help="起本地服务：不给报告则打开工作台（上传 PDF 直接分析）")
     p_srv.add_argument("json", nargs="?", default=None,
@@ -134,6 +142,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_chain(args)
     if args.command == "locate":
         return _cmd_locate(args)
+    if args.command == "network":
+        return _cmd_network(args)
     if args.command == "serve":
         return _cmd_serve(args)
     if args.command == "config":
@@ -546,6 +556,47 @@ def _cmd_locate(args) -> int:
     return 0
 
 
+def _cmd_network(args) -> int:
+    """给已有报告补文献网络。不调用模型，只访问 OpenAlex。"""
+    import json as _json
+
+    from .parse import parse
+
+    json_path = Path(args.json)
+    if not json_path.is_file():
+        print(f"✗ 找不到文件：{json_path}")
+        return 1
+    data = _json.loads(json_path.read_text(encoding="utf-8"))
+
+    source = str(data.get("source", "") or "")
+    pdf_path = _resolve_source(source, json_path) if source else None
+    if pdf_path is None:
+        print(f"✗ 找不到原文：{source or '（JSON 里没有记录来源）'}")
+        return 1
+
+    paper = parse(pdf_path)
+    print(f"参考文献解析自 {pdf_path.name}（{paper.total_pages} 页）")
+
+    from .refnet import build_network
+
+    network = build_network(paper, max_nodes=args.max_nodes)
+    if not network.get("nodes"):
+        print("✗ 没有匹配到任何文献（网络不可用或全都未收录），报告未修改")
+        return 1
+
+    data["network"] = network
+    json_path.write_text(
+        _json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    st = network["stats"]
+    print(f"  参考文献条目 {st['reference_entries']}，命中 {st['matched']}，"
+          f"取 {st['nodes']} 个节点")
+
+    if args.rebuild:
+        return _render_from_data(json_path, data)
+    return 0
+
+
 def _cmd_serve(args) -> int:
     """起本地服务：给了报告进报告模式，不给进工作台模式。"""
     from .serve import serve
@@ -607,7 +658,8 @@ def _render_from_data(json_path: Path, data: dict, *, lang=None, output=None) ->
 
     md_path = prefix.with_suffix(".md")
     md_path.write_text(
-        to_markdown(extraction, template, lang=extraction.lang, chain=chain),
+        to_markdown(extraction, template, lang=extraction.lang, chain=chain,
+                    network=data.get("network")),
         encoding="utf-8",
     )
     print(f"已写出 {md_path}")
@@ -616,7 +668,8 @@ def _render_from_data(json_path: Path, data: dict, *, lang=None, output=None) ->
     html_path = prefix.with_suffix(".html")
     html_path.write_text(
         to_html(extraction, template, lang=extraction.lang,
-                pages=pages, chain=chain), encoding="utf-8"
+                pages=pages, chain=chain, network=data.get("network")),
+        encoding="utf-8"
     )
     print(f"已写出 {html_path}")
     if chain.nodes:

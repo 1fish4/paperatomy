@@ -5,6 +5,32 @@
 
 ---
 
+## [0.6.0] - 2026-11-02
+
+### 新增
+
+- **文献网络**：以本文为中心的径向双叶图——左叶是它引用的（过去），
+  右叶是引用它的（未来，中心被 OpenAlex 收录时可用）。
+  节点大小 = 被引影响力，颜色 = 与本文相关度，点击节点查看
+  年份 / venue / 被引数 / DOI / 相关度依据。
+- **节点 100% 真实，模型零参与**：节点只来自 PDF 印刷的参考文献列表
+  与 OpenAlex 的 API 响应；相关度是计算值（共引 + 关键词重合），
+  每个分数带可解释依据。每个节点带 provenance 标注来源。
+- **venue 等级与领域标注**：CCF 推荐目录（A/B/C，内置真实列表 684 条，
+  会议 + 期刊）与 OpenAlex 的领域标注（field / subfield / topic），
+  在详情面板以徽章与词条展示。
+- 新命令：`paperatomy network out/paper.json`（不调模型，联网访问 OpenAlex）；
+  工作台生成报告时自动附带；References 章节识别补强（书签漏列时可从正文找回）。
+
+### 边界（有意为之）
+
+- 中科院分区没有免费可靠数据源，暂不做——未列入 CCF 目录的 venue
+  不标等级，而不是硬凑一个。
+
+### 测试
+
+- 144 → 156 项：新增文献网络数据层 12 项（切条 / 标题提取 / 相关度 / 降级）。
+
 ## [0.5.1] - 2026-10-31
 
 ### 修复（严重）
@@ -298,6 +324,7 @@ LLM 一定会编，用户必须能核对 —— 这是与「和 PDF 聊天」类
 
 ---
 
+[0.6.0]: https://github.com/1fish4/paperatomy/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/1fish4/paperatomy/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/1fish4/paperatomy/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/1fish4/paperatomy/compare/v0.3.0...v0.4.0

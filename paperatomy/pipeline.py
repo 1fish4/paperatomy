@@ -111,16 +111,28 @@ def analyze_pdf(
     prefix = Path(out_prefix) if out_prefix else pdf.with_suffix("")
     prefix.parent.mkdir(parents=True, exist_ok=True)
 
+    say("文献网络（OpenAlex 引用匹配，约 1–2 分钟）…")
+    network = None
+    try:
+        from .refnet import build_network
+
+        network = build_network(paper, on_progress=say)
+    except Exception as exc:  # 网络是增强项，失败不拦报告
+        say(f"  ⚠ 文献网络失败（不影响报告）：{exc}")
+
     say("渲染报告 …")
     json_path = prefix.with_suffix(".json")
     json_path.write_text(
-        to_json(result, template, paper=paper, chain=chain), encoding="utf-8")
+        to_json(result, template, paper=paper, chain=chain, network=network),
+        encoding="utf-8")
     md_path = prefix.with_suffix(".md")
     md_path.write_text(
-        to_markdown(result, template, lang=lang, chain=chain), encoding="utf-8")
+        to_markdown(result, template, lang=lang, chain=chain, network=network),
+        encoding="utf-8")
     html_path = prefix.with_suffix(".html")
     html_path.write_text(
-        to_html(result, template, lang=lang, paper=paper, chain=chain),
+        to_html(result, template, lang=lang, paper=paper, chain=chain,
+                network=network),
         encoding="utf-8")
 
     return AnalyzeResult(
