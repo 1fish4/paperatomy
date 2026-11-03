@@ -412,6 +412,11 @@
     nav.jump, .chev { display: none; }
     article.card { break-inside: avoid; border-color: #ccc; }
     .c-body { display: block !important; }
+    /* v0.7 增强：追问面板与悬浮按钮不进纸面；板块整体不跨页 */
+    .print-fab, .ask-fab, .ask-panel { display: none !important; }
+    section.group { break-inside: avoid; }
+    .chain-stage, .net-svg { break-inside: avoid; }
+    header.top { position: static; box-shadow: none; }
   }
 
   /* ---------- 证据：章节 · 段号 · 中英对照 ---------- */
@@ -560,6 +565,15 @@
     border-radius: 999px; padding: 2px 10px;
   }
   /* ---------- 追问：悬浮按钮与侧栏 ---------- */
+  .print-fab {
+    position: fixed; right: 26px; bottom: 92px; z-index: 60;
+    width: 52px; height: 52px; border-radius: 50%;
+    border: 1px solid var(--line); background: var(--card);
+    color: var(--ink2); font-size: 20px; cursor: pointer;
+    box-shadow: 0 4px 16px rgba(27,36,48,.14);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .print-fab:hover { color: var(--accent); border-color: var(--accent); }
   .ask-fab {
     position: fixed; right: 26px; bottom: 26px; z-index: 60;
     width: 52px; height: 52px; border-radius: 50%;
@@ -760,7 +774,8 @@
        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <path d="M15 6l-6 6 6 6"/></svg>工作台</button>
 
-<button class="ask-fab" id="askFab" type="button" aria-label="追问这篇论文">
+<button class="print-fab" type="button" title="打印 / 存为 PDF" onclick="window.print()">⎙</button>
+  <button class="ask-fab" id="askFab" type="button" aria-label="追问这篇论文">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
        stroke-linecap="round" stroke-linejoin="round">
     <path d="M20 14.5a2 2 0 0 1-2 2H8l-4 3.5V6.5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2z"/>
@@ -926,13 +941,20 @@
   });
 
   // 把带缩进的纯文本转成层级列表，让「分类框架」这类内容能看出结构
+  // 行内 Markdown：**加粗** 与 `行内码`。在 esc 之后做替换，
+    // 不会引入注入面（** 与 ` 本身已被转义规则保留为普通字符）。
+  function inlineMd(s) {
+    return s
+      .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
+      .replace(/`([^`]+)`/g, '<code style="font-family:var(--mono);font-size:.92em">$1</code>');
+  }
   function formatText(text) {
     if (!text) { return ""; }
     var lines = text.split(/\n/);
     var hasList = lines.some(function (l) { return /^\s*(\d+[.)]|[-*•])\s+/.test(l); });
     if (!hasList) {
       return text.split(/\n{2,}/).map(function (p) {
-        return "<p>" + esc(p.trim()).replace(/\n/g, "<br>") + "</p>";
+        return "<p>" + inlineMd(esc(p.trim())).replace(/\n/g, "<br>") + "</p>";
       }).join("");
     }
 
@@ -1793,6 +1815,16 @@
       askText.disabled = true;
       askSend.disabled = true;
       askText.placeholder = "需要在本地运行 paperatomy serve";
+      // offline 先渲染历史（若有），再补「怎么连服务」的提示——
+      // 历史是报告里的数据，静态打开也该能看到
+      if (renderQaHistory()) {
+        var off = document.createElement("div");
+        off.className = "ask-hint";
+        off.innerHTML = "<br><b>继续追问需要本地服务。</b><br>" +
+          "在终端里跑 paperatomy serve out/报告.json 后刷新本页。";
+        askLog.appendChild(off);
+        return;
+      }
       askLog.innerHTML =
         '<div class="ask-hint"><b>提问需要本地服务。</b><br>' +
         "这份报告是静态文件：它没有模型凭据，也不会替你花钱。在终端里跑——" +
@@ -1804,14 +1836,33 @@
     }
     ASK.live = true;
     askSub.innerHTML = "<b>●</b> 已连接 · 只依据这篇论文";
-    askLog.innerHTML =
-      '<div class="ask-hint"><b>报告先回答了「一般读者会问什么」。</b><br>' +
-      "剩下的疑问在这里问。答案只从这篇论文的材料里来，找不到它会说找不到。" +
-      '<a class="ask-eg" data-q="这篇论文最核心的贡献是什么？用三句话说清。">' +
-      "试试：核心贡献是什么</a></div>";
     askText.disabled = false;
     askSend.disabled = false;
+    askLog.scrollTop = askLog.scrollHeight;
   }
+
+  // 历史问答回放：数据在报告 JSON 里，serve 保存，重开不丢。
+  // 只读展示，不依赖服务——静态打开也能看。
+  function renderQaHistory() {
+    if (!D.qa || !D.qa.length) { return false; }
+    askLog.innerHTML =
+      '<div class="ask-hint">以下是之前的 ' + D.qa.length +
+      " 条问答（存在报告里，换次打开还在）：</div>";
+    D.qa.forEach(function (m) {
+      pushMsg("user", m.question);
+      var b = pushMsg("bot", "");
+      b.querySelector(".body").innerHTML = formatText(m.answer || "");
+    });
+    var tip = document.createElement("div");
+    tip.className = "ask-hint";
+    tip.innerHTML = "<br><b>报告先回答了「一般读者会问什么」。</b><br>" +
+      "剩下的疑问在这里问。答案只从这篇论文的材料里来，找不到它会说找不到。" +
+      '<a class="ask-eg" data-q="这篇论文最核心的贡献是什么？用三句话说清。">' +
+      "试试：核心贡献是什么</a>";
+    askLog.appendChild(tip);
+    return true;
+  }
+  renderQaHistory();
 
   askFab.addEventListener("click", function () {
     if (askPanel.classList.contains("open")) { closeAsk(); } else { openAsk(); }

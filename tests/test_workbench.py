@@ -124,15 +124,18 @@ def test_task_public_shape():
 
 
 def test_start_task_rejects_concurrent(state, tmp_path):
+    # 不起真线程：起线程的任务在没有 API key 的机器上会毫秒级失败并清掉
+    # running 占位，第二个请求就不再被拒（CI 上是真实发生过的 race）。
+    # 并发分支本身用占位 running 直接验证。
     from paperatomy.serve import Task
     pdf = tmp_path / "a.pdf"
     pdf.write_bytes(b"%PDF-1.7\n")
-    t1 = Task(id="1", name="a.pdf")
-    state.start_task(t1, pdf)          # running 被置位
+    state.running = "ghost"            # 模拟「已有任务在跑」
     t2 = Task(id="2", name="b.pdf")
     state.start_task(t2, pdf)
     assert t2.status == "error"
     assert "已有任务" in t2.error
+    assert state.running == "ghost"    # 占位不被第二个任务抢走
 
 
 # ---------------------------------------------------------------------------

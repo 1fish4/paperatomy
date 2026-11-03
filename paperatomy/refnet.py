@@ -444,6 +444,12 @@ _GENERIC = {
     "both", "some", "each", "same", "time", "case", "cases", "number",
     "large", "small", "high", "low", "new", "novel", "different", "given",
     "section", "figure", "table", "note", "terms", "term", "data",
+    # 机构与出版信息常出现在标题附近，作检索词没有指向性
+    "university", "institute", "institutes", "department", "college",
+    "school", "lab", "laboratory", "china", "usa", "journal",
+    "conference", "proceedings", "arxiv", "ieee", "acm", "press",
+    "beijing", "shanghai", "posts", "telecom", "univ", "email",
+    "corresponding", "author", "authors", "abstract",
 }
 
 

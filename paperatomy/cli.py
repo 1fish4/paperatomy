@@ -92,6 +92,19 @@ def build_parser() -> argparse.ArgumentParser:
                        help="补完后自动重建 Markdown 与 HTML（默认开启）")
     p_loc.add_argument("--no-rebuild", dest="rebuild", action="store_false")
 
+    p_rev = sub.add_parser(
+        "review", help="多篇报告合成文献综述草稿（Markdown，零模型调用）")
+    p_rev.add_argument("jsons", nargs="+", help="两份以上的报告 JSON")
+    p_rev.add_argument("-o", "--output", default=None,
+                       help="输出路径（默认 报告目录/文献综述草稿.md）")
+
+    p_cmp = sub.add_parser(
+        "compare", help="两份报告并排对照（零模型调用，纯本地合成）")
+    p_cmp.add_argument("json_a", help="第一份报告 JSON")
+    p_cmp.add_argument("json_b", help="第二份报告 JSON")
+    p_cmp.add_argument("-o", "--output", default=None,
+                       help="输出前缀（默认 <第一份文件名>.compare.html）")
+
     p_net = sub.add_parser(
         "network", help="给已有报告补文献网络（不调模型；需联网访问 OpenAlex）")
     p_net.add_argument("json", help="extract 产出的 JSON 文件")
@@ -142,6 +155,12 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_chain(args)
     if args.command == "locate":
         return _cmd_locate(args)
+    if args.command == "review":
+        from .review import run_review
+        return run_review(args.jsons, args.output)
+    if args.command == "compare":
+        from .compare import run_compare
+        return run_compare(args.json_a, args.json_b, args.output)
     if args.command == "network":
         return _cmd_network(args)
     if args.command == "serve":
@@ -668,7 +687,8 @@ def _render_from_data(json_path: Path, data: dict, *, lang=None, output=None) ->
     html_path = prefix.with_suffix(".html")
     html_path.write_text(
         to_html(extraction, template, lang=extraction.lang,
-                pages=pages, chain=chain, network=data.get("network")),
+                pages=pages, chain=chain, network=data.get("network"),
+                qa=data.get("qa")),
         encoding="utf-8"
     )
     print(f"已写出 {html_path}")

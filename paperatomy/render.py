@@ -275,6 +275,7 @@ def to_html(
     pages: int = 0,
     chain: Chain | None = None,
     network: dict | None = None,
+    qa: list | None = None,
 ) -> str:
     """渲染成单文件 HTML 报告。
 
@@ -320,6 +321,7 @@ def to_html(
         "groups": groups,
         "chain": chain_payload(chain) if chain is not None and chain.nodes else None,
         "network": network,
+        "qa": qa or None,
     }
 
     blob = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))

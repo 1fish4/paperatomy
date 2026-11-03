@@ -5,6 +5,31 @@
 
 ---
 
+## [0.7.0] - 2026-11-03
+
+### 新增
+
+- **多篇对比** `paperatomy compare a.json b.json`：逐板块并排对照页，
+  仅A/仅B 高亮，零模型调用
+- **综述导出** `paperatomy review a.json b.json ...`：多篇报告合成
+  文献综述草稿（Markdown），末尾汇总共现检索关键词，零模型调用
+- **追问历史持久化**：页面内每次问答存进报告 JSON（module/question/
+  answer/ts），重开报告回放历史；静态打开也能只读回看
+- **打印导出**：报告页新增打印按钮，追问面板与悬浮按钮不进纸面，
+  板块不跨页断开，Ctrl+P 即得 PDF
+- 追问面板支持行内 Markdown（**加粗** 与 `行内码`）
+
+### 修复
+
+- CI flaky 根修：`test_start_task_rejects_concurrent` 原先起真线程，
+  在没有 API key 的机器上任务毫秒级失败并清掉并发占位，第二个请求
+  不再被拒——改为占位 running 直接验证并发分支（v0.6.0/v0.5.1 的
+  macOS 随机失败均由此引起；v0.6.1 矩阵 9 组全绿）
+- `_local_keywords` 补机构/地名类停用词，检索关键词不再混入
+  University、Beijing 等无指向性词条
+
+167 项测试。
+
 ## [0.6.1] - 2026-11-02
 
 ### 改动
@@ -340,6 +365,7 @@ LLM 一定会编，用户必须能核对 —— 这是与「和 PDF 聊天」类
 
 ---
 
+[0.7.0]: https://github.com/1fish4/paperatomy/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/1fish4/paperatomy/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/1fish4/paperatomy/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/1fish4/paperatomy/compare/v0.5.0...v0.5.1

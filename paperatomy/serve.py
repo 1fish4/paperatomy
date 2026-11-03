@@ -385,6 +385,7 @@ class _Handler(BaseHTTPRequestHandler):
 
     state: _State | None = None          # 工作台模式
     single_file: str | None = None       # 单报告模式的报告 json 文件名
+    single_json: Path | None = None      # 同上的完整路径（保存追问历史用）
     html: str = ""
     workbench_html: str = ""
     title: str = ""
@@ -585,22 +586,55 @@ class _Handler(BaseHTTPRequestHandler):
                 f"data: {json.dumps(obj, ensure_ascii=False)}\n\n".encode("utf-8"))
             self.wfile.flush()
 
+        answer_parts: list[str] = []
         try:
             assert self.cfg is not None
             for delta in chat_stream(messages, self.cfg):
+                answer_parts.append(delta)
                 emit({"delta": delta})
             emit({"done": True})
-        except LLMError as exc:
-            emit({"error": str(exc)})
         except (BrokenPipeError, ConnectionResetError):
             return
+        except LLMError as exc:
+            emit({"error": str(exc)})
         except Exception as exc:  # noqa: BLE001
             try:
                 emit({"error": f"服务端异常：{exc}"})
             except Exception:
                 pass
+        answer = "".join(answer_parts)
+        if answer:
+            self._save_qa(file, question, payload.get("context") or [], answer)
         self.close_connection = True
 
+
+    def _save_qa(self, file: str, question: str, context, answer: str) -> None:
+        """把问答对追加进报告 JSON 的 ``qa`` 数组，下次打开还在。
+
+        失败静默：历史保存不了不该影响已经送到屏幕上的回答。
+        """
+        try:
+            if self.workbench and self.state is not None and file:
+                path = self.state.report_path(file)
+            elif self.single_json is not None:
+                path = Path(self.single_json)
+            else:
+                return
+            data = json.loads(path.read_text(encoding="utf-8"))
+            qa = data.setdefault("qa", [])
+            module = "、".join(
+                str(c.get("title") or "") for c in (context or [])
+                if isinstance(c, dict) and c.get("title"))
+            qa.append({
+                "module": module[:80],
+                "question": str(question)[:500],
+                "answer": answer[:8000],
+                "ts": time.strftime("%Y-%m-%d %H:%M"),
+            })
+            path.write_text(json.dumps(data, ensure_ascii=False, indent=2),
+                            encoding="utf-8")
+        except Exception:  # noqa: BLE001
+            pass
 
 def _bind(handler: type[_Handler], port: int, host: str = "127.0.0.1",
           tries: int = 12) -> tuple[ThreadingHTTPServer, int]:
@@ -688,6 +722,7 @@ def serve(
 
     _Handler.state = state
     _Handler.single_file = single_file
+    _Handler.single_json = json_path if single_file else None
     _Handler.html = html
     _Handler.workbench_html = _read_workbench() if state is not None else ""
     _Handler.cfg = cfg
