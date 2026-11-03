@@ -173,6 +173,12 @@ class ChainNode:
     before: dict[str, Any] | None = None
     after: dict[str, Any] | None = None
     root: dict[str, Any] | None = None
+    forks: list[dict[str, Any]] = field(default_factory=list)
+    """主链在此节点分出的并行方向（多贡献论文不再被压成一条线）。
+
+    每项 ``{"label": 短标签, "detail": 一句话}``；空表示无分叉。
+    """
+
     evidence: list[Evidence] = field(default_factory=list)
 
     @property
@@ -192,6 +198,8 @@ class ChainNode:
             value = getattr(self, key)
             if value:
                 out[key] = value
+        if self.forks:
+            out["forks"] = self.forks
         return out
 
     @classmethod
@@ -205,6 +213,10 @@ class ChainNode:
             before=raw.get("before") if isinstance(raw.get("before"), dict) else None,
             after=raw.get("after") if isinstance(raw.get("after"), dict) else None,
             root=raw.get("root") if isinstance(raw.get("root"), dict) else None,
+            forks=[
+                f for f in (raw.get("forks") or [])
+                if isinstance(f, dict) and str(f.get("label") or "").strip()
+            ],
             evidence=[Evidence.from_dict(e) for e in (raw.get("evidence") or [])],
         )
 
@@ -402,6 +414,12 @@ def chain_warnings(chain: Chain) -> list[str]:
     warns: list[str] = []
     if not chain.nodes:
         return warns
+    for n in chain.nodes:
+        if len(n.forks) > 3:
+            warns.append(f"节点 {n.id} 的 forks 最多 3 个（当前 {len(n.forks)}）")
+        for f in n.forks:
+            if not str(f.get("label") or "").strip():
+                warns.append(f"节点 {n.id} 有 fork 缺 label")
     types = [n.type for n in chain.nodes]
 
     if "mechanism" not in types:
@@ -449,6 +467,9 @@ _SYSTEM = """\
    要让读者一眼看出「改进具体体现在哪里」。
 5. 抽不出有意义的链条时，返回空的 nodes 数组，并在 note 里说明原因。
    **空链不丢人，编一条假链才丢人。**
+6. 论文有**多个并行/独立的贡献或方向**时，在主链对应节点上用 forks 分叉，
+   不要硬把它们串成「改动→效果→改动→效果」。每个 fork 只需要 label（短标签）
+   与 detail（一句话）；最多 3 个；主线仍只保留最核心的一条推理路径。
 6. evidence.quote **必须逐字照抄原文**，不要改写、不要压缩、不要拼接两处不相邻的话。
    quote_zh 是同一条摘录的中文译文，完整通顺地译出，不加解释。
 """

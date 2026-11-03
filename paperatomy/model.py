@@ -304,6 +304,7 @@ class Extraction:
 
     template_id: str
     paper_title: str = ""
+    title_zh: str = ""
     lang: str = "zh"
     model: str = ""
     findings: list[Finding] = field(default_factory=list)

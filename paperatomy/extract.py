@@ -54,7 +54,8 @@ _SCHEMA_HINT = """\
 必须返回一个 JSON 对象，不要包含任何解释文字，也不要包在代码块里。结构如下：
 
 {
-  "paper_title": "论文标题",
+  "paper_title": "论文标题（原文语言，逐字）",
+  "title_zh": "论文标题的中文翻译（原文就是中文时写空串）",
   "findings": [
     {
       "block_id": "板块 id，必须来自给定列表",
@@ -220,6 +221,7 @@ def parse_response(
     return Extraction(
         template_id=template.id,
         paper_title=str(data.get("paper_title", "") or ""),
+        title_zh=str(data.get("title_zh", "") or ""),
         lang=lang,
         model=model,
         findings=findings,

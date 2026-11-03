@@ -247,6 +247,7 @@ def to_json(
             "name": template.name,
         },
         "paper_title": extraction.paper_title,
+        "title_zh": getattr(extraction, "title_zh", ""),
         "source": getattr(paper, "path", "") if paper is not None else "",
         "pages": getattr(paper, "total_pages", 0) if paper is not None else 0,
         "lang": extraction.lang,
@@ -313,6 +314,7 @@ def to_html(
 
     payload = {
         "paper_title": extraction.paper_title,
+        "paper_title_zh": getattr(extraction, "title_zh", ""),
         "template_name": template.name,
         "model": extraction.model,
         "lang": lang,

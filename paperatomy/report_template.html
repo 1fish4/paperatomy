@@ -244,6 +244,18 @@
     min-height: 196px;
     display: flex; flex-direction: column; justify-content: center;
   }
+  .forks { margin: 10px 0 2px; }
+  .forks-cap {
+    font-size: 11.5px; letter-spacing: 1px; color: #9FB4C8;
+    margin-bottom: 6px;
+  }
+  .fork-card {
+    border: 1px dashed rgba(143,210,240,.35); border-radius: 8px;
+    padding: 7px 11px; margin-bottom: 6px; font-size: 12.5px;
+    background: rgba(143,210,240,.06);
+  }
+  .fork-card b { color: #BFE0F2; display: block; margin-bottom: 2px; }
+  .fork-card span { color: #C6D5E4; }
   .cd-head { display: flex; align-items: center; gap: 9px; margin-bottom: 9px; }
   .cd-badge {
     font-size: 10.5px; letter-spacing: .08em;
@@ -1077,6 +1089,18 @@
       h.push(diagramHTML(n.before));
     }
 
+    if (n.forks && n.forks.length) {
+      // 分叉：这个节点分出的并行方向——独立贡献各自成卡，不再压成一条线
+      h.push('<div class="forks"><div class="forks-cap">并行分支 ×' +
+        n.forks.length + "</div>");
+      n.forks.forEach(function (f) {
+        h.push('<div class="fork-card"><b>' + esc(f.label) + "</b>");
+        if (f.detail) { h.push('<span>' + esc(f.detail) + "</span>"); }
+        h.push("</div>");
+      });
+      h.push("</div>");
+    }
+
     if (n.evidence && n.evidence.length) {
       var ev = n.evidence[0];
       h.push('<div class="cd-ev"><b>' + esc(locatorOf(ev)) + "</b>");
@@ -1364,8 +1388,22 @@
     if (C.venue || C.ccf || (C.topics && C.topics.length) ||
         (C.search_terms && C.search_terms.length)) {
       h.push('<div class="nc-info">');
+      var zh = D.paper_title_zh || "";
+      if (zh) {
+        h.push('<div class="nc-row"><span class="nc-label">标题</span>'
+          + esc(zh) + '<span class="nc-hint">原文：' +
+          esc(N.center && N.center.title || D.paper_title || "") + "</span></div>");
+      }
+      h.push('<div class="nc-row"><span class="nc-label">发表年份</span>');
+      h.push(C.year ? C.year : '<span class="nc-none">未收录</span>');
+      h.push("</div>");
       h.push('<div class="nc-row"><span class="nc-label">发表场所</span>');
-      if (C.venue) { h.push(esc(C.venue)); }
+      if (C.venue) {
+        h.push(esc(C.venue));
+        if (C.venue_preprint) {
+          h.push('<span class="nc-hint">（预印本 · OpenAlex 未见正式发表版本记录）</span>');
+        }
+      }
       if (C.ccf) { h.push(' <span class="ccf-tag">CCF-' + esc(C.ccf) + "</span>"); }
       if (!C.venue && !C.ccf) {
         h.push('<span class="nc-none">数据库未收录（新论文常见，无法查证）</span>');
@@ -1399,6 +1437,7 @@
     h.push('<span><i class="net-dot" style="background:#2E6F8E"></i>相关度高</span>');
     h.push('<span><i class="net-dot" style="background:#C9D4DC"></i>相关度低</span>');
     h.push("<span>节点大小 = 被引影响力</span>");
+    h.push("<span>右叶来自 OpenAlex 被引索引（谁引用了本文）</span>");
     h.push("<span>点击节点查看领域、出处与 DOI</span>");
     h.push("</div>");
     h.push('<div class="net-detail" id="netDetail"></div>');
@@ -1414,6 +1453,8 @@
     var W = 940, H = 560, cx = W / 2, cy = H / 2;
     var cited = N.nodes.filter(function (n) { return n.kind === "cited"; });
     var citing = N.nodes.filter(function (n) { return n.kind === "citing"; });
+    // 右叶是时间线：早的靠近底部（过去侧），新的越靠上
+    citing.sort(function (x, y) { return (x.year || 0) - (y.year || 0); });
     var maxC = 1;
     N.nodes.forEach(function (n) { if (n.cited_by > maxC) { maxC = n.cited_by; } });
 
@@ -1601,8 +1642,10 @@
   }
 
   function evHTML(list) {
+    var ok = list.filter(function (e) { return e.verified !== false; });
+    var bad = list.filter(function (e) { return e.verified === false; });
     var h = ['<div class="ev"><div class="ev-title">原文依据</div>'];
-    list.forEach(function (e) {
+    ok.forEach(function (e) {
       h.push('<div class="ev-item"><div class="ev-loc">');
       h.push('<span class="chip">' + esc(locatorOf(e)) + "</span>");
       if (e.section) {
@@ -1611,9 +1654,6 @@
           esc(e.section.replace(/^\s*\d{1,2}(?:\.\d{1,2}){0,2}[\s.]+/, "")) +
           "</span>");
       }
-      if (e.verified === false) {
-        h.push('<span class="raw">未在原文定位到原话</span>');
-      }
       h.push("</div>");
       h.push('<div class="ev-src">' + esc(e.quote) + "</div>");
       if (e.quote_zh && e.quote_zh !== e.quote) {
@@ -1621,6 +1661,21 @@
       }
       h.push("</div>");
     });
+    if (bad.length) {
+      // 定位失败的条目不是原文——如实降级为「模型转述」，
+      // 不再显示 §坐标（那本来就是模型自报、程序无法背书的）
+      h.push('<div class="ev-title" style="color:var(--warn)">'
+        + '⚠ 以下 ' + bad.length + ' 条未能定位到原文原话——是模型转述，不是原文，不可作为引用</div>');
+      bad.forEach(function (e) {
+        h.push('<div class="ev-item"><div class="ev-loc">'
+          + '<span class="raw">模型转述 · 未经原文核实</span></div>');
+        h.push('<div class="ev-src" style="opacity:.75">' + esc(e.quote) + "</div>");
+        if (e.quote_zh && e.quote_zh !== e.quote) {
+          h.push('<div class="ev-zh" style="opacity:.75">' + esc(e.quote_zh) + "</div>");
+        }
+        h.push("</div>");
+      });
+    }
     h.push("</div>");
     return h.join("");
   }

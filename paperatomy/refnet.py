@@ -158,6 +158,29 @@ def _clean_title(title: str) -> str:
 # OpenAlex 客户端
 # ---------------------------------------------------------------------------
 
+_OFFICIAL_TYPES = {"journal", "conference"}
+
+
+def _pick_venue(work: dict) -> dict:
+    """从 works 的多个 location 里挑「实际发表位置」。
+
+    OpenAlex 的 primary_location 常是 arXiv 等预印本仓库（论文的第一
+    公开版本），但读者想知道的是「发在哪」——优先期刊/会议的正式
+    版本；只有通篇没有正式版本时才退回预印本。
+    """
+    locs = [l for l in (work.get("locations") or []) if l]
+    prim = (work.get("primary_location") or {}) or {}
+    official = [
+        l for l in locs
+        if ((l.get("source") or {}).get("type") or "") in _OFFICIAL_TYPES
+        and (l.get("source") or {}).get("display_name")
+    ]
+    if official:
+        # 有多个正式版本时取被引场景最典型的（OpenAlex 顺序即权威度）
+        return official[0].get("source") or {}
+    return prim.get("source") or {}
+
+
 @dataclass
 class OpenAlex:
     """极简客户端：直连失败自动走本地代理，礼让限速。"""
@@ -219,7 +242,7 @@ class OpenAlex:
                + urllib.parse.quote(title[:120])
                + "&per_page=3&select=id,doi,title,display_name,"
                  "publication_year,cited_by_count,referenced_works,"
-                 "primary_location,topics,keywords")
+                 "primary_location,locations,topics,keywords")
         data = self._fetch(url)
         if not data:
             return None
@@ -242,7 +265,7 @@ class OpenAlex:
                 best, best_score = w, score
         if best is None or best_score < 0.75:
             return None
-        loc = (best.get("primary_location") or {}).get("source") or {}
+        loc = _pick_venue(best)
         return {
             "openalex_id": (best.get("id") or "").rsplit("/", 1)[-1],
             "doi": (best.get("doi") or "").replace("https://doi.org/", ""),
@@ -250,6 +273,8 @@ class OpenAlex:
             "year": int(best.get("publication_year") or 0),
             "cited_by": int(best.get("cited_by_count") or 0),
             "venue": (loc.get("display_name") or "")[:80],
+            "venue_is_preprint": (loc.get("type") or "")
+                                  in ("preprint", "repository"),
             "refs": best.get("referenced_works") or [],
             "topics": [
                 {"name": tp.get("display_name") or "", "score": tp.get("score") or 0,
@@ -690,6 +715,8 @@ def build_network(
             "topics": [topic_bilingual(tp)
                        for tp in (center or {}).get("topics") or []],
             "venue": (center or {}).get("venue", "") if center else "",
+            "venue_preprint": bool((center or {}).get("venue_is_preprint"))
+                              if center else False,
             "ccf": ccf_lookup((center or {}).get("venue", "")).get("r", "")
                    if center and ccf_lookup((center or {}).get("venue", "")) else "",
             "search_terms": search_terms,

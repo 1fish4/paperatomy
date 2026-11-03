@@ -667,6 +667,7 @@ def _render_from_data(json_path: Path, data: dict, *, lang=None, output=None) ->
     extraction = Extraction(
         template_id=template_id,
         paper_title=str(data.get("paper_title", "")),
+        title_zh=str(data.get("title_zh", "")),
         lang=lang or str(data.get("lang", "zh")),
         model=str(data.get("model", "")),
         findings=findings,
