@@ -533,6 +533,18 @@ class RefNode:
         return out
 
 
+def _dedup_nodes(nodes: list[RefNode]) -> list[RefNode]:
+    """同一篇文献在库里常有两条记录（arXiv 版 + 正式版），按标题归并，
+    保留被引高、元数据全的那条——图上不该长出两个 BERT。"""
+    seen: dict[str, RefNode] = {}
+    for n in nodes:
+        key = _norm(n.title)[:80]
+        old_n = seen.get(key)
+        if old_n is None or (n.cited_by, bool(n.doi)) > (old_n.cited_by, bool(old_n.doi)):
+            seen[key] = n
+    return list(seen.values())
+
+
 def build_network(
     paper,
     *,
@@ -642,6 +654,9 @@ def build_network(
 
     cited.sort(key=impact_key, reverse=True)
     citing.sort(key=impact_key, reverse=True)
+
+    cited = _dedup_nodes(cited)
+    citing = _dedup_nodes(citing)
 
     n_citing = min(len(citing), max_nodes // 2)
     n_cited = min(len(cited), max_nodes - n_citing)

@@ -437,10 +437,25 @@ def _page_text(page: "fitz.Page", *, is_first: bool) -> str:
     return "\n".join(u[2] for u in ordered)
 
 
+# arXiv 侧边水印：``arXiv:1706.03762v7  [cs.CL]  2 Aug 2023``。
+# arXiv 生成 PDF 的 metadata.title 就是这行字，不清洗会把水印当标题。
+_ARXIV_STAMP = re.compile(
+    r"arXiv:\s*\d{4}\.\d{4,5}(?:v\d+)?\s*(?:\[[^\]]*\])?\s*[A-Z]{3}\s*\d{1,2}\s*\d{4}?",
+    re.I)
+
+
+def _strip_stamp(s: str) -> str:
+    # 整串以 arXiv: 开头的（metadata.title、侧边水印 span）没有标题价值，
+    # 直接作废——比逐段正则抠可靠得多
+    if s.strip().lower().startswith("arxiv:"):
+        return ""
+    return _ARXIV_STAMP.sub("", s).replace("[", " ").replace("]", " ").strip()
+
+
 def _guess_title(doc: "fitz.Document", first_page_text: str) -> str:
     """猜标题：先看元数据，再看首页最大字号的文本。"""
-    meta_title = (doc.metadata or {}).get("title", "") or ""
-    meta_title = meta_title.strip()
+    meta_title = _strip_stamp(
+        (doc.metadata or {}).get("title", "") or "")
     if 8 <= len(meta_title) <= 220:
         return meta_title
 
@@ -454,6 +469,8 @@ def _guess_title(doc: "fitz.Document", first_page_text: str) -> str:
                     text = span.get("text", "").strip()
                     if text:
                         spans.append((span.get("size", 0), text))
+        spans = [(size, _strip_stamp(text)) for size, text in spans]
+        spans = [(size, text) for size, text in spans if text]
         if spans:
             biggest = max(spans, key=lambda s: s[0])[0]
             picked = [t for size, t in spans if size >= biggest - 0.5]

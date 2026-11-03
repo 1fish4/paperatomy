@@ -1439,8 +1439,8 @@
         n2._y = cy - ringR(n2) * Math.sin(rad);
       });
     }
-    place(cited, 95, 265);      // 左半圆（过去）
-    place(citing, -85, 85);     // 右半圆（未来）
+    place(cited, 105, 255);     // 左半圆（过去）；两端各留 10° 缝隙，
+    place(citing, -75, 75);     // 右半圆（未来）——否则高相关节点挤在中心正上/下
 
     var s = ['<svg class="net-svg" viewBox="0 0 ' + W + " " + H + '">'];
 
