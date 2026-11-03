@@ -28,6 +28,10 @@ from __future__ import annotations
 
 import json
 import re
+
+_RE_SURVEY_HINT = __import__("re").compile(
+    r"\b(a\s+)?(survey|systematic\s+review|literature\s+review)\b",
+    __import__("re").I)
 import threading
 import time
 import urllib.parse
@@ -332,6 +336,30 @@ class _State:
             self.running = None
 
 
+def detect_template(paper) -> dict:
+    """零模型启发式：判断这篇论文更像综述还是方法论文。
+
+    依据只有两样可靠的东西：首页文本的自述，和参考文献的体量。
+    判断错了用户可以在确认框里改——检测只负责给出默认值。
+    """
+    head = ""
+    for s in paper.sections[:1]:
+        head += s.text[:1500]
+    head = head[:1500]
+    ref_chars = sum(s.chars for s in paper.sections if s.is_reference)
+    if _RE_SURVEY_HINT.search(head):
+        return {"suggest": "survey",
+                "reason": "首页自述为综述（survey/review）",
+                "title": paper.title}
+    if ref_chars > 20000:
+        return {"suggest": "survey",
+                "reason": f"参考文献章节 {ref_chars // 1000}k 字符，综述体量",
+                "title": paper.title}
+    return {"suggest": "deep",
+            "reason": "按方法/研究型论文处理（未检测到综述特征）",
+            "title": paper.title}
+
+
 def _resolve(source: str, json_path: Path) -> Path | None:
     """把 JSON 里记的来源路径还原成真实文件。"""
     raw = Path(source)
@@ -507,6 +535,9 @@ class _Handler(BaseHTTPRequestHandler):
         if path == "/api/upload":
             self._upload(params)
             return
+        if path == "/api/start":
+            self._start(params)
+            return
         if path == "/api/ask":
             self._ask()
             return
@@ -532,13 +563,41 @@ class _Handler(BaseHTTPRequestHandler):
             blob = self.rfile.read(length)
 
             name = params.get("name", "paper.pdf")
-            template = params.get("template", "survey")
-            lang = params.get("lang", "zh")
+            pdf = self.state.save_upload(name, blob)
+
+            # 上传只做「保存 + 类型检测」——开跑要等用户在确认框里点头。
+            # 检测是本地解析（几秒），不调模型、不花钱。
+            from .parse import parse
+            paper = parse(pdf)
+            det = detect_template(paper)
+            self._json({"ok": True, "file": pdf.name, "detect": det})
+        except Exception as exc:  # noqa: BLE001
+            self._json({"ok": False, "error": str(exc)}, 400)
+
+    def _start(self, params: dict) -> None:
+        """用户在确认框点头后真正开跑。"""
+        if not self.workbench:
+            self._json({"ok": False, "error": "当前不是工作台模式"}, 404)
+            return
+        if not self._same_origin():
+            self._json({"ok": False, "error": "拒绝跨站请求"}, 403)
+            return
+        if self.state.running is not None:
+            self._json({"ok": False, "error": "已有任务在跑，请等它完成"}, 409)
+            return
+        try:
+            file = str(params.get("file") or "")
+            pdf = self.state.pdf_dir / Path(file).name
+            if not file or not pdf.is_file():
+                raise ValueError("找不到已上传的文件，请重新上传")
+            template = str(params.get("template") or "deep")
+            if template not in ("survey", "deep", "skim"):
+                template = "deep"
+            lang = str(params.get("lang") or "zh")
             if lang not in ("zh", "en", "zh+en"):
                 lang = "zh"
-
-            pdf = self.state.save_upload(name, blob)
-            task = Task(id=uuid.uuid4().hex[:12], name=name,
+            task = Task(id=uuid.uuid4().hex[:12],
+                        name=Path(file).name,
                         template=template, lang=lang)
             self.state.start_task(task, pdf)
             self._json({"ok": True, "task": task.public()})

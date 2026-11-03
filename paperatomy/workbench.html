@@ -140,8 +140,8 @@
   <div class="opts">
     <div class="opt-group">
       <div class="opt-label">分析模板</div>
-      <div class="opt on" data-tpl="survey">survey · 综述<small>分类框架与开放问题</small></div>
-      <div class="opt" data-tpl="deep">deep · 精读<small>方法、实验与局限</small></div>
+      <div class="opt" data-tpl="survey">survey · 综述<small>分类框架与开放问题</small></div>
+      <div class="opt on" data-tpl="deep">deep · 精读<small>方法、实验与局限</small></div>
       <div class="opt" data-tpl="skim">skim · 速读<small>五分钟判断值不值得读</small></div>
     </div>
     <div class="opt-group">
@@ -172,7 +172,7 @@
 <script>
 (function () {
   var CFG = window.__PA_SERVE__ || {port: location.port};
-  var state = {tpl: "survey", lang: "zh", file: null, timer: null, openWhenDone: ""};
+  var state = {tpl: "deep", lang: "zh", file: null, timer: null, openWhenDone: "", pendingFile: null};
 
   var drop = document.getElementById("drop");
   var fileInput = document.getElementById("file");
@@ -231,20 +231,77 @@
       showTask({name: file.name, status: "error", error: "只接受 PDF 文件"});
       return;
     }
-    var qs = "?name=" + encodeURIComponent(file.name) +
-             "&template=" + state.tpl + "&lang=" + state.lang;
-    showTask({name: file.name, status: "running", stage: "上传中", detail: ""});
+    state.pendingFile = file;
+    showTask({name: file.name, status: "running", stage: "已上传，正在检测论文类型…", detail: ""});
 
-    fetch("/api/upload" + qs, {method: "POST", body: file})
+    fetch("/api/upload?name=" + encodeURIComponent(file.name),
+          {method: "POST", body: file})
       .then(function (r) { return r.json().catch(function () { return {ok: false, error: "HTTP " + r.status}; }); })
       .then(function (data) {
         if (!data.ok) { showTask({name: file.name, status: "error", error: data.error}); return; }
-        poll(data.task.id);
+        // 检测完成：把推荐模板同步到选择卡，再弹确认框
+        state.file = data.file;
+        var det = data.detect || {};
+        if (det.suggest) { setTpl(det.suggest); }
+        showConfirm(det, file);
       })
       .catch(function (err) {
         showTask({name: file.name, status: "error", error: "连不上本地服务：" + err});
       });
   }
+
+  function setTpl(id) {
+    state.tpl = id;
+    document.querySelectorAll("[data-tpl]").forEach(function (x) {
+      x.classList.toggle("on", x.getAttribute("data-tpl") === id);
+    });
+  }
+
+  // ---- 确认模态框：类型检测后、开跑前的一次确认 ----
+  function showConfirm(det, file) {
+    if (det && det.suggest) { setTpl(det.suggest); }  // 框内框外两组卡同步高亮
+    var box = document.getElementById("confirmBox");
+    document.getElementById("cfTitle").textContent =
+      (det.title || file.name).slice(0, 70);
+    document.getElementById("cfReason").textContent =
+      "类型检测：" + (det.reason || "未识别，按精读处理");
+    box.style.display = "flex";
+  }
+
+  function confirmStart() {
+    var box = document.getElementById("confirmBox");
+    box.style.display = "none";
+    var file = state.pendingFile;
+    if (!file) { return; }
+    showTask({name: file.name || state.file, status: "running",
+              stage: "开始分析", detail: ""});
+    fetch("/api/start?file=" + encodeURIComponent(state.file) +
+          "&template=" + state.tpl + "&lang=" + state.lang)
+      .then(function (r) { return r.json().catch(function () { return {ok: false, error: "HTTP " + r.status}; }); })
+      .then(function (data) {
+        if (!data.ok) { showTask({name: state.file, status: "error", error: data.error}); return; }
+        poll(data.task.id);
+      })
+      .catch(function (err) {
+        showTask({name: state.file, status: "error", error: "连不上本地服务：" + err});
+      });
+  }
+
+  function hideTask() {
+    taskBox.classList.remove("show");
+  }
+
+  function confirmCancel() {
+    document.getElementById("confirmBox").style.display = "none";
+    state.pendingFile = null;
+    state.file = null;
+    hideTask();
+  }
+
+  // 确认框的静态 script 在 IIFE 外，函数要挂到 window 才够得着
+  window.showConfirm = showConfirm;
+  window.confirmStart = confirmStart;
+  window.confirmCancel = confirmCancel;
 
   // ---- 进度轮询 ----
   function poll(id) {
@@ -317,6 +374,37 @@
 
   loadReports();
 })();
+</script>
+
+<div id="confirmBox" style="display:none; position:fixed; inset:0; z-index:99;
+     background:rgba(15,24,36,.55); align-items:center; justify-content:center;">
+  <div style="background:#fff; border-radius:14px; padding:22px 26px;
+              max-width:520px; width:92%; box-shadow:0 18px 60px rgba(0,0,0,.28);">
+    <h3 style="margin:0 0 6px; font-size:17px;">确认开始分析</h3>
+    <div id="cfTitle" style="color:#56616F; font-size:13.5px; margin-bottom:6px;"></div>
+    <div id="cfReason" style="color:#2E6F8E; font-size:13px; margin-bottom:14px;"></div>
+    <div class="opt-label">分析模板（已按检测结果选中，可改）</div>
+    <div class="opts" style="margin-bottom:12px;">
+      <div class="opt" data-tpl="survey">survey · 综述<small>分类框架与开放问题</small></div>
+      <div class="opt" data-tpl="deep">deep · 精读<small>方法、实验与局限</small></div>
+      <div class="opt" data-tpl="skim">skim · 速读<small>五分钟判断值不值得读</small></div>
+    </div>
+    <div class="opt-label">报告语言</div>
+    <div class="opts" style="margin-bottom:18px;">
+      <div class="opt on" data-lang="zh">中文</div>
+      <div class="opt" data-lang="en">English</div>
+    </div>
+    <div style="display:flex; gap:10px; justify-content:flex-end;">
+      <button id="cfCancel" style="padding:8px 18px; border:1px solid #E7E2D8;
+              background:#fff; border-radius:8px; cursor:pointer;">取消</button>
+      <button id="cfGo" style="padding:8px 22px; border:none; border-radius:8px;
+              background:#2E6F8E; color:#fff; cursor:pointer; font-weight:600;">开始分析</button>
+    </div>
+  </div>
+</div>
+<script>
+  document.getElementById("cfGo").addEventListener("click", confirmStart);
+  document.getElementById("cfCancel").addEventListener("click", confirmCancel);
 </script>
 </body>
 </html>

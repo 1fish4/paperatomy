@@ -5,6 +5,18 @@
 
 ---
 
+## [0.8.1] - 2026-11-03
+
+### 修正（用户反馈：上传了方法论文却选了综述模板，且无任何拦截）
+
+- **上传流程重构**：拖入 PDF 后先做**本地类型检测**（零模型：首页自述 +
+  参考文献体量，秒级），随后弹**确认框**——显示论文标题、检测理由，
+  模板按推荐预选（可改），点「开始分析」才真正开跑；选错模板从此有拦截
+- 默认模板 survey → **deep**（方法/研究型论文是多数场景）
+- 新接口：`POST /api/upload` 只保存+检测，`POST /api/start` 确认后开跑
+
+167 项测试全绿；检测双例验证（CSUR 综述→survey，SPADE 方法论文→deep）。
+
 ## [0.8.0] - 2026-11-03
 
 ### 修正（用户反馈驱动）
@@ -389,6 +401,7 @@ LLM 一定会编，用户必须能核对 —— 这是与「和 PDF 聊天」类
 
 ---
 
+[0.8.1]: https://github.com/1fish4/paperatomy/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/1fish4/paperatomy/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/1fish4/paperatomy/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/1fish4/paperatomy/compare/v0.6.0...v0.6.1
