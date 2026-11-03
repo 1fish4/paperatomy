@@ -116,7 +116,7 @@ def analyze_pdf(
     try:
         from .refnet import build_network
 
-        network = build_network(paper, on_progress=say)
+        network = build_network(paper, on_progress=say, cfg=cfg)
     except Exception as exc:  # 网络是增强项，失败不拦报告
         say(f"  ⚠ 文献网络失败（不影响报告）：{exc}")
 

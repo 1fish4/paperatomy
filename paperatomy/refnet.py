@@ -543,8 +543,12 @@ class RefNode:
     topics: list = field(default_factory=list)
     """OpenAlex 的领域标注（field / subfield / topic + 权重）。"""
 
+    title_zh: str = ""
+    """标题的机翻中文；仅展示用，翻译失败为空（节点保留英文）。"""
+
     def to_dict(self) -> dict:
         out = {"title": self.title, "kind": self.kind, "origin": self.origin,
+               "title_zh": self.title_zh,
                "year": self.year, "cited_by": self.cited_by,
                "relevance": round(self.relevance, 2), "reasons": self.reasons}
         if self.doi:
@@ -556,6 +560,47 @@ class RefNode:
         if self.topics:
             out["topics"] = self.topics
         return out
+
+
+def translate_titles(titles: list[str], cfg, on_progress=None) -> dict:
+    """批量机翻节点标题：一次模型调用，JSON 进出。
+
+    只产出**显示用**的中文名；节点是谁、被引多少、相关度多少依旧
+    全部来自数据库——机翻失败时节点照常展示英文标题。
+    """
+    from .llm import chat
+
+    say = on_progress or (lambda _m: None)
+
+    uniq = []
+    seen = set()
+    for s in titles:
+        k = s.strip()
+        if k and k.lower() not in seen:
+            seen.add(k.lower())
+            uniq.append(k)
+    if not uniq:
+        return {}
+    listing = "\n".join(f"{i + 1}. {s}" for i, s in enumerate(uniq))
+    prompt = (
+        "把下面这些学术论文标题翻译成中文（学术圈通用译法，没有通行译名就直译）。\n"
+        "只输出 JSON：{\"translations\": [{\"i\": 序号, \"zh\": 中文标题}]}，"
+        "不要输出其他内容。\n\n" + listing)
+    say("节点标题机翻（一次调用）…")
+    raw = chat([{"role": "user", "content": prompt}], cfg)
+    m = None
+    import re as _re
+    mm = _re.search(r"\{.*\}", raw, _re.S)
+    if mm:
+        import json as _json
+        try:
+            data = _json.loads(mm.group())
+            m = {uniq[int(x["i"]) - 1]: str(x.get("zh") or "").strip()
+                 for x in (data.get("translations") or [])
+                 if str(x.get("i", "")).strip().isdigit()}
+        except Exception:  # noqa: BLE001
+            m = None
+    return m or {}
 
 
 def _dedup_nodes(nodes: list[RefNode]) -> list[RefNode]:
@@ -575,6 +620,7 @@ def build_network(
     *,
     max_nodes: int = 24,
     on_progress=None,
+    cfg=None,
 ) -> dict:
     """构建一篇论文的引用网络。
 
@@ -687,6 +733,17 @@ def build_network(
     n_cited = min(len(cited), max_nodes - n_citing)
     picked = sorted(cited[:n_cited] + citing[:n_citing],
                     key=lambda n: n.relevance, reverse=True)
+
+    # 节点标题的中文是**机翻呈现层**：节点是谁、被引多少、相关度多少
+    # 仍然全部来自数据库；翻译失败静默降级为英文。
+    if cfg is not None:
+        try:
+            zh_map = translate_titles([n.title for n in picked], cfg,
+                                      on_progress=say)
+            for n in picked:
+                n.title_zh = zh_map.get(n.title, "")
+        except Exception:  # noqa: BLE001 —— 翻译是增强项
+            say("  标题翻译失败，节点保留英文标题")
 
     stats = {
         "reference_entries": len(entries),

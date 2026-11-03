@@ -512,6 +512,9 @@
   .net-detail.show { display: block; }
   .net-d-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .net-d-title { font-weight: 600; font-size: 14px; flex: 1; min-width: 260px; }
+  .net-d-title-zh {
+    font-size: 12px; color: var(--ink2); font-weight: 400;
+  }
   .net-badge {
     flex: none; font-size: 10.5px; padding: 2px 9px; border-radius: 999px;
     border: 1px solid var(--line); color: var(--ink3); font-family: var(--mono);
@@ -1536,7 +1539,13 @@
         : "";
       var pct = Math.round(n.relevance * 100);
       var h = ['<div class="net-d-top">'];
-      h.push('<span class="net-d-title">' + esc(n.title) + "</span>");
+      if (n.title_zh) {
+        // 中文是机翻（呈现层），节点身份与元数据仍全部来自数据库
+        h.push('<span class="net-d-title">' + esc(n.title_zh) + "</span>");
+        h.push('<span class="net-d-title-zh">' + esc(n.title) + "</span>");
+      } else {
+        h.push('<span class="net-d-title">' + esc(n.title) + "</span>");
+      }
       h.push('<span class="net-badge ' + n.kind + '">' +
              (n.kind === "cited" ? "本文引用" : "引用本文") + "</span>");
       h.push("</div>");

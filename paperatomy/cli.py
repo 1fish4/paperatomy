@@ -576,9 +576,10 @@ def _cmd_locate(args) -> int:
 
 
 def _cmd_network(args) -> int:
-    """给已有报告补文献网络。不调用模型，只访问 OpenAlex。"""
+    """给已有报告补文献网络。匹配不花钱；标题机翻是一次小调用。"""
     import json as _json
 
+    from .llm import load_config
     from .parse import parse
 
     json_path = Path(args.json)
@@ -598,7 +599,8 @@ def _cmd_network(args) -> int:
 
     from .refnet import build_network
 
-    network = build_network(paper, max_nodes=args.max_nodes)
+    network = build_network(paper, max_nodes=args.max_nodes,
+                             cfg=load_config())
     if not network.get("nodes"):
         print("✗ 没有匹配到任何文献（网络不可用或全都未收录），报告未修改")
         return 1
