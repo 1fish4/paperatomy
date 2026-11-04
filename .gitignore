@@ -36,3 +36,5 @@ extractions/
 
 # 构建产物
 docs/_build/
+reports.db
+out/serve.log
