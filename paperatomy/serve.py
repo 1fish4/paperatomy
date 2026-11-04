@@ -178,6 +178,7 @@ class _State:
         self.tasks: dict[str, Task] = {}
         self.db_path = self.root / "reports.db"
         self._sync_db()
+        self._refresh_stale_html()
         # report 文件名 -> (标题, 材料, 错误)；解析一次，之后提问直接用
         self.materials: dict[str, tuple[str, str, str]] = {}
         self.running: str | None = None
@@ -226,6 +227,33 @@ class _State:
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         return conn
+
+    def _refresh_stale_html(self) -> None:
+        """模板更新后自动重渲染过期产物（渲染不调模型，零成本）。
+
+        ``/report`` 直接把 ``out/*.html`` 加注入返回——若 HTML 是旧模板
+        渲染的，新加的前端能力（对照原文面板、返回按钮等）就不会出现。
+        以打包模板的 mtime 为准，比它旧的产物一律重建。
+        """
+        try:
+            tpl = Path(__file__).with_name("report_template.html")
+            tpl_mtime = tpl.stat().st_mtime
+        except OSError:
+            return
+        refreshed = 0
+        for jf in sorted(self.out_dir.glob("*.json")):
+            html = jf.with_suffix(".html")
+            if html.is_file() and html.stat().st_mtime >= tpl_mtime:
+                continue
+            try:
+                data = json.loads(jf.read_text(encoding="utf-8"))
+                from .cli import _render_from_data
+                _render_from_data(jf, data)
+                refreshed += 1
+            except Exception:  # noqa: BLE001 渲染失败不阻塞启动
+                continue
+        if refreshed:
+            print(f"[serve] 模板已更新，重渲染 {refreshed} 份报告")
 
     def _sync_db(self) -> None:
         """把 out/*.json 的现状同步进 SQLite（报告数级在百以内，开销小）。"""
@@ -536,6 +564,10 @@ class _Handler(BaseHTTPRequestHandler):
             payload["report"] = report
         elif self.single_file:
             payload["report"] = self.single_file
+        if self.workbench and (report or self.single_file):
+            stem = Path(report or self.single_file).stem
+            if (self.state.pdf_dir / (stem + ".pdf")).is_file():
+                payload["pdf"] = stem + ".pdf"
         blob = json.dumps(payload, separators=(",", ":"), ensure_ascii=False)
         return html.replace("window.__PA_SERVE__ = null;",
                             f"window.__PA_SERVE__ = {blob};")
@@ -576,6 +608,88 @@ class _Handler(BaseHTTPRequestHandler):
                 "model": self.cfg.model if self.cfg else "",
                 "title": self._title(),
             })
+            return
+
+        if path.startswith("/api/pdfinfo") and self.workbench:
+            file = str(params.get("file") or "")
+            stem = Path(file).stem
+            pdf = self.state.pdf_dir / (stem + ".pdf")
+            if not pdf.is_file():
+                self._json({"ok": True, "available": False})
+                return
+            import fitz
+            doc = fitz.open(pdf)
+            n = doc.page_count
+            doc.close()
+            self._json({"ok": True, "available": True,
+                        "pages": n, "pdf": stem + ".pdf"})
+            return
+
+        if path.startswith("/pageimg/") and self.workbench:
+            # /pageimg/<stem>/<n>.png —— 懒渲染 + 磁盘缓存
+            m = re.match(r"^/pageimg/([\w\-.]+)/([0-9]{1,3})\.png$", path)
+            if not m:
+                self._json({"ok": False, "error": "路径不合法"}, 404)
+                return
+            stem, no = m.group(1), int(m.group(2))
+            pdf = self.state.pdf_dir / (stem + ".pdf")
+            cache = self.state.out_dir / "pages" / stem
+            cache.mkdir(parents=True, exist_ok=True)
+            img = cache / f"{no}.png"
+            if not img.is_file():
+                try:
+                    import fitz
+                    doc = fitz.open(pdf)
+                    if 1 <= no <= doc.page_count:
+                        pix = doc[no - 1].get_pixmap(dpi=110)
+                        pix.save(img)
+                    doc.close()
+                except Exception as exc:  # noqa: BLE001
+                    self._json({"ok": False, "error": str(exc)}, 500)
+                    return
+            if img.is_file():
+                self._send(200, img.read_bytes(), "image/png")
+            else:
+                self._json({"ok": False, "error": "页码超出范围"}, 404)
+            return
+
+        if path == "/api/figures" and self.workbench:
+            # 内嵌图片提取（过滤小装饰图），返回 base64
+            file = str(params.get("file") or "")
+            stem = Path(file).stem
+            pdf = self.state.pdf_dir / (stem + ".pdf")
+            if not pdf.is_file():
+                self._json({"ok": True, "figures": []})
+                return
+            import base64
+            import fitz
+            out = []
+            try:
+                doc = fitz.open(pdf)
+                for pno in range(doc.page_count):
+                    for img in doc[pno].get_images(full=True):
+                        xref = img[0]
+                        try:
+                            pix = fitz.Pixmap(doc, xref)
+                            if pix.width < 300 or pix.height < 200:
+                                continue
+                            if pix.colorspace and pix.colorspace.n > 3:
+                                pix = fitz.Pixmap(fitz.csRGB, pix)
+                            b64 = base64.b64encode(pix.tobytes("png")).decode()
+                            out.append({"page": pno + 1,
+                                        "w": pix.width, "h": pix.height,
+                                        "b64": b64})
+                            if len(out) >= 24:
+                                break
+                        except Exception:
+                            continue
+                    if len(out) >= 24:
+                        break
+                doc.close()
+            except Exception as exc:  # noqa: BLE001
+                self._json({"ok": False, "error": str(exc)}, 500)
+                return
+            self._json({"ok": True, "figures": out})
             return
 
         if path == "/api/reports" and self.workbench:

@@ -609,6 +609,45 @@
   .ask-fab.has-ctx .dot { opacity: 1; }
   .ask-fab.offline { background: linear-gradient(150deg, #99A2AE, #7E8792); }
 
+  /* ---------- 对照原文 / 图表速览 ---------- */
+  .side-btns { position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
+    z-index: 80; display: none; gap: 8px; }
+  .side-btns.show { display: flex; }
+  .side-btns button {
+    padding: 7px 16px; border-radius: 999px; cursor: pointer;
+    border: 1px solid rgba(255,255,255,.3); background: rgba(20,30,42,.82);
+    color: #E8EEF4; font-size: 12.5px; backdrop-filter: blur(6px);
+    font-family: inherit;
+  }
+  .side-btns button:hover, .side-btns button.on {
+    background: rgba(46,111,142,.92); border-color: transparent;
+  }
+  .side-panel {
+    position: fixed; top: 0; right: 0; bottom: 0; z-index: 85;
+    width: min(52vw, 760px); background: #F4F2EC;
+    border-left: 1px solid var(--line); box-shadow: -18px 0 50px rgba(24,34,44,.18);
+    display: none; flex-direction: column;
+  }
+  .side-panel.open { display: flex; }
+  .side-panel .sp-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 16px; border-bottom: 1px solid var(--line);
+    font-size: 13px; color: var(--ink2); background: var(--card);
+  }
+  .side-panel .sp-body {
+    overflow: auto; flex: 1; padding: 14px; text-align: center;
+  }
+  .side-panel .sp-body img {
+    width: 100%; margin-bottom: 10px; border: 1px solid var(--line);
+    background: #fff; border-radius: 4px;
+  }
+  .side-panel .sp-body .pno { font-size: 11px; color: var(--ink3); margin-bottom: 14px; }
+  .side-panel .sp-body figure { margin: 0 0 18px; }
+  .side-panel .sp-body figcaption {
+    font-size: 11.5px; color: var(--ink2); margin-top: 4px;
+  }
+  body.with-side .wrap { margin-right: min(52vw, 760px); }
+
   /* 工作台模式下顶部显眼返回按钮 */
   .back-top {
     position: fixed; top: 14px; left: 14px; z-index: 80;
@@ -1999,6 +2038,91 @@
     backTop.href = "/";
     backTop.textContent = "← 返回工作台";
     document.body.appendChild(backTop);
+
+    // 对照原文 / 图表速览：报告对应 PDF 存在时才提供
+    var PDF = window.__PA_SERVE__.pdf;
+    if (PDF) {
+      var btns = document.createElement("div");
+      btns.className = "side-btns";
+      btns.innerHTML = '<button id="btnOrig">对照原文</button>' +
+        '<button id="btnFigs">图表速览</button>';
+      document.body.appendChild(btns);
+      btns.classList.add("show");
+
+      var panel = document.createElement("div");
+      panel.className = "side-panel";
+      panel.innerHTML = '<div class="sp-head"><span id="spCap"></span>' +
+        '<button id="spClose" style="border:none;background:none;cursor:pointer;' +
+        'font-size:16px;color:inherit">×</button></div>' +
+        '<div class="sp-body" id="spBody"></div>';
+      document.body.appendChild(panel);
+
+      var cur = "";
+      // 深链：#orig / #figs 直达对应面板（与 #ask 同模式）
+      if (location.hash === "#orig" || location.hash === "#figs") {
+        setTimeout(function () {
+          var b = document.getElementById(
+            location.hash === "#orig" ? "btnOrig" : "btnFigs");
+          if (b) { b.click(); }
+        }, 300);
+      }
+      function closePanel() {
+        panel.classList.remove("open");
+        document.body.classList.remove("with-side");
+        document.getElementById("btnOrig").classList.remove("on");
+        document.getElementById("btnFigs").classList.remove("on");
+        cur = "";
+      }
+      function toggle(which) {
+        if (cur === which) { closePanel(); return; }
+        cur = which;
+        panel.classList.add("open");
+        document.body.classList.add("with-side");
+        document.getElementById("btnOrig").classList.toggle("on", which === "orig");
+        document.getElementById("btnFigs").classList.toggle("on", which === "figs");
+        var body = document.getElementById("spBody");
+        var cap = document.getElementById("spCap");
+        if (which === "orig") {
+          cap.textContent = "论文原文（渲染自 PDF）";
+          fetch("/api/pdfinfo?file=" + encodeURIComponent(__PA_SERVE__.report))
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+              if (!d.available) { body.textContent = "找不到对应 PDF。"; return; }
+              var h = [];
+              for (var i = 1; i <= d.pages; i++) {
+                h.push('<img loading="lazy" src="/pageimg/' +
+                  encodeURIComponent(PDF.replace(/\.pdf$/, "")) + "/" + i +
+                  '.png" alt="第 ' + i + ' 页">');
+                h.push('<div class="pno">第 ' + i + " 页 / 共 " + d.pages + " 页</div>");
+              }
+              body.innerHTML = h.join("");
+            })
+            .catch(function (e) { body.textContent = "加载失败：" + e; });
+        } else {
+          cap.textContent = "论文图表（内嵌图片提取）";
+          body.textContent = "提取中…";
+          fetch("/api/figures?file=" + encodeURIComponent(__PA_SERVE__.report))
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+              if (!d.figures || !d.figures.length) {
+                body.textContent = "没有提取到较大的内嵌图片（部分论文的图是矢量绘制，暂不支持）。";
+                return;
+              }
+              body.innerHTML = d.figures.map(function (f) {
+                return '<figure><img src="data:image/png;base64,' + f.b64 +
+                  '" alt="p.' + f.page + '"><figcaption>p.' + f.page +
+                  " · " + f.w + "×" + f.h + "</figcaption></figure>";
+              }).join("");
+            })
+            .catch(function (e) { body.textContent = "加载失败：" + e; });
+        }
+      }
+      document.getElementById("btnOrig").addEventListener("click",
+        function () { toggle("orig"); });
+      document.getElementById("btnFigs").addEventListener("click",
+        function () { toggle("figs"); });
+      document.getElementById("spClose").addEventListener("click", closePanel);
+    }
   }
 
   // 打开 http://127.0.0.1:8770/#ask 直接展开面板，省一次点击
