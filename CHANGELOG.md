@@ -5,6 +5,16 @@
 
 ---
 
+## [0.9.9] - 2026-11-04
+
+### 改进
+
+- **数据动图重做**：div 条形换成精修 SVG 图表——渐变圆角条、纵向网格、
+  数值标注在条端、悬停高亮；多个数值列时给**列切换芯片**
+  （Min/Max/Avg 自己选着看）；修复归一化上限初始化错误
+  （mx 初始为 1 导致 0–1 区间的数据条被压到 1/4 长）
+- 新增 `#td` 深链：直达数据动图（重试滚动等待异步内容）
+
 ## [0.9.8] - 2026-11-04
 
 ### 新增
@@ -536,6 +546,7 @@ LLM 一定会编，用户必须能核对 —— 这是与「和 PDF 聊天」类
 
 ---
 
+[0.9.9]: https://github.com/1fish4/paperatomy/compare/v0.9.8...v0.9.9
 [0.9.8]: https://github.com/1fish4/paperatomy/compare/v0.9.7...v0.9.8
 [0.9.7]: https://github.com/1fish4/paperatomy/compare/v0.9.6...v0.9.7
 [0.9.6]: https://github.com/1fish4/paperatomy/compare/v0.9.5...v0.9.6

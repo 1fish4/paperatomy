@@ -679,6 +679,31 @@
   .side-panel .sp-body .bar-val {
     flex: 0 0 64px; font-size: 11px; color: var(--ink2);
   }
+    .side-panel .sp-body .tdlab {
+    font-size: 11.5px; fill: var(--ink2);
+  }
+  .side-panel .sp-body .tdval {
+    font-size: 11.5px; fill: var(--ink); font-weight: 600;
+  }
+  .side-panel .sp-body .tdax {
+    font-size: 11px; fill: var(--ink3);
+  }
+  .side-panel .sp-body .tdbar {
+    transform-box: fill-box; transform-origin: left center;
+    animation: tdIn .7s cubic-bezier(.22,.8,.3,1) backwards;
+  }
+  .side-panel .sp-body .tdbar:hover { filter: brightness(1.18); }
+  @keyframes tdIn { from { transform: scaleX(0); } }
+  .side-panel .sp-body .td-chips { margin: 4px 0 8px; }
+  .side-panel .sp-body .td-chip {
+    display: inline-block; padding: 3px 10px; margin-right: 6px;
+    font-size: 11.5px; border-radius: 999px;
+    border: 1px solid var(--line); color: var(--ink2);
+    cursor: pointer; background: var(--card);
+  }
+  .side-panel .sp-body .td-chip.on {
+    background: #1E5B7E; border-color: #1E5B7E; color: #fff;
+  }
   .side-panel .sp-body .bar-note {
     font-size: 11px; color: var(--ink3); text-align: left; margin: 2px 0 8px;
   }
@@ -2108,6 +2133,21 @@
 
       var cur = "";
       // 深链：#orig / #figs 直达对应面板（与 #ask 同模式）
+      if (location.hash === "#td") {
+        var tdTries = 0;
+        var tdTimer = setInterval(function () {
+          var td = document.getElementById("tdBox");
+          var sb = document.querySelector(".sp-body");
+          if (td && sb && td.innerHTML.indexOf("bar-cap") >= 0) {
+            sb.scrollTop = td.offsetTop - 40;
+            clearInterval(tdTimer);
+          } else if (++tdTries > 20) { clearInterval(tdTimer); }
+        }, 600);
+        setTimeout(function () {
+          var b = document.getElementById("btnFigs");
+          if (b) { b.click(); }
+        }, 200);
+      }
       if (location.hash === "#orig" || location.hash === "#figs") {
         setTimeout(function () {
           var b = document.getElementById(
@@ -2190,56 +2230,84 @@
 
               // ---- 数据动图：表格数据 → 动画条形图 ----
               function renderBars(tables) {
+                TD = tables;
                 var th = "";
                 tables.forEach(function (tb, ti) {
-                  var cols = tb.columns || [];
-                  var rows = tb.rows || [];
-                  if (!rows.length) { return; }
-                  // 找数值列：候选列里选**方差最大**的（动态图要看变化），
-                  // 方差并列再看绝对值和（Min 全 0、Max 全 1 都会被跳过）
-                  var numCol = -1, bestVar = -1, bestSum = 0;
-                  for (var c = 1; c < cols.length; c++) {
-                    var ok = 0, sum = 0, sq = 0;
-                    rows.forEach(function (r) {
-                      var v = parseFloat(String(r[c]).replace(/[,%××\s]/g, ""));
-                      if (isFinite(v)) { ok++; sum += Math.abs(v); sq += v * v; }
+                  var cands = tdPickCols(tb);
+                  if (!cands.length) { return; }
+                  th += '<div class="bar-cap">' + esc(tb.cap || ("表 " + (ti + 1))) + '</div>';
+                  if (cands.length > 1) {
+                    th += '<div class="td-chips">';
+                    cands.forEach(function (cd, ci) {
+                      th += '<span class="td-chip' + (ci === 0 ? ' on' : '') +
+                        '" data-ti="' + ti + '" data-c="' + cd.c + '">' +
+                        esc(String(tb.columns[cd.c]).slice(0, 14)) + '</span>';
                     });
-                    if (ok < Math.ceil(rows.length * 0.6)) { continue; }
-                    var mean = sum / ok;
-                    if (sum === 0) { continue; }          // 全 0 列没有信息量
-                    var va = sq / ok - mean * mean;   // 真方差
-                    if (bestVar < 0 || va > bestVar + 1e-12
-                        || (Math.abs(va - bestVar) <= 1e-12
-                            && sum > bestSum)) {
-                      bestVar = va; bestSum = sum; numCol = c;
-                    }
+                    th += '</div>';
                   }
-                  if (numCol < 0) { return; }
-                  var vals = rows.map(function (r) {
-                    return parseFloat(String(r[numCol]).replace(/[,%××\s]/g, ""));
-                  });
-                  var mx = Math.max.apply(null, vals.map(function (v) {
-                    return Math.abs(isFinite(v) ? v : 0);
-                  })) || 1;
-                  var unit = String(cols[numCol]).match(/\(([^)]*)\)/);
-                  var bh = '<div class="bar-cap">' + esc(tb.cap || ("表 " + (ti + 1))) +
-                    '</div><div class="bar-block">';
-                  rows.slice(0, 12).forEach(function (r, ri) {
-                    var v = vals[ri];
-                    var pct = isFinite(v) ? Math.max(1.5, Math.abs(v) / mx * 100) : 0;
-                    bh += '<div class="bar-row"><span class="bar-label">' +
-                      esc(String(r[0]).slice(0, 18)) + '</span>' +
-                      '<span class="bar-track"><span class="bar-fill" style="width:' +
-                      pct.toFixed(1) + '%"></span></span>' +
-                      '<span class="bar-val">' + esc(String(r[numCol])) +
-                      '</span></div>';
-                  });
-                  bh += '</div><div class="bar-note">数据来自论文' +
-                    (unit ? "，单位见列名" : "") + '，条长按「' +
-                    esc(String(cols[numCol]).slice(0, 20)) + '」归一化</div>';
-                  th += bh;
+                  th += '<div class="td-svg" data-ti="' + ti + '">' +
+                    tdSvg(tb, cands[0].c, ti) + '</div>' +
+                    '<div class="bar-note">数据来自论文，点击列名可切换对比维度</div>';
                 });
                 return th;
+              }
+              function tdPickCols(tb) {
+                var cols = tb.columns || [], rows = tb.rows || [];
+                var cands = [];
+                for (var c = 1; c < cols.length; c++) {
+                  var ok = 0, sum = 0, sq = 0;
+                  rows.forEach(function (r) {
+                    var v = parseFloat(String(r[c]).replace(/[,%××\s]/g, ""));
+                    if (isFinite(v)) { ok++; sum += Math.abs(v); sq += v * v; }
+                  });
+                  if (ok < Math.ceil(rows.length * 0.6) || sum === 0) { continue; }
+                  var mean = sum / ok;
+                  cands.push({ c: c, sum: sum, va: sq / ok - mean * mean });
+                }
+                cands.sort(function (a, b) { return b.va - a.va || b.sum - a.sum; });
+                return cands;
+              }
+              function tdSvg(tb, col, ti) {
+                var rows = tb.rows || [];
+                var vals = rows.map(function (r) {
+                  return parseFloat(String(r[col]).replace(/[,%××\s]/g, ""));
+                });
+                var mx = 0;
+                vals.forEach(function (v) {
+                  if (isFinite(v) && Math.abs(v) > mx) { mx = Math.abs(v); }
+                });
+                if (!mx) { mx = 1; }
+                var L = 150, R = 634, top = 10, rowH = 34, W = 660;
+                var shown = rows.slice(0, 12);
+                var H = top + shown.length * rowH + 26;
+                var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%">';
+                s += '<defs><linearGradient id="tdg' + ti + '" x1="0" y1="0" x2="1" y2="0">' +
+                  '<stop offset="0" stop-color="#2E6F8E"/><stop offset="1" stop-color="#63B3D2"/>' +
+                  '</linearGradient></defs>';
+                for (var g = 0; g <= 4; g++) {
+                  var gx = L + (R - L) * g / 4;
+                  s += '<line x1="' + gx + '" y1="' + (top - 4) + '" x2="' + gx +
+                    '" y2="' + (H - 22) + '" stroke="rgba(120,130,140,.16)" stroke-width="1"/>';
+                }
+                shown.forEach(function (r, ri) {
+                  var v = vals[ri];
+                  var w = isFinite(v) ? Math.max(2, Math.abs(v) / mx * (R - L)) : 2;
+                  var y = top + ri * rowH;
+                  s += '<text x="' + (L - 8) + '" y="' + (y + 14) +
+                    '" text-anchor="end" class="tdlab">' +
+                    esc(String(r[0]).slice(0, 16)) + '</text>';
+                  s += '<rect class="tdbar" x="' + L + '" y="' + y +
+                    '" width="' + w.toFixed(1) + '" height="20" rx="4" fill="url(#tdg' + ti + ')"/>';
+                  s += '<text x="' + (L + w + 6) + '" y="' + (y + 14) +
+                    '" class="tdval">' + esc(String(r[col])) + '</text>';
+                });
+                s += '<line x1="' + L + '" y1="' + (top - 4) + '" x2="' + L +
+                  '" y2="' + (H - 22) + '" stroke="rgba(120,130,140,.45)" stroke-width="1"/>';
+                s += '<text x="' + (L + (R - L) / 2) + '" y="' + (H - 5) +
+                  '" text-anchor="middle" class="tdax">' +
+                  esc(String(tb.columns[col]).slice(0, 26)) + '</text>';
+                s += '</svg>';
+                return s;
               }
               function loadTableData() {
                 fetch("/api/tabledata?file=" +
@@ -2263,6 +2331,23 @@
                     if (d.tables && d.tables.length) {
                       box2.innerHTML = '<div class="fig-group">数据动图（' +
                         d.tables.length + '）</div>' + renderBars(d.tables);
+                      box2.querySelectorAll(".td-chip").forEach(
+                        function (chip) {
+                          chip.addEventListener("click", function () {
+                            var ti = Number(chip.getAttribute("data-ti"));
+                            var c = Number(chip.getAttribute("data-c"));
+                            var host = box2.querySelector(
+                              '.td-svg[data-ti="' + ti + '"]');
+                            if (host && TD[ti]) {
+                              host.innerHTML = tdSvg(TD[ti], c, ti);
+                              box2.querySelectorAll(
+                                '.td-chip[data-ti="' + ti + '"]')
+                                .forEach(function (x) {
+                                  x.classList.toggle("on", x === chip);
+                                });
+                            }
+                          });
+                        });
                     } else {
                       box2.innerHTML = "";
                     }
