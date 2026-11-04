@@ -583,7 +583,7 @@ class _Handler(BaseHTTPRequestHandler):
         if path in ("/", "/index.html"):
             page = self.workbench_html if self.workbench else self.html
             self._send(200, self._inject(page).encode("utf-8"),
-                       "text/html; charset=utf-8")
+                       "text/html; charset=utf-8; cache-control: no-cache")
             return
 
         if path == "/report" and self.workbench:
@@ -598,7 +598,7 @@ class _Handler(BaseHTTPRequestHandler):
                             "error": "报告页面还没生成，等任务完成"}, 404)
                 return
             page = self._inject(html_path.read_text(encoding="utf-8"), report=file)
-            self._send(200, page.encode("utf-8"), "text/html; charset=utf-8")
+            self._send(200, page.encode("utf-8"), "text/html; charset=utf-8; cache-control: no-cache")
             return
 
         if path == "/api/health":
