@@ -5,6 +5,23 @@
 
 ---
 
+## [0.9.5] - 2026-11-04
+
+### 修复
+
+- **双进程共用端口（split-brain）**：Windows 的 `SO_REUSEADDR`
+  允许第二个进程悄悄 bind 同一端口且连接随机分配——旧服务残留时
+  页面请求与 POST 会落到不同进程（表现为页面正常、接口 404）。
+  现在显式禁用：端口被占直接报错，由启动脚本清场
+- 404 兜底信息带上服务版本号，此类问题今后一眼可诊断
+
+### 改进
+
+- **图表提取 v2**：新增矢量图簇提取（`cluster_drawings`）——学术论文的
+  图表大多是矢量绘图，此前 `get_images()` 只能抓位图，纯矢量论文一张都提不出；
+  现在矢量簇 + 位图合并、去重（位图被矢量簇覆盖时跳过）。实测：
+  CaWoSched 0 → 14 张，Attention 3 → 8 张
+
 ## [0.9.4] - 2026-11-04
 
 ### 修复
@@ -471,6 +488,7 @@ LLM 一定会编，用户必须能核对 —— 这是与「和 PDF 聊天」类
 
 ---
 
+[0.9.5]: https://github.com/1fish4/paperatomy/compare/v0.9.4...v0.9.5
 [0.9.4]: https://github.com/1fish4/paperatomy/compare/v0.9.3...v0.9.4
 [0.9.3]: https://github.com/1fish4/paperatomy/compare/v0.9.2...v0.9.3
 [0.9.2]: https://github.com/1fish4/paperatomy/compare/v0.9.1...v0.9.2

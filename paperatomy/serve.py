@@ -666,10 +666,40 @@ class _Handler(BaseHTTPRequestHandler):
             out = []
             try:
                 doc = fitz.open(pdf)
-                for pno in range(doc.page_count):
-                    for img in doc[pno].get_images(full=True):
+                for pno in range(min(doc.page_count, 40)):
+                    page = doc[pno]
+                    taken: list = []
+                    # ① 矢量图簇——学术论文的图表大多是矢量绘图，
+                    #    get_images() 只能抓到位图，纯矢量论文会一张都没有
+                    try:
+                        clusters = page.cluster_drawings()
+                    except Exception:  # noqa: BLE001
+                        clusters = []
+                    for r in clusters:
+                        if r.width < 140 or r.height < 90:
+                            continue
+                        # 近整页的「簇」是版面框，不是图
+                        if (r.width > page.rect.width * 0.96
+                                and r.height > page.rect.height * 0.92):
+                            continue
+                        pix = page.get_pixmap(clip=r, dpi=150)
+                        if pix.width < 280 or pix.height < 180:
+                            continue
+                        taken.append(fitz.Rect(r))
+                        b64 = base64.b64encode(pix.tobytes("png")).decode()
+                        out.append({"page": pno + 1,
+                                    "w": pix.width, "h": pix.height,
+                                    "b64": b64})
+                        if len(out) >= 24:
+                            break
+                    # ② 位图插图，跳过已被矢量簇覆盖的
+                    for img in page.get_images(full=True):
                         xref = img[0]
                         try:
+                            rects = page.get_image_rects(xref)
+                            if rects and any(rects[0].intersects(t)
+                                             for t in taken):
+                                continue
                             pix = fitz.Pixmap(doc, xref)
                             if pix.width < 300 or pix.height < 200:
                                 continue
@@ -716,7 +746,8 @@ class _Handler(BaseHTTPRequestHandler):
             self._json({"ok": True, "task": task.public()})
             return
 
-        self._json({"ok": False, "error": "没有这个路径"}, 404)
+        self._json({"ok": False, "error":
+                          f"服务 v{_version()} 不认识该请求（{path}）——页面与服务版本可能不一致，请关闭黑窗口后重新双击启动工作台"}, 404)
 
     def _title(self) -> str:
         if self.workbench:
@@ -751,7 +782,8 @@ class _Handler(BaseHTTPRequestHandler):
         if path == "/api/ask":
             self._ask()
             return
-        self._json({"ok": False, "error": "没有这个路径"}, 404)
+        self._json({"ok": False, "error":
+                          f"服务 v{_version()} 不认识该请求（{path}）——页面与服务版本可能不一致，请关闭黑窗口后重新双击启动工作台"}, 404)
 
     def _upload(self, params: dict) -> None:
         if not self.workbench:
@@ -919,13 +951,36 @@ class _Handler(BaseHTTPRequestHandler):
         except Exception:  # noqa: BLE001
             pass
 
+class _SingleBindServer(ThreadingHTTPServer):
+    """禁止第二个进程悄悄共用同一端口。
+
+    Windows 的 SO_REUSEADDR 允许两个进程同时 bind 同一端口且连接随机分配——
+    旧版服务残留时就会出现「页面是新进程发的、POST 落到旧进程」的错位
+    （表现为接口 404「没有这个路径」）。这里显式关掉：端口被占就直接报错，
+    由启动脚本负责清场。
+    """
+
+    allow_reuse_address = False
+
+
+def _version() -> str:
+    """读 pyproject 里的版本号，给 404 兜底信息用。"""
+    try:
+        import tomllib
+        pp = Path(__file__).resolve().parent.parent / "pyproject.toml"
+        with open(pp, "rb") as f:
+            return tomllib.load(f)["project"]["version"]
+    except Exception:  # noqa: BLE001
+        return "?"
+
+
 def _bind(handler: type[_Handler], port: int, host: str = "127.0.0.1",
           tries: int = 12) -> tuple[ThreadingHTTPServer, int]:
     """从 ``port`` 起找一个空闲端口。"""
     last: Exception | None = None
     for candidate in range(port, port + tries):
         try:
-            server = ThreadingHTTPServer((host, candidate), handler)
+            server = _SingleBindServer((host, candidate), handler)
         except OSError as exc:
             last = exc
             continue
