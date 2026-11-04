@@ -176,6 +176,8 @@ class _State:
     def __init__(self, root: Path):
         self.root = root
         self.tasks: dict[str, Task] = {}
+        self.db_path = self.root / "reports.db"
+        self._sync_db()
         # report 文件名 -> (标题, 材料, 错误)；解析一次，之后提问直接用
         self.materials: dict[str, tuple[str, str, str]] = {}
         self.running: str | None = None
@@ -216,6 +218,85 @@ class _State:
                 "mtime": int(jf.stat().st_mtime),
             })
         return items
+
+    # -- 报告索引（SQLite）-------------------------------------------------
+
+    def _db(self):
+        import sqlite3
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        return conn
+
+    def _sync_db(self) -> None:
+        """把 out/*.json 的现状同步进 SQLite（报告数级在百以内，开销小）。"""
+        import sqlite3
+        conn = sqlite3.connect(self.db_path)
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS reports ("
+            "file TEXT PRIMARY KEY, title TEXT, template TEXT, "
+            "pages INTEGER, blocks INTEGER, chain INTEGER, mtime INTEGER)")
+        known = {r[0] for r in conn.execute("SELECT file FROM reports")}
+        for jf in sorted(self.out_dir.glob("*.json")):
+            try:
+                data = json.loads(jf.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            chain = data.get("chain") or {}
+            conn.execute(
+                "INSERT OR REPLACE INTO reports VALUES (?,?,?,?,?,?,?)",
+                (jf.name, str(data.get("paper_title") or jf.stem),
+                 str((data.get("template") or {}).get("id", "")),
+                 int(data.get("pages", 0) or 0),
+                 len(data.get("findings") or []),
+                 len(chain.get("nodes") or []),
+                 int(jf.stat().st_mtime)))
+        present = {p.name for p in self.out_dir.glob("*.json")}
+        for fname in list(known):
+            if fname not in present:
+                conn.execute("DELETE FROM reports WHERE file=?", (fname,))
+        conn.commit()
+        conn.close()
+
+    def query_reports(self, page: int = 1, size: int = 12,
+                      q: str = "", tpl: str = "") -> dict:
+        """分页 + 筛选的报告查询。"""
+        self._sync_db()
+        conn = self._db()
+        where, args = [], []
+        if q:
+            where.append("(title LIKE ? OR file LIKE ?)")
+            args += [f"%{q}%", f"%{q}%"]
+        if tpl in ("survey", "deep", "skim"):
+            where.append("template = ?")
+            args.append(tpl)
+        where_sql = ("WHERE " + " AND ".join(where)) if where else ""
+        total = conn.execute(
+            f"SELECT COUNT(*) FROM reports {where_sql}", args).fetchone()[0]
+        rows = conn.execute(
+            f"SELECT * FROM reports {where_sql} "
+            "ORDER BY mtime DESC LIMIT ? OFFSET ?",
+            args + [size, (page - 1) * size]).fetchall()
+        conn.close()
+        pages = max(1, (total + size - 1) // size)
+        return {"reports": [dict(r) for r in rows], "total": total,
+                "page": page, "pages": pages}
+
+    def delete_report(self, file: str) -> int:
+        """删除一份报告的三件套与索引。返回删除的文件数。"""
+        path = self.report_path(file)
+        if path is None:
+            raise ValueError("报告不存在或路径不合法")
+        n = 0
+        for ext in (".json", ".md", ".html"):
+            f = path.with_suffix(ext)
+            if f.exists():
+                f.unlink()
+                n += 1
+        conn = self._db()
+        conn.execute("DELETE FROM reports WHERE file=?", (file,))
+        conn.commit()
+        conn.close()
+        return n
 
     def report_path(self, file: str) -> Path | None:
         """把请求里的文件名解析成报告目录内的真实路径。
@@ -498,7 +579,19 @@ class _Handler(BaseHTTPRequestHandler):
             return
 
         if path == "/api/reports" and self.workbench:
-            self._json({"ok": True, "reports": self.state.reports()})
+            try:
+                page = max(1, int(params.get("page", 1) or 1))
+            except ValueError:
+                page = 1
+            try:
+                size = min(48, max(1, int(params.get("size", 12) or 12)))
+            except ValueError:
+                size = 12
+            data = self.state.query_reports(
+                page=page, size=size, q=str(params.get("q") or ""),
+                tpl=str(params.get("tpl") or ""))
+            data["ok"] = True
+            self._json(data)
             return
 
         if path.startswith("/api/task/") and self.workbench:
@@ -538,6 +631,9 @@ class _Handler(BaseHTTPRequestHandler):
         if path == "/api/start":
             self._start(params)
             return
+        if path == "/api/delete":
+            self._delete(params)
+            return
         if path == "/api/ask":
             self._ask()
             return
@@ -571,6 +667,20 @@ class _Handler(BaseHTTPRequestHandler):
             paper = parse(pdf)
             det = detect_template(paper)
             self._json({"ok": True, "file": pdf.name, "detect": det})
+        except Exception as exc:  # noqa: BLE001
+            self._json({"ok": False, "error": str(exc)}, 400)
+
+    def _delete(self, params: dict) -> None:
+        if not self.workbench:
+            self._json({"ok": False, "error": "当前不是工作台模式"}, 404)
+            return
+        if not self._same_origin():
+            self._json({"ok": False, "error": "拒绝跨站请求"}, 403)
+            return
+        try:
+            file = str(params.get("file") or "")
+            n = self.state.delete_report(file)
+            self._json({"ok": True, "deleted": n})
         except Exception as exc:  # noqa: BLE001
             self._json({"ok": False, "error": str(exc)}, 400)
 

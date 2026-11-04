@@ -208,6 +208,35 @@
     margin-top: 10px; font-size: 12.5px; color: var(--accent); font-weight: 600;
   }
   .rpt:hover .open { text-decoration: underline; }
+  .tpl-filter { display: flex; gap: 6px; margin-bottom: 12px; }
+  .fchip {
+    padding: 5px 14px; border: 1px solid var(--line); border-radius: 999px;
+    background: var(--card); color: var(--ink2); font-size: 12.5px;
+    cursor: pointer; font-family: inherit;
+  }
+  .fchip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .group-t {
+    grid-column: 1 / -1; font-size: 12px; color: var(--ink3, #8A94A2);
+    letter-spacing: 1px; margin: 8px 0 2px; font-weight: 600;
+  }
+  .rpt-wrap { position: relative; }
+  .rpt-del {
+    position: absolute; top: 10px; right: 12px; z-index: 2;
+    width: 22px; height: 22px; border-radius: 50%;
+    border: none; background: transparent; color: var(--ink3, #8A94A2);
+    font-size: 15px; cursor: pointer; line-height: 1;
+  }
+  .rpt-del:hover { background: #FBEAEA; color: #B4483C; }
+  .pager {
+    display: flex; align-items: center; justify-content: center; gap: 16px;
+    margin-top: 18px; font-size: 13px; color: var(--ink2);
+  }
+  .pager button {
+    padding: 7px 16px; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--card); color: var(--ink); cursor: pointer; font-family: inherit;
+  }
+  .pager button:disabled { opacity: .4; cursor: default; }
+  .pager button:not(:disabled):hover { border-color: var(--accent); color: var(--accent); }
 </style>
 </head>
 <body>
@@ -265,7 +294,18 @@
       <div class="panel-t">报告库 <span class="count" id="libCount"></span></div>
       <input id="libSearch" type="search" placeholder="搜索标题或模板…">
     </div>
+    <div class="tpl-filter">
+      <button class="fchip on" data-f="">全部</button>
+      <button class="fchip" data-f="deep">deep</button>
+      <button class="fchip" data-f="survey">survey</button>
+      <button class="fchip" data-f="skim">skim</button>
+    </div>
     <div class="grid" id="grid"></div>
+    <div class="pager" id="pager" style="display:none">
+      <button id="pgPrev">← 上一页</button>
+      <span id="pgInfo"></span>
+      <button id="pgNext">下一页 →</button>
+    </div>
     <div class="empty" id="empty" style="display:none">还没有报告。左侧传一篇，或用命令行 paperatomy extract 生成。</div>
     <p class="hint">报告可脱离本服务使用：<code>out/*.html</code> 是单文件，双击即开；
     报告页内追问需要本地服务（<code>paperatomy serve out/报告.json</code>）。</p>
@@ -453,36 +493,56 @@
     }
   });
 
-  // ---- 报告库 ----
-  var allReports = [];
+  // ---- 报告库（服务端分页 + 时间分组 + 筛选 + 删除）----
+  var libState = {page: 1, pages: 1, q: "", tpl: ""};
+
+  function timeGroup(mtime) {
+    var d = new Date((mtime || 0) * 1000);
+    var now = new Date();
+    var day = 86400000;
+    var startToday = new Date(now.getFullYear(), now.getMonth(),
+                              now.getDate()).getTime();
+    if (d.getTime() >= startToday) { return "今天"; }
+    if (d.getTime() >= startToday - day) { return "昨天"; }
+    if (d.getTime() >= startToday - 6 * day) { return "近 7 天"; }
+    if (d.getTime() >= startToday - 29 * day) { return "近 30 天"; }
+    return "更早";
+  }
 
   function loadReports() {
-    fetch("/api/reports")
+    var qs = "?page=" + libState.page + "&size=12&q=" +
+             encodeURIComponent(libState.q) + "&tpl=" + libState.tpl;
+    fetch("/api/reports" + qs)
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        allReports = (data && data.reports) || [];
-        renderReports();
+        if (!data.ok) { return; }
+        renderReports(data);
       })
       .catch(function () {});
   }
 
-  function renderReports() {
-    var q = (document.getElementById("libSearch").value || "").toLowerCase().trim();
-    var list = allReports.filter(function (r) {
-      if (!q) { return true; }
-      return (r.title || "").toLowerCase().indexOf(q) >= 0 ||
-             (r.template || "").toLowerCase().indexOf(q) >= 0;
-    });
+  function renderReports(data) {
+    var list = data.reports || [];
+    libState.pages = data.pages || 1;
     document.getElementById("libCount").textContent =
-      allReports.length ? "共 " + allReports.length + " 份" : "";
+      data.total ? "共 " + data.total + " 份" : "";
     empty.style.display = list.length ? "none" : "block";
-    grid.innerHTML = list.map(function (r) {
+
+    // 时间分组渲染：连续同组的卡归到一组标题下
+    var h = [];
+    var lastGroup = "";
+    list.forEach(function (r) {
+      var g = timeGroup(r.mtime);
+      if (g !== lastGroup) {
+        h.push('<div class="group-t">' + g + "</div>");
+        lastGroup = g;
+      }
       var d = new Date((r.mtime || 0) * 1000);
       var when = (d.getMonth() + 1) + "月" + d.getDate() + "日 " +
                  String(d.getHours()).padStart(2, "0") + ":" +
                  String(d.getMinutes()).padStart(2, "0");
       var tpl = r.template || "report";
-      return '<a class="rpt" data-tpl="' + esc(tpl) +
+      h.push('<div class="rpt-wrap"><a class="rpt" data-tpl="' + esc(tpl) +
         '" href="/report?file=' + encodeURIComponent(r.file) + '">' +
         '<div class="row1"><span class="badge">' + esc(tpl) + "</span>" +
         '<span class="when">' + when + "</span></div>" +
@@ -490,14 +550,63 @@
         '<div class="chips">' + [
           r.pages ? '<span class="chip2">' + r.pages + " 页</span>" : "",
           '<span class="chip2">' + r.blocks + " 块</span>",
-          r.chain ? '<span class="chip2">链 ' + r.chain + "</span>" : "",
-          r.network ? '<span class="chip2">网络 ' + r.network + "</span>" : ""
+          r.chain ? '<span class="chip2">链 ' + r.chain + "</span>" : ""
         ].filter(Boolean).join("") + "</div>" +
-        '<div class="open">打开报告 →</div></a>';
-    }).join("");
+        '<div class="open">打开报告 →</div></a>' +
+        '<button class="rpt-del" data-del="' + esc(r.file) +
+        '" title="删除此报告">×</button></div>');
+    });
+    grid.innerHTML = h.join("");
+
+    // 分页条
+    var pager = document.getElementById("pager");
+    if (data.pages > 1) {
+      pager.style.display = "flex";
+      document.getElementById("pgInfo").textContent =
+        "第 " + data.page + " / " + data.pages + " 页";
+      document.getElementById("pgPrev").disabled = data.page <= 1;
+      document.getElementById("pgNext").disabled = data.page >= data.pages;
+    } else {
+      pager.style.display = "none";
+    }
   }
 
-  document.getElementById("libSearch").addEventListener("input", renderReports);
+  document.getElementById("libSearch").addEventListener("input", function () {
+    libState.q = this.value; libState.page = 1; loadReports();
+  });
+  document.querySelectorAll(".fchip").forEach(function (el) {
+    el.addEventListener("click", function () {
+      document.querySelectorAll(".fchip").forEach(function (x) {
+        x.classList.remove("on");
+      });
+      el.classList.add("on");
+      libState.tpl = el.getAttribute("data-f");
+      libState.page = 1;
+      loadReports();
+    });
+  });
+  document.getElementById("pgPrev").addEventListener("click", function () {
+    if (libState.page > 1) { libState.page--; loadReports(); }
+  });
+  document.getElementById("pgNext").addEventListener("click", function () {
+    if (libState.page < libState.pages) { libState.page++; loadReports(); }
+  });
+  grid.addEventListener("click", function (e) {
+    var del = e.target.closest("[data-del]");
+    if (!del) { return; }
+    e.preventDefault();
+    var f = del.getAttribute("data-del");
+    if (!window.confirm("删除报告「" + f + "」？
+会同时删除 .json/.md/.html 三份文件，不可恢复。")) {
+      return;
+    }
+    fetch("/api/delete?file=" + encodeURIComponent(f), {method: "POST"})
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.ok) { loadReports(); }
+      })
+      .catch(function () {});
+  });
   loadReports();
 })();
 </script>
