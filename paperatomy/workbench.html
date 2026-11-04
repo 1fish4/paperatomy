@@ -420,7 +420,8 @@
     showTask({name: file.name || state.file, status: "running",
               stage: "开始分析", detail: ""});
     fetch("/api/start?file=" + encodeURIComponent(state.file) +
-          "&template=" + state.tpl + "&lang=" + state.lang)
+          "&template=" + state.tpl + "&lang=" + state.lang,
+          {method: "POST"})
       .then(function (r) { return r.json().catch(function () { return {ok: false, error: "HTTP " + r.status}; }); })
       .then(function (data) {
         if (!data.ok) { showTask({name: state.file, status: "error", error: data.error}); return; }

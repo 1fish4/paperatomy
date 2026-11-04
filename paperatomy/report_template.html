@@ -658,7 +658,13 @@
     backdrop-filter: blur(6px);
     text-decoration: none;
   }
-  .back-top:hover { background: rgba(46,111,142,.92); border-color: transparent; }
+  .back-top.show { display: flex; }
+  .back-top {
+    background: #1E5B7E; border-color: #1E5B7E;
+    font-size: 13.5px; padding: 9px 18px;
+    box-shadow: 0 3px 14px rgba(20,50,70,.35);
+  }
+  .back-top:hover { background: #2E6F8E; border-color: transparent; }
 
   /* 工作台模式下的返回按钮：单报告打开时是 null，不显示 */
   .back-fab {
@@ -2037,6 +2043,7 @@
     backTop.className = "back-top";
     backTop.href = "/";
     backTop.textContent = "← 返回工作台";
+    backTop.classList.add("show");
     document.body.appendChild(backTop);
 
     // 对照原文 / 图表速览：报告对应 PDF 存在时才提供
@@ -2105,13 +2112,15 @@
             .then(function (r) { return r.json(); })
             .then(function (d) {
               if (!d.figures || !d.figures.length) {
-                body.textContent = "没有提取到较大的内嵌图片（部分论文的图是矢量绘制，暂不支持）。";
+                body.textContent = "这篇论文没有提取到较大的插图。";
                 return;
               }
               body.innerHTML = d.figures.map(function (f) {
                 return '<figure><img src="data:image/png;base64,' + f.b64 +
-                  '" alt="p.' + f.page + '"><figcaption>p.' + f.page +
-                  " · " + f.w + "×" + f.h + "</figcaption></figure>";
+                  '" alt="p.' + f.page + '"><figcaption>' +
+                  (f.cap ? esc(f.cap)
+                   : ("p." + f.page + " · " + f.w + "×" + f.h)) +
+                  "</figcaption></figure>";
               }).join("");
             })
             .catch(function (e) { body.textContent = "加载失败：" + e; });

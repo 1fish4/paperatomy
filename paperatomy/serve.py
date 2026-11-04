@@ -601,6 +601,12 @@ class _Handler(BaseHTTPRequestHandler):
             self._send(200, page.encode("utf-8"), "text/html; charset=utf-8; cache-control: no-cache")
             return
 
+        if path == "/api/start" and self.workbench:
+            # 兼容旧缓存页面：浏览器 fetch 曾漏发 POST（v0.9.6 修复），
+            # 这里让 GET 也能开跑，same-origin 校验不变
+            self._start(params)
+            return
+
         if path == "/api/health":
             self._json({
                 "ok": True,
@@ -689,7 +695,8 @@ class _Handler(BaseHTTPRequestHandler):
                         b64 = base64.b64encode(pix.tobytes("png")).decode()
                         out.append({"page": pno + 1,
                                     "w": pix.width, "h": pix.height,
-                                    "b64": b64})
+                                    "b64": b64,
+                                    "cap": _fig_caption(page, r)})
                         if len(out) >= 24:
                             break
                     # ② 位图插图，跳过已被矢量簇覆盖的
@@ -706,9 +713,12 @@ class _Handler(BaseHTTPRequestHandler):
                             if pix.colorspace and pix.colorspace.n > 3:
                                 pix = fitz.Pixmap(fitz.csRGB, pix)
                             b64 = base64.b64encode(pix.tobytes("png")).decode()
+                            rect = rects[0] if rects else None
                             out.append({"page": pno + 1,
                                         "w": pix.width, "h": pix.height,
-                                        "b64": b64})
+                                        "b64": b64,
+                                        "cap": _fig_caption(page, rect)
+                                        if rect is not None else ""})
                             if len(out) >= 24:
                                 break
                         except Exception:
@@ -961,6 +971,29 @@ class _SingleBindServer(ThreadingHTTPServer):
     """
 
     allow_reuse_address = False
+
+
+def _fig_caption(page, rect) -> str:
+    """抓图紧邻下方（或上方）的题注：Fig. x / Table x / 图 x / 表 x。"""
+    try:
+        blocks = page.get_text("blocks")
+    except Exception:  # noqa: BLE001
+        return ""
+    cands = []
+    for b in blocks:
+        x0, y0, x1, y1 = b[0], b[1], b[2], b[3]
+        text = b[4] if len(b) > 4 else ""
+        below_gap = y0 - rect.y1
+        above_gap = rect.y0 - y1
+        if 0 <= below_gap <= 46 and x1 > rect.x0 - 10:
+            cands.append((below_gap, text))
+        elif 0 <= above_gap <= 46 and x1 > rect.x0 - 10:
+            cands.append((above_gap, text))
+    for _, text in sorted(cands, key=lambda p: p[0]):
+        s2 = " ".join(str(text).split()).strip()
+        if re.match(r"(?i)^(fig(ure)?s?\b|table\b|图\s*\d|表\s*\d)", s2):
+            return s2[:120]
+    return ""
 
 
 def _version() -> str:

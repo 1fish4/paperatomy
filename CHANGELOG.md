@@ -5,6 +5,25 @@
 
 ---
 
+## [0.9.6] - 2026-11-04
+
+### 修复
+
+- **「没有这个路径」真凶落网**：`confirmStart` 的 fetch 自 v0.8.1 起漏了
+  `method: "POST"`——浏览器一直发 GET，而 `/api/start` 只有 POST 路由，
+  **确认框流程在浏览器里从未通过过**（此前所有 404 均由此产生；
+  命令行/脚本显式 POST 所以测试一直通过）。现已补上，并加回归测试锁死
+- 服务端 `do_GET` 同时接 `/api/start`（same-origin 校验不变），
+  任何旧缓存页面也能开跑
+- **返回工作台按钮真的显示了**：`back-top` 此前 CSS `display:none`
+  从未被显示过（仅剩左下角小圆钮）。现在工作台打开的报告顶部
+  左上角有醒目的实色按钮
+
+### 改进
+
+- **图表速览带题注**：提取图下方/上方的 Fig./Table/图/表 题注文字，
+  每张图现在说明它是谁、在第几页
+
 ## [0.9.5] - 2026-11-04
 
 ### 修复
@@ -488,6 +507,7 @@ LLM 一定会编，用户必须能核对 —— 这是与「和 PDF 聊天」类
 
 ---
 
+[0.9.6]: https://github.com/1fish4/paperatomy/compare/v0.9.5...v0.9.6
 [0.9.5]: https://github.com/1fish4/paperatomy/compare/v0.9.4...v0.9.5
 [0.9.4]: https://github.com/1fish4/paperatomy/compare/v0.9.3...v0.9.4
 [0.9.3]: https://github.com/1fish4/paperatomy/compare/v0.9.2...v0.9.3
