@@ -596,8 +596,8 @@
     if (!del) { return; }
     e.preventDefault();
     var f = del.getAttribute("data-del");
-    if (!window.confirm("删除报告「" + f + "」？
-会同时删除 .json/.md/.html 三份文件，不可恢复。")) {
+    if (!window.confirm("删除报告「" + f +
+        "」？会同时删除 .json/.md/.html 三份文件，不可恢复。")) {
       return;
     }
     fetch("/api/delete?file=" + encodeURIComponent(f), {method: "POST"})

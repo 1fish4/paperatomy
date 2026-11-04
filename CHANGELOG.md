@@ -5,6 +5,15 @@
 
 ---
 
+## [0.9.2] - 2026-11-04
+
+### 修复（热修：v0.9.1 工作台白屏级 bug）
+
+- 删除确认文案的 JS 字符串里混入了真实换行 → `SyntaxError`，
+  **整个主脚本没执行**：上传点击无反应、报告库空白、空提示也不出现——
+  即用户截图所见全部症状。修复后报告库正常渲染 9 份报告，
+  时间分组 / 筛选 / 分页 / 删除均工作。
+
 ## [0.9.1] - 2026-11-04
 
 ### 报告管理（用户反馈：报告多了没法找、没法删）
@@ -432,6 +441,7 @@ LLM 一定会编，用户必须能核对 —— 这是与「和 PDF 聊天」类
 
 ---
 
+[0.9.2]: https://github.com/1fish4/paperatomy/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/1fish4/paperatomy/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/1fish4/paperatomy/compare/v0.8.1...v0.9.0
 [0.8.1]: https://github.com/1fish4/paperatomy/compare/v0.8.0...v0.8.1
