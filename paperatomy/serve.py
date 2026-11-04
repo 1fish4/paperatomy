@@ -182,6 +182,14 @@ class _State:
         # report 文件名 -> (标题, 材料, 错误)；解析一次，之后提问直接用
         self.materials: dict[str, tuple[str, str, str]] = {}
         self.running: str | None = None
+        # 图表解读任务状态：file -> none/running/done
+        self.explain_jobs: dict[str, str] = {}
+
+    def explain_state(self, file: str) -> str:
+        return self.explain_jobs.get(file, "none")
+
+    def set_explain_state(self, file: str, st: str) -> None:
+        self.explain_jobs[file] = st
 
     # -- 目录 ------------------------------------------------------------
 
@@ -678,9 +686,20 @@ class _Handler(BaseHTTPRequestHandler):
                     # ① 矢量图簇——学术论文的图表大多是矢量绘图，
                     #    get_images() 只能抓到位图，纯矢量论文会一张都没有
                     try:
-                        clusters = page.cluster_drawings()
+                        clusters = [fitz.Rect(r)
+                                    for r in page.cluster_drawings()]
                     except Exception:  # noqa: BLE001
                         clusters = []
+                    # 嵌套去重：大簇套小簇只留大的（框线图常一层套一层）
+                    clusters.sort(key=lambda r: -(r.width * r.height))
+                    _kept = []
+                    for r in clusters:
+                        if any(r.x0 >= k.x0 - 2 and r.x1 <= k.x1 + 2
+                               and r.y0 >= k.y0 - 2 and r.y1 <= k.y1 + 2
+                               for k in _kept):
+                            continue
+                        _kept.append(r)
+                    clusters = _kept
                     for r in clusters:
                         if r.width < 140 or r.height < 90:
                             continue
@@ -729,7 +748,8 @@ class _Handler(BaseHTTPRequestHandler):
             except Exception as exc:  # noqa: BLE001
                 self._json({"ok": False, "error": str(exc)}, 500)
                 return
-            self._json({"ok": True, "figures": out})
+            self._json(self._figures_payload(
+                str(params.get("file") or ""), out))
             return
 
         if path == "/api/reports" and self.workbench:
@@ -932,6 +952,86 @@ class _Handler(BaseHTTPRequestHandler):
             self._save_qa(file, question, payload.get("context") or [], answer)
         self.close_connection = True
 
+
+    def _figures_payload(self, file: str, out: list) -> dict:
+        """figures 载荷：kind（figure/table）+ 已缓存的模型解读 + 状态。"""
+        state = self.state.explain_state(file) if self.state else "none"
+        explains: list = []
+        if self.state:
+            rp = self.state.report_path(file)
+            if rp and rp.is_file():
+                try:
+                    explains = (json.loads(rp.read_text(encoding="utf-8"))
+                                .get("figures_explain") or [])
+                except Exception:  # noqa: BLE001
+                    explains = []
+        for i, f in enumerate(out):
+            cap = str(f.get("cap") or "")
+            f["kind"] = ("table" if re.match(r"(?i)^\s*(table|表)", cap)
+                         else "figure")
+            if i < len(explains):
+                f["explain"] = explains[i]        # 首次请求：把提取清单写进报告 JSON，并触发一次批量模型解读
+        if out and self.state:
+            try:
+                rp = self.state.report_path(file)
+                if rp and rp.is_file():
+                    data = json.loads(rp.read_text(encoding="utf-8"))
+                    slim = [{"page": f["page"], "cap": f.get("cap", "")}
+                            for f in out]
+                    if data.get("figures_extract") != slim:
+                        data["figures_extract"] = slim
+                        rp.write_text(
+                            json.dumps(data, ensure_ascii=False, indent=2),
+                            encoding="utf-8")
+                    if (not data.get("figures_explain")
+                            and self.state.explain_state(file) == "none"
+                            and self.cfg and self.cfg.api_key):
+                        self._start_explain(file, slim)
+                        state = "running"
+            except Exception:  # noqa: BLE001
+                pass
+        return {"ok": True, "figures": out, "explain_state": state}
+
+    def _start_explain(self, file: str, figs: list) -> None:
+        """后台一次批量模型调用：为每张图生成中文解读并缓存进报告 JSON。"""
+        if self.state is None or self.cfg is None:
+            return
+        if not self.cfg.api_key or self.state.explain_state(file) != "none":
+            return
+        self.state.explain_jobs[file] = "running"
+
+        def run() -> None:
+            try:
+                rp = self.state.report_path(file)
+                data = json.loads(rp.read_text(encoding="utf-8"))
+                items = "\n".join(
+                    f"{i + 1}. [第{f.get('page')}页] "
+                    f"{f.get('cap') or '(无题注)'}"
+                    for i, f in enumerate(figs))
+                prompt = (
+                    "下面是一篇论文中提取出的插图/表格清单（含页码与原题注）。"
+                    "为每一项用中文写一句解读：它展示什么 + 论文用它说明什么。"
+                    "只依据题注与领域常识推断，不要编造具体数据。"
+                    "输出 JSON 数组，每项一个字符串，顺序与清单一致。\n\n"
+                    + items)
+                from .llm import chat
+                raw = chat([{"role": "user", "content": prompt}], self.cfg)
+                m = re.search(r"\[.*\]", raw, re.S)
+                arr = json.loads(m.group()) if m else []
+                if isinstance(arr, list) and arr:
+                    data = json.loads(rp.read_text(encoding="utf-8"))
+                    data["figures_explain"] = [str(x)[:200] for x in arr]
+                    rp.write_text(
+                        json.dumps(data, ensure_ascii=False, indent=2),
+                        encoding="utf-8")
+                self.state.explain_jobs[file] = "done"
+            except Exception:  # noqa: BLE001
+                try:
+                    self.state.explain_jobs[file] = "none"
+                except Exception:  # noqa: BLE001
+                    pass
+
+        threading.Thread(target=run, daemon=True).start()
 
     def _save_qa(self, file: str, question: str, context, answer: str) -> None:
         """把问答对追加进报告 JSON 的 ``qa`` 数组，下次打开还在。

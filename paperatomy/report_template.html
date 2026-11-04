@@ -643,6 +643,19 @@
   }
   .side-panel .sp-body .pno { font-size: 11px; color: var(--ink3); margin-bottom: 14px; }
   .side-panel .sp-body figure { margin: 0 0 18px; }
+  .side-panel .sp-body .fig-explain {
+    font-size: 12.5px; color: var(--ink); margin-top: 5px;
+    line-height: 1.55; text-align: left;
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 6px; padding: 8px 10px;
+  }
+  .side-panel .sp-body .fig-group {
+    font-size: 13px; font-weight: 700; color: var(--ink);
+    margin: 6px 0 10px; text-align: left;
+  }
+  .side-panel .sp-body .fig-pending {
+    font-size: 12.5px; color: var(--ink2);
+  }
   .side-panel .sp-body figcaption {
     font-size: 11.5px; color: var(--ink2); margin-top: 4px;
   }
@@ -2115,13 +2128,36 @@
                 body.textContent = "这篇论文没有提取到较大的插图。";
                 return;
               }
-              body.innerHTML = d.figures.map(function (f) {
+              var groups = {figure: [], table: []};
+              d.figures.forEach(function (f, idx) {
+                f._idx = idx;
+                groups[f.kind === "table" ? "table" : "figure"].push(f);
+              });
+              function figHtml(f) {
+                var line = f.cap ? esc(f.cap)
+                  : ("p." + f.page + " · " + f.w + "×" + f.h);
+                var ex = f.explain
+                  ? '<div class="fig-explain">' + esc(f.explain) + '</div>' : "";
                 return '<figure><img src="data:image/png;base64,' + f.b64 +
-                  '" alt="p.' + f.page + '"><figcaption>' +
-                  (f.cap ? esc(f.cap)
-                   : ("p." + f.page + " · " + f.w + "×" + f.h)) +
-                  "</figcaption></figure>";
-              }).join("");
+                  '" alt="p.' + f.page + '"><figcaption>' + line +
+                  "</figcaption>" + ex + "</figure>";
+              }
+              var h = "";
+              if (groups.figure.length) {
+                h += '<div class="fig-group">插图（' + groups.figure.length + '）</div>'
+                  + groups.figure.map(figHtml).join("");
+              }
+              if (groups.table.length) {
+                h += '<div class="fig-group">表格（' + groups.table.length + '）</div>'
+                  + groups.table.map(figHtml).join("");
+              }
+              body.innerHTML = h || "<p>没有提取到较大的插图。</p>";
+              if (d.explain_state === "running") {
+                h += "";
+                body.innerHTML = h +
+                  '<div class="fig-pending">图表解读生成中…几秒后自动刷新</div>';
+                setTimeout(function () { toggle("figs"); toggle("figs"); }, 7000);
+              }
             })
             .catch(function (e) { body.textContent = "加载失败：" + e; });
         }

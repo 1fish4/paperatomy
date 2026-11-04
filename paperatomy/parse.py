@@ -411,8 +411,10 @@ def _page_units(page: "fitz.Page", *, is_first: bool) -> list[tuple[float, float
             for lx0, ly0, _lx1, text in lines:
                 units.append((lx0, ly0, text))
         else:
-            # 同一栏内的折行段落：合并成一段
-            units.append((bx0, by0, " ".join(l[3] for l in lines)))
+            # 同一栏内的块：行间用换行保留边界。折行段落随后由
+            # _split_paragraphs 合并；标题行必须独立成行，
+            # 否则 _SECTION_RE 全部失配（实测 F01：章节全丢、References 丢失）
+            units.append((bx0, by0, "\n".join(l[3] for l in lines)))
 
     return units
 
@@ -452,11 +454,19 @@ def _strip_stamp(s: str) -> str:
     return _ARXIV_STAMP.sub("", s).replace("[", " ").replace("]", " ").strip()
 
 
+#: 作者没改模板元数据时的占位标题（实测 "Insert Your Title Here"），
+#: 这类「标题」比没有标题更糟——会一路污染标题识别、中心文献匹配
+_PLACEHOLDER_TITLE = re.compile(
+    r"insert\s+your|title\s+here|untitled|未命名|新文档|"
+    r"microsoft\s+word|powerpoint|\.docx?$|^\s*pdf\s*$|preview",
+    re.I)
+
+
 def _guess_title(doc: "fitz.Document", first_page_text: str) -> str:
     """猜标题：先看元数据，再看首页最大字号的文本。"""
     meta_title = _strip_stamp(
         (doc.metadata or {}).get("title", "") or "")
-    if 8 <= len(meta_title) <= 220:
+    if 8 <= len(meta_title) <= 220 and not _PLACEHOLDER_TITLE.search(meta_title):
         return meta_title
 
     # 首页字号最大的那一行
