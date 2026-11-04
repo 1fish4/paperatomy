@@ -5,6 +5,16 @@
 
 ---
 
+## [0.9.8] - 2026-11-04
+
+### 新增
+
+- **数据动图**：图表速览面板自动提取论文数据表格（后台一次批量模型调用，
+  从含 Table/表 的页面文本结构化为 columns/rows），每个表渲染成
+  **动画条形图**——条长按数值归一化，入场动画只做装饰、最终宽度在 DOM。
+  数值列自动选**方差最大**的一列（动态图要看变化），缓存进报告 JSON 后零成本
+- 任务阶段标签修正：文献网络阶段的进度细节此前错显示为「解析 PDF」
+
 ## [0.9.7] - 2026-11-04
 
 ### 修复
@@ -526,6 +536,7 @@ LLM 一定会编，用户必须能核对 —— 这是与「和 PDF 聊天」类
 
 ---
 
+[0.9.8]: https://github.com/1fish4/paperatomy/compare/v0.9.7...v0.9.8
 [0.9.7]: https://github.com/1fish4/paperatomy/compare/v0.9.6...v0.9.7
 [0.9.6]: https://github.com/1fish4/paperatomy/compare/v0.9.5...v0.9.6
 [0.9.5]: https://github.com/1fish4/paperatomy/compare/v0.9.4...v0.9.5

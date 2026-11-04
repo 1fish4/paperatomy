@@ -653,6 +653,35 @@
     font-size: 13px; font-weight: 700; color: var(--ink);
     margin: 6px 0 10px; text-align: left;
   }
+    .side-panel .sp-body .bar-cap {
+    font-size: 12px; color: var(--ink); text-align: left;
+    margin: 12px 0 6px; font-weight: 600;
+  }
+  .side-panel .sp-body .bar-row {
+    display: flex; align-items: center; gap: 6px; margin-bottom: 5px;
+  }
+  .side-panel .sp-body .bar-label {
+    flex: 0 0 108px; font-size: 11px; color: var(--ink2);
+    text-align: right; overflow: hidden; white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .side-panel .sp-body .bar-track {
+    flex: 1; height: 13px; background: rgba(120,130,140,.10);
+    border-radius: 3px; overflow: hidden;
+  }
+  .side-panel .sp-body .bar-fill {
+    display: block; height: 100%; border-radius: 3px;
+    background: linear-gradient(90deg, #2E6F8E, #4E9AB8);
+    transform-origin: left center;
+    animation: barIn .7s cubic-bezier(.22,.8,.3,1) backwards;
+  }
+  @keyframes barIn { from { transform: scaleX(0); } }
+  .side-panel .sp-body .bar-val {
+    flex: 0 0 64px; font-size: 11px; color: var(--ink2);
+  }
+  .side-panel .sp-body .bar-note {
+    font-size: 11px; color: var(--ink3); text-align: left; margin: 2px 0 8px;
+  }
   .side-panel .sp-body .fig-pending {
     font-size: 12.5px; color: var(--ink2);
   }
@@ -2158,6 +2187,93 @@
                   '<div class="fig-pending">图表解读生成中…几秒后自动刷新</div>';
                 setTimeout(function () { toggle("figs"); toggle("figs"); }, 7000);
               }
+
+              // ---- 数据动图：表格数据 → 动画条形图 ----
+              function renderBars(tables) {
+                var th = "";
+                tables.forEach(function (tb, ti) {
+                  var cols = tb.columns || [];
+                  var rows = tb.rows || [];
+                  if (!rows.length) { return; }
+                  // 找数值列：候选列里选**方差最大**的（动态图要看变化），
+                  // 方差并列再看绝对值和（Min 全 0、Max 全 1 都会被跳过）
+                  var numCol = -1, bestVar = -1, bestSum = 0;
+                  for (var c = 1; c < cols.length; c++) {
+                    var ok = 0, sum = 0, sq = 0;
+                    rows.forEach(function (r) {
+                      var v = parseFloat(String(r[c]).replace(/[,%××\s]/g, ""));
+                      if (isFinite(v)) { ok++; sum += Math.abs(v); sq += v * v; }
+                    });
+                    if (ok < Math.ceil(rows.length * 0.6)) { continue; }
+                    var mean = sum / ok;
+                    if (sum === 0) { continue; }          // 全 0 列没有信息量
+                    var va = sq / ok - mean * mean;   // 真方差
+                    if (bestVar < 0 || va > bestVar + 1e-12
+                        || (Math.abs(va - bestVar) <= 1e-12
+                            && sum > bestSum)) {
+                      bestVar = va; bestSum = sum; numCol = c;
+                    }
+                  }
+                  if (numCol < 0) { return; }
+                  var vals = rows.map(function (r) {
+                    return parseFloat(String(r[numCol]).replace(/[,%××\s]/g, ""));
+                  });
+                  var mx = Math.max.apply(null, vals.map(function (v) {
+                    return Math.abs(isFinite(v) ? v : 0);
+                  })) || 1;
+                  var unit = String(cols[numCol]).match(/\(([^)]*)\)/);
+                  var bh = '<div class="bar-cap">' + esc(tb.cap || ("表 " + (ti + 1))) +
+                    '</div><div class="bar-block">';
+                  rows.slice(0, 12).forEach(function (r, ri) {
+                    var v = vals[ri];
+                    var pct = isFinite(v) ? Math.max(1.5, Math.abs(v) / mx * 100) : 0;
+                    bh += '<div class="bar-row"><span class="bar-label">' +
+                      esc(String(r[0]).slice(0, 18)) + '</span>' +
+                      '<span class="bar-track"><span class="bar-fill" style="width:' +
+                      pct.toFixed(1) + '%"></span></span>' +
+                      '<span class="bar-val">' + esc(String(r[numCol])) +
+                      '</span></div>';
+                  });
+                  bh += '</div><div class="bar-note">数据来自论文' +
+                    (unit ? "，单位见列名" : "") + '，条长按「' +
+                    esc(String(cols[numCol]).slice(0, 20)) + '」归一化</div>';
+                  th += bh;
+                });
+                return th;
+              }
+              function loadTableData() {
+                fetch("/api/tabledata?file=" +
+                    encodeURIComponent(__PA_SERVE__.report))
+                  .then(function (r) { return r.json(); })
+                  .then(function (d) {
+                    if (d.state === "running") {
+                      var box = document.getElementById("tdBox");
+                      if (box && !box.dataset.done) {
+                        box.textContent = "表格数据提取中…模型正在读表，几秒后自动刷新";
+                        setTimeout(function () {
+                          var b2 = document.getElementById("tdBox");
+                          if (b2) { loadTableData(); }
+                        }, 8000);
+                      }
+                      return;
+                    }
+                    var box2 = document.getElementById("tdBox");
+                    if (!box2) { return; }
+                    box2.dataset.done = "1";
+                    if (d.tables && d.tables.length) {
+                      box2.innerHTML = '<div class="fig-group">数据动图（' +
+                        d.tables.length + '）</div>' + renderBars(d.tables);
+                    } else {
+                      box2.innerHTML = "";
+                    }
+                  })
+                  .catch(function () { });
+              }
+              if (d.state !== undefined) { /* figs 响应里没有 tabledata，另行请求 */ }
+              var tdHost = document.createElement("div");
+              tdHost.id = "tdBox";
+              body.appendChild(tdHost);
+              loadTableData();
             })
             .catch(function (e) { body.textContent = "加载失败：" + e; });
         }

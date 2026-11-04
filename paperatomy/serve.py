@@ -188,6 +188,12 @@ class _State:
     def explain_state(self, file: str) -> str:
         return self.explain_jobs.get(file, "none")
 
+    def tabledata_state(self, file: str) -> str:
+        return self.explain_jobs.get("td:" + file, "none")
+
+    def set_tabledata_state(self, file: str, st: str) -> None:
+        self.explain_jobs["td:" + file] = st
+
     def set_explain_state(self, file: str, st: str) -> None:
         self.explain_jobs[file] = st
 
@@ -431,6 +437,7 @@ class _State:
                 task.detail = msg
                 for key, stage in (("解析", "解析 PDF"), ("抽取正文", "抽取正文"),
                                    ("论证链", "抽取论证链"), ("证据定位", "证据定位"),
+                                   ("参考文献", "文献网络"), ("节点标题", "文献网络"),
                                    ("文献网络", "文献网络"), ("渲染", "渲染报告")):
                     if msg.startswith(key):
                         task.stage = stage
@@ -607,6 +614,20 @@ class _Handler(BaseHTTPRequestHandler):
                 return
             page = self._inject(html_path.read_text(encoding="utf-8"), report=file)
             self._send(200, page.encode("utf-8"), "text/html; charset=utf-8; cache-control: no-cache")
+            return
+
+        if path == "/api/tabledata" and self.workbench:
+            file = str(params.get("file") or "")
+            if not file:
+                self._json({"ok": False, "error": "缺 file 参数"}, 400)
+                return
+            cached, st = self._tabledata_cached(file)
+            if cached is not None or st == "running":
+                self._json({"ok": True, "tables": cached or [],
+                            "state": st})
+                return
+            self._start_tabledata(file)
+            self._json({"ok": True, "tables": [], "state": "running"})
             return
 
         if path == "/api/start" and self.workbench:
@@ -1028,6 +1049,93 @@ class _Handler(BaseHTTPRequestHandler):
             except Exception:  # noqa: BLE001
                 try:
                     self.state.explain_jobs[file] = "none"
+                except Exception:  # noqa: BLE001
+                    pass
+
+        threading.Thread(target=run, daemon=True).start()
+
+    def _tabledata_cached(self, file: str) -> tuple[list | None, str]:
+        """已缓存的表格数据（来自报告 JSON 的 figures_tabledata）与状态。"""
+        if self.state is None:
+            return None, "none"
+        rp = self.state.report_path(file)
+        if rp and rp.is_file():
+            try:
+                data = json.loads(rp.read_text(encoding="utf-8"))
+                td = data.get("figures_tabledata")
+                if td:
+                    return td, "done"
+            except Exception:  # noqa: BLE001
+                pass
+        return None, self.state.tabledata_state(file)
+
+    def _start_tabledata(self, file: str) -> None:
+        """后台批量模型调用：从含表格的页面文本中结构化表格数据。"""
+        if self.state is None or self.cfg is None or not self.cfg.api_key:
+            return
+        if self.state.tabledata_state(file) != "none":
+            return
+        self.state.set_tabledata_state(file, "running")
+
+        def run() -> None:
+            try:
+                import fitz
+                from .parse import _page_text
+                pdf = self.state.pdf_dir / (Path(file).stem + ".pdf")
+                doc = fitz.open(pdf)
+                chunks = []
+                cap_re = re.compile(r"(?i)\b(table|表)\s*\d{1,2}\b")
+                for pno in range(min(doc.page_count, 20)):
+                    page = doc[pno]
+                    text = _page_text(page, is_first=(pno == 0))
+                    m = cap_re.search(text)
+                    if m:
+                        chunks.append(f"[第{pno + 1}页·疑似{m.group(0)}]"
+                                      + text[:3200])
+                doc.close()
+                if not chunks:
+                    self.state.set_tabledata_state(file, "none")
+                    return
+                body = "\n\n====\n\n".join(chunks[:4])
+                prompt = (
+                    "下面是一篇论文若干页的文本（双栏重排，可能有乱序）。"
+                    "找出其中的**数据表格**（Table/表），把每个表格转成 JSON："
+                    '{"cap": "表的原题注", "columns": ["列名", ...], '
+                    '"rows": [["第一列值", 数字或字符串, ...], ...]}。'
+                    "只要数据表格，不要示意图清单；数值尽量转成数字；"
+                    "找不到完整数据的表就跳过。输出 JSON 数组，最多 4 个。"
+                    "\n\n" + body)
+                from .llm import chat
+                raw = chat([{"role": "user", "content": prompt}], self.cfg)
+                m = re.search(r"\[.*\]", raw, re.S)
+                arr = json.loads(m.group()) if m else []
+                tables = []
+                if isinstance(arr, list):
+                    for tb in arr:
+                        if not isinstance(tb, dict):
+                            continue
+                        cols = [str(c) for c in (tb.get("columns") or [])]
+                        rows = tb.get("rows") or []
+                        if not cols or not rows:
+                            continue
+                        tables.append({"cap": str(tb.get("cap") or "")[:120],
+                                       "columns": cols[:8],
+                                       "rows": [list(r)[:8] for r in rows[:14]]})
+                        if len(tables) >= 4:
+                            break
+                if not tables:
+                    self.state.set_tabledata_state(file, "none")
+                    return
+                rp = self.state.report_path(file)
+                data = json.loads(rp.read_text(encoding="utf-8"))
+                data["figures_tabledata"] = tables
+                rp.write_text(
+                    json.dumps(data, ensure_ascii=False, indent=2),
+                    encoding="utf-8")
+                self.state.set_tabledata_state(file, "done")
+            except Exception:  # noqa: BLE001
+                try:
+                    self.state.set_tabledata_state(file, "none")
                 except Exception:  # noqa: BLE001
                     pass
 
