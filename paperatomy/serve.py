@@ -789,6 +789,10 @@ class _Handler(BaseHTTPRequestHandler):
             self._json(data)
             return
 
+        if path == "/api/diagnose" and self.workbench:
+            self._json(self._diagnose())
+            return
+
         if path.startswith("/api/task/") and self.workbench:
             task = self.state.tasks.get(path.rsplit("/", 1)[-1])
             if task is None:
@@ -827,6 +831,10 @@ class _Handler(BaseHTTPRequestHandler):
         if path == "/api/start":
             self._start(params)
             return
+        if path == "/api/fix":
+            self._fix(params)
+            return
+
         if path == "/api/delete":
             self._delete(params)
             return
@@ -974,6 +982,104 @@ class _Handler(BaseHTTPRequestHandler):
         self.close_connection = True
 
 
+    def _diagnose(self) -> dict:
+        """逐报告体检：JSON 完整性、HTML 新旧、按钮在位、PDF 在位、网络/解读缓存。"""
+        try:
+            tpl_mt = (Path(__file__).with_name("report_template.html")
+                      .stat().st_mtime)
+        except OSError:
+            tpl_mt = 0
+        reports = []
+        if self.state:
+            for jf in sorted(self.state.out_dir.glob("*.json")):
+                item = {"file": jf.name, "checks": {}}
+                c = item["checks"]
+                try:
+                    data = json.loads(jf.read_text(encoding="utf-8"))
+                    c["json_ok"] = True
+                except Exception:
+                    c["json_ok"] = False
+                    reports.append(item)
+                    continue
+                title = str(data.get("paper_title") or "")
+                c["title_ok"] = bool(title.strip()) and (
+                    "insert your" not in title.lower())
+                c["blocks_ok"] = bool(data.get("findings"))
+                c["chain_ok"] = bool((data.get("chain") or {}).get("nodes"))
+                net = data.get("network") or {}
+                c["network_ok"] = bool(net.get("nodes"))
+                c["explain_ok"] = bool(data.get("figures_explain"))
+                c["tabledata_ok"] = bool(data.get("figures_tabledata"))
+                stem = jf.stem
+                html = jf.with_suffix(".html")
+                c["html_exists"] = html.is_file()
+                c["html_fresh"] = (html.is_file()
+                                   and html.stat().st_mtime >= tpl_mt)
+                c["buttons_ok"] = (html.is_file()
+                                   and "btnOrig" in html.read_text(
+                                       encoding="utf-8", errors="replace"))
+                c["pdf_ok"] = (self.state.pdf_dir / (stem + ".pdf")).is_file()
+                reports.append(item)
+        return {"ok": True, "version": _version(), "reports": reports}
+
+    def _fix(self, params: dict) -> None:
+        """单项修复：render=重建 HTML；network=补文献网络。network 走后台线程。"""
+        if not self.workbench or not self._same_origin():
+            self._json({"ok": False, "error": "拒绝"}, 403)
+            return
+        file = str(params.get("file") or "")
+        action = str(params.get("action") or "")
+        if self.state is None:
+            self._json({"ok": False, "error": "状态未就绪"}, 400)
+            return
+        rp = self.state.report_path(file)
+        if rp is None or not rp.is_file():
+            self._json({"ok": False, "error": "没有这份报告"}, 404)
+            return
+
+        if action == "render":
+            try:
+                from .cli import _render_from_data
+                _render_from_data(rp, json.loads(
+                    rp.read_text(encoding="utf-8")))
+                self._json({"ok": True})
+            except Exception as exc:  # noqa: BLE001
+                self._json({"ok": False, "error": str(exc)}, 500)
+            return
+
+        if action == "network":
+            if self.state.explain_jobs.get("net:" + file) == "running":
+                self._json({"ok": True, "state": "running"})
+                return
+            self.state.explain_jobs["net:" + file] = "running"
+
+            def run() -> None:
+                try:
+                    from .refnet import build_network
+                    from .parse import parse
+                    data = json.loads(rp.read_text(encoding="utf-8"))
+                    src = (self.state.pdf_dir
+                           / (Path(file).stem + ".pdf"))
+                    paper = parse(src)
+                    net = build_network(
+                        paper, on_progress=lambda m: None)
+                    data = json.loads(rp.read_text(encoding="utf-8"))
+                    data["network"] = net
+                    rp.write_text(
+                        json.dumps(data, ensure_ascii=False, indent=2),
+                        encoding="utf-8")
+                    from .cli import _render_from_data
+                    _render_from_data(rp, data)
+                    self.state.explain_jobs["net:" + file] = "done"
+                except Exception:  # noqa: BLE001
+                    self.state.explain_jobs["net:" + file] = "failed"
+
+            threading.Thread(target=run, daemon=True).start()
+            self._json({"ok": True, "state": "running"})
+            return
+
+        self._json({"ok": False, "error": "未知修复项 " + action}, 400)
+
     def _figures_payload(self, file: str, out: list) -> dict:
         """figures 载荷：kind（figure/table）+ 已缓存的模型解读 + 状态。"""
         state = self.state.explain_state(file) if self.state else "none"
@@ -983,7 +1089,8 @@ class _Handler(BaseHTTPRequestHandler):
             if rp and rp.is_file():
                 try:
                     explains = (json.loads(rp.read_text(encoding="utf-8"))
-                                .get("figures_explain") or [])
+                                .get("figures_explain2")
+                                or data.get("figures_explain") or [])
                 except Exception:  # noqa: BLE001
                     explains = []
         for i, f in enumerate(out):
@@ -1025,14 +1132,34 @@ class _Handler(BaseHTTPRequestHandler):
             try:
                 rp = self.state.report_path(file)
                 data = json.loads(rp.read_text(encoding="utf-8"))
+                # 解读 v2：带图所在页的正文上下文，解读更扎实
+                page_ctx = {}
+                try:
+                    import fitz
+                    from .parse import _page_text
+                    pdf = self.state.pdf_dir / (Path(file).stem + ".pdf")
+                    _doc = fitz.open(pdf)
+                    for f in figs:
+                        pno = int(f.get("page") or 0)
+                        if pno and pno not in page_ctx and pno <= _doc.page_count:
+                            page_ctx[pno] = _page_text(
+                                _doc[pno - 1], is_first=(pno == 1))[:1500]
+                    _doc.close()
+                except Exception:  # noqa: BLE001
+                    pass
                 items = "\n".join(
                     f"{i + 1}. [第{f.get('page')}页] "
                     f"{f.get('cap') or '(无题注)'}"
+                    + ("\n   该页正文节选：" + page_ctx[int(f['page'])][:900]
+                       if page_ctx.get(int(f.get('page') or 0)) else "")
                     for i, f in enumerate(figs))
                 prompt = (
-                    "下面是一篇论文中提取出的插图/表格清单（含页码与原题注）。"
-                    "为每一项用中文写一句解读：它展示什么 + 论文用它说明什么。"
-                    "只依据题注与领域常识推断，不要编造具体数据。"
+                    "下面是一篇论文中提取出的插图/表格清单（含页码、原题注、"
+                    "所在页正文节选）。为每一项用中文写一段 2~3 句的解读，包含："
+                    "①图/表里画了什么（内容与结构）；"
+                    "②作者在论文里用它说明什么论点；"
+                    "③建议读者结合论文哪部分一起看（如某节或某个结论）。"
+                    "只依据题注、正文节选与领域常识，不要编造具体数据。"
                     "输出 JSON 数组，每项一个字符串，顺序与清单一致。\n\n"
                     + items)
                 from .llm import chat
@@ -1041,7 +1168,7 @@ class _Handler(BaseHTTPRequestHandler):
                 arr = json.loads(m.group()) if m else []
                 if isinstance(arr, list) and arr:
                     data = json.loads(rp.read_text(encoding="utf-8"))
-                    data["figures_explain"] = [str(x)[:200] for x in arr]
+                    data["figures_explain2"] = [str(x)[:400] for x in arr]
                     rp.write_text(
                         json.dumps(data, ensure_ascii=False, indent=2),
                         encoding="utf-8")

@@ -134,7 +134,42 @@
     width: 8px; height: 8px; border-radius: 50%; background: #5FC48F;
     box-shadow: 0 0 6px #5FC48F; display: inline-block;
   }
-  .app {
+  .diag-btn {
+    margin-left: 12px; padding: 5px 14px; border-radius: 999px;
+    border: 1px solid rgba(255,255,255,.35); background: rgba(255,255,255,.08);
+    color: #E8EEF4; font-size: 12px; cursor: pointer;
+  }
+  .diag-btn:hover { background: rgba(255,255,255,.18); }
+  .diag-mask {
+    position: fixed; inset: 0; z-index: 200; background: rgba(18,26,36,.55);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .diag-panel {
+    width: min(720px, 92vw); max-height: 82vh; overflow: auto;
+    background: #FBFAF6; color: var(--ink); border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(10,20,30,.4);
+  }
+  .diag-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 20px; border-bottom: 1px solid var(--line);
+    position: sticky; top: 0; background: #FBFAF6;
+  }
+  .diag-body { padding: 14px 20px 20px; font-size: 13px; }
+  .diag-body table { width: 100%; border-collapse: collapse; }
+  .diag-body th, .diag-body td {
+    text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  .diag-body th { font-size: 12px; color: var(--ink2); }
+  .diag-body .ok { color: #2F8F5B; font-weight: 600; }
+  .diag-body .bad { color: #C4622D; font-weight: 600; }
+  .diag-body .fixbtn {
+    padding: 3px 12px; border-radius: 999px; border: 1px solid #1E5B7E;
+    background: #1E5B7E; color: #fff; font-size: 12px; cursor: pointer;
+  }
+  .diag-body .fixbtn:disabled { opacity: .45; cursor: default; }
+  .diag-body .file-cell { font-size: 12px; }
+    .app {
     max-width: 1360px; margin: 22px auto 60px; padding: 0 24px;
     display: grid; grid-template-columns: 400px 1fr; gap: 20px;
     align-items: start;
@@ -242,8 +277,21 @@
 <body>
 <header class="topbar">
   <div class="brand"><b>PAPERATOMY</b><span>论文工作台</span></div>
-  <div class="topstat"><i></i>本地服务运行中 · 论文与报告不出本机</div>
+  <div class="topstat"><i></i>本地服务运行中 · 论文与报告不出本机
+    <button id="diagBtn" class="diag-btn">诊断与修复</button></div>
 </header>
+
+
+<div class="diag-mask" id="diagMask" style="display:none">
+  <div class="diag-panel">
+    <div class="diag-head">
+      <b>诊断与修复</b>
+      <button id="diagClose" style="border:none;background:none;cursor:pointer;
+        color:inherit;font-size:18px">×</button>
+    </div>
+    <div class="diag-body" id="diagBody">正在体检…</div>
+  </div>
+</div>
 
 <div class="app">
   <aside class="side">
@@ -641,6 +689,74 @@
 <script>
   document.getElementById("cfGo").addEventListener("click", confirmStart);
   document.getElementById("cfCancel").addEventListener("click", confirmCancel);
+
+  // ---- 诊断与修复 ----
+  var DIAG_LABELS = [
+    ["json_ok", "报告数据完整"],
+    ["title_ok", "论文标题正确"],
+    ["blocks_ok", "板块内容非空"],
+    ["chain_ok", "论证链已生成"],
+    ["network_ok", "文献网络已生成"],
+    ["html_fresh", "页面为最新版本"],
+    ["buttons_ok", "对照原文按钮在位"],
+    ["pdf_ok", "原始 PDF 在位"],
+    ["explain_ok", "图表解读已生成"],
+    ["tabledata_ok", "表格数据已提取"]
+  ];
+  var FIX_MAP = {network_ok: "network", html_fresh: "render",
+                 buttons_ok: "render"};
+  function runDiag() {
+    document.getElementById("diagMask").style.display = "flex";
+    document.getElementById("diagBody").textContent = "正在体检…";
+    fetch("/api/diagnose").then(function (r) { return r.json(); })
+      .then(function (d) {
+        var h = '<div style="margin-bottom:10px;color:var(--ink2)">' +
+          '服务版本 v' + esc(d.version || "?") +
+          ' · 出问题先点对应「修复」，修不好的再截图问 AI</div>' +
+          '<table><tr><th>报告</th><th>体检项</th><th>操作</th></tr>';
+        (d.reports || []).forEach(function (rp) {
+          var bads = [];
+          DIAG_LABELS.forEach(function (p) {
+            var v = rp.checks[p[0]];
+            if (v === undefined) { return; }
+            bads.push('<span class="' + (v ? "ok" : "bad") + '">' +
+              (v ? "✓" : "✗") + " " + p[1] + "</span>");
+          });
+          var fixes = [];
+          Object.keys(FIX_MAP).forEach(function (k) {
+            if (rp.checks[k] === false && FIX_MAP[k]) {
+              fixes.push('<button class="fixbtn" data-file="' +
+                esc(rp.file) + '" data-action="' + FIX_MAP[k] + '">' +
+                (FIX_MAP[k] === "network" ? "补文献网络" : "重建页面") +
+                "</button>");
+            }
+          });
+          h += '<tr><td class="file-cell">' + esc(rp.file.replace(".json", "")) +
+            '</td><td>' + bads.join("<br>") + '</td><td>' +
+            (fixes.join("<br>") || '<span style="color:var(--ink3)">无需修复</span>') +
+            "</td></tr>";
+        });
+        h += "</table>";
+        document.getElementById("diagBody").innerHTML = h;
+        document.querySelectorAll("#diagBody .fixbtn").forEach(
+          function (b) {
+            b.addEventListener("click", function () {
+              b.disabled = true; b.textContent = "修复中…";
+              fetch("/api/fix?file=" + encodeURIComponent(b.dataset.file) +
+                    "&action=" + b.dataset.action, {method: "POST"})
+                .then(function () { setTimeout(runDiag, 4000); });
+            });
+          });
+      })
+      .catch(function (e) {
+        document.getElementById("diagBody").textContent = "诊断失败：" + e;
+      });
+  }
+  document.getElementById("diagBtn").addEventListener("click", runDiag);
+  document.getElementById("diagClose").addEventListener("click", function () {
+    document.getElementById("diagMask").style.display = "none";
+  });
+
 </script>
 </body>
 </html>

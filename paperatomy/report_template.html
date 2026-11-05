@@ -694,7 +694,17 @@
   }
   .side-panel .sp-body .tdbar:hover { filter: brightness(1.18); }
   @keyframes tdIn { from { transform: scaleX(0); } }
-  .side-panel .sp-body .td-chips { margin: 4px 0 8px; }
+  .side-panel .sp-body .td-type {
+    display: inline-block; padding: 3px 10px; margin-right: 6px;
+    font-size: 11.5px; border-radius: 999px;
+    border: 1px solid var(--line); color: var(--ink2);
+    cursor: pointer; background: var(--card);
+  }
+  .side-panel .sp-body .td-type.on {
+    background: #C4622D; border-color: #C4622D; color: #fff;
+  }
+  @keyframes tdDraw { from { stroke-dashoffset: 2000; } }
+    .side-panel .sp-body .td-chips { margin: 4px 0 8px; }
   .side-panel .sp-body .td-chip {
     display: inline-block; padding: 3px 10px; margin-right: 6px;
     font-size: 11.5px; border-radius: 999px;
@@ -886,7 +896,19 @@
   }
 
 </style>
-</head>
+<script>
+  window.__PA_ERR = "";
+  window.onerror = function (m, s, l) {
+    window.__PA_ERR = m + " (行 " + l + ")";
+    try { window.__PA_ERR_SHOW && window.__PA_ERR_SHOW(); } catch (e) {}
+  };
+  window.addEventListener("unhandledrejection", function (e) {
+    window.__PA_ERR = "未处理的 Promise 错误: " + (e.reason && e.reason.message
+      ? e.reason.message : e.reason);
+    try { window.__PA_ERR_SHOW && window.__PA_ERR_SHOW(); } catch (e2) {}
+  });
+  </script>
+  </head>
 <body>
 <div class="wrap">
   <header class="top">
@@ -2130,6 +2152,14 @@
         'font-size:16px;color:inherit">×</button></div>' +
         '<div class="sp-body" id="spBody"></div>';
       document.body.appendChild(panel);
+      // 按钮绑定（v0.9.6 图表 v3 拼接时被误删，导致面板点不开——回归测试已锁）
+      document.getElementById("btnOrig").addEventListener("click",
+        function () { toggle("orig"); });
+      document.getElementById("btnFigs").addEventListener("click",
+        function () { toggle("figs"); });
+      document.getElementById("spClose").addEventListener("click",
+        function () { closePanel(); });
+      panel.dataset.bound = "3";   // 诊断用：3 个按钮绑定完成
 
       var cur = "";
       // 深链：#orig / #figs 直达对应面板（与 #ask 同模式）
@@ -2202,12 +2232,17 @@
                 f._idx = idx;
                 groups[f.kind === "table" ? "table" : "figure"].push(f);
               });
+              var running = d.explain_state === "running";
               function figHtml(f) {
                 var line = f.cap ? esc(f.cap)
                   : ("p." + f.page + " · " + f.w + "×" + f.h);
                 var ex = f.explain
-                  ? '<div class="fig-explain">' + esc(f.explain) + '</div>' : "";
-                return '<figure><img src="data:image/png;base64,' + f.b64 +
+                  ? '<div class="fig-explain"><b>解读</b> ' + esc(f.explain) + '</div>'
+                  : (running
+                     ? '<div class="fig-explain" data-i="' + f._idx +
+                       '"><b>解读</b> 生成中…</div>' : "");
+                return '<figure data-fidx="' + f._idx + '">' +
+                  '<img src="data:image/png;base64,' + f.b64 +
                   '" alt="p.' + f.page + '"><figcaption>' + line +
                   "</figcaption>" + ex + "</figure>";
               }
@@ -2220,12 +2255,37 @@
                 h += '<div class="fig-group">表格（' + groups.table.length + '）</div>'
                   + groups.table.map(figHtml).join("");
               }
-              body.innerHTML = h || "<p>没有提取到较大的插图。</p>";
-              if (d.explain_state === "running") {
-                h += "";
-                body.innerHTML = h +
-                  '<div class="fig-pending">图表解读生成中…几秒后自动刷新</div>';
-                setTimeout(function () { toggle("figs"); toggle("figs"); }, 7000);
+              body.innerHTML = (h || "<p>没有提取到较大的插图。</p>") +
+                (running
+                 ? '<div class="fig-pending" id="figPending">图表解读生成中…完成后自动补上</div>'
+                 : "");
+              if (running) {
+                // 原地轮询：解读完成后逐项填入，面板全程保持打开
+                var polls = 0;
+                var poll = function () {
+                  if (cur !== "figs") { return; }
+                  fetch("/api/figures?file=" +
+                      encodeURIComponent(__PA_SERVE__.report))
+                    .then(function (r) { return r.json(); })
+                    .then(function (d2) {
+                      if (cur !== "figs") { return; }
+                      (d2.figures || []).forEach(function (f) {
+                        if (!f.explain) { return; }
+                        var el = body.querySelector(
+                          '.fig-explain[data-i="' + f._idx + '"]');
+                        if (el) {
+                          el.innerHTML = "<b>解读</b> " + esc(f.explain);
+                        }
+                      });
+                      var pend = document.getElementById("figPending");
+                      if (d2.explain_state === "done") {
+                        if (pend) { pend.style.display = "none"; }
+                        return;
+                      }
+                      if (++polls < 20) { setTimeout(poll, 4000); }
+                    }).catch(function () { });
+                };
+                setTimeout(poll, 5000);
               }
 
               // ---- 数据动图：表格数据 → 动画条形图 ----
@@ -2235,19 +2295,25 @@
                 tables.forEach(function (tb, ti) {
                   var cands = tdPickCols(tb);
                   if (!cands.length) { return; }
+                  var trend = tdIsTrend(tb);
                   th += '<div class="bar-cap">' + esc(tb.cap || ("表 " + (ti + 1))) + '</div>';
-                  if (cands.length > 1) {
-                    th += '<div class="td-chips">';
-                    cands.forEach(function (cd, ci) {
-                      th += '<span class="td-chip' + (ci === 0 ? ' on' : '') +
-                        '" data-ti="' + ti + '" data-c="' + cd.c + '">' +
-                        esc(String(tb.columns[cd.c]).slice(0, 14)) + '</span>';
-                    });
-                    th += '</div>';
+                  th += '<div class="td-chips">';
+                  if (trend) {
+                    th += '<span class="td-type on" data-ti="' + ti +
+                      '" data-type="line">折线（看趋势）</span>' +
+                      '<span class="td-type" data-ti="' + ti +
+                      '" data-type="bar">柱状</span>';
                   }
+                  cands.forEach(function (cd, ci) {
+                    th += '<span class="td-chip' + (ci === 0 ? ' on' : '') +
+                      '" data-ti="' + ti + '" data-c="' + cd.c + '">' +
+                      esc(String(tb.columns[cd.c]).slice(0, 14)) + '</span>';
+                  });
+                  th += '</div>';
                   th += '<div class="td-svg" data-ti="' + ti + '">' +
-                    tdSvg(tb, cands[0].c, ti) + '</div>' +
-                    '<div class="bar-note">数据来自论文，点击列名可切换对比维度</div>';
+                    (trend ? tdLine(tb, cands[0].c, ti)
+                           : tdSvg(tb, cands[0].c, ti)) + '</div>' +
+                    '<div class="bar-note">数据来自论文，点击列名/类型可切换</div>';
                 });
                 return th;
               }
@@ -2266,6 +2332,82 @@
                 }
                 cands.sort(function (a, b) { return b.va - a.va || b.sum - a.sum; });
                 return cands;
+              }
+              function tdIsTrend(tb) {
+                // 首列多数为数值/年份且整体递增 → 趋势型，可画折线
+                var rows = tb.rows || [];
+                if (rows.length < 3) { return false; }
+                var nums = rows.map(function (r) {
+                  var s0 = String(r[0]).trim();
+                  var v = parseFloat(s0);
+                  if (isFinite(v) && /^\d{1,4}([.,]\d+)?$/.test(s0)) { return v; }
+                  var m = s0.match(/(?:19|20)\d{2}/);
+                  return m ? parseFloat(m[0]) : NaN;
+                });
+                var fin = nums.filter(function (v) { return isFinite(v); });
+                if (fin.length < Math.ceil(rows.length * 0.7)) { return false; }
+                var inc = 0;
+                for (var i = 1; i < nums.length; i++) {
+                  if (isFinite(nums[i]) && isFinite(nums[i - 1])
+                      && nums[i] >= nums[i - 1]) { inc++; }
+                }
+                return inc >= nums.length - 2;
+              }
+              function tdLine(tb, col, ti) {
+                var rows = tb.rows || [];
+                var pts = [];
+                rows.forEach(function (r, ri) {
+                  var s0 = String(r[0]).trim();
+                  var x = parseFloat(s0);
+                  if (!isFinite(x)) {
+                    var m = s0.match(/(?:19|20)\d{2}/);
+                    x = m ? parseFloat(m[0]) : ri;
+                  }
+                  var y = parseFloat(String(r[col]).replace(/[,%××\s]/g, ""));
+                  if (isFinite(y)) { pts.push([x, y, r]); }
+                });
+                if (pts.length < 2) { return tdSvg(tb, col, ti); }
+                var L = 150, R = 634, top = 14, H = 300, W = 660, bot = H - 40;
+                var xs = pts.map(function (p) { return p[0]; });
+                var ys = pts.map(function (p) { return p[1]; });
+                var x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs);
+                var y0 = Math.min(0, Math.min.apply(null, ys));
+                var y1 = Math.max.apply(null, ys);
+                if (x1 === x0) { x1 = x0 + 1; }
+                if (y1 === y0) { y1 = y0 + 1; }
+                function px(x) { return L + (x - x0) / (x1 - x0) * (R - L); }
+                function py(y) { return bot - (y - y0) / (y1 - y0) * (bot - top); }
+                var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%">';
+                for (var g = 0; g <= 4; g++) {
+                  var gy = top + (bot - top) * g / 4;
+                  s += '<line x1="' + L + '" y1="' + gy + '" x2="' + R +
+                    '" y2="' + gy + '" stroke="rgba(120,130,140,.16)"/>';
+                  s += '<text x="' + (L - 8) + '" y="' + (gy + 4) +
+                    '" text-anchor="end" class="tdlab">' +
+                    (y1 - (y1 - y0) * g / 4).toFixed(1) + '</text>';
+                }
+                var line = pts.map(function (p, i) {
+                  return (i ? "L" : "M") + px(p[0]).toFixed(1) + " " +
+                    py(p[1]).toFixed(1);
+                }).join(" ");
+                s += '<path d="' + line + '" fill="none" stroke="#2E6F8E" ' +
+                  'stroke-width="2.5" stroke-dasharray="2000" ' +
+                  'stroke-dashoffset="0" style="animation: tdDraw 1.8s ease backwards"/>';
+                s += '<polygon points="' + L + "," + bot + " " +
+                  pts.map(function (p) {
+                    return px(p[0]).toFixed(1) + "," + py(p[1]).toFixed(1);
+                  }).join(" ") + " " + R + "," + bot +
+                  '" fill="rgba(46,111,142,.10)"/>';
+                pts.forEach(function (p) {
+                  s += '<circle cx="' + px(p[0]).toFixed(1) + '" cy="' +
+                    py(p[1]).toFixed(1) + '" r="3.5" fill="#2E6F8E"/>';
+                });
+                s += '<text x="' + (L + (R - L) / 2) + '" y="' + (H - 8) +
+                  '" text-anchor="middle" class="tdax">' +
+                  esc(String(tb.columns[col]).slice(0, 26)) + '（随 ' +
+                  esc(String(tb.columns[0]).slice(0, 14)) + ' 变化）</text>';
+                s += '</svg>';
+                return s;
               }
               function tdSvg(tb, col, ti) {
                 var rows = tb.rows || [];
@@ -2335,17 +2477,31 @@
                         function (chip) {
                           chip.addEventListener("click", function () {
                             var ti = Number(chip.getAttribute("data-ti"));
-                            var c = Number(chip.getAttribute("data-c"));
+                            var type = chip.getAttribute("data-type");
+                            var c = chip.getAttribute("data-c");
                             var host = box2.querySelector(
                               '.td-svg[data-ti="' + ti + '"]');
-                            if (host && TD[ti]) {
-                              host.innerHTML = tdSvg(TD[ti], c, ti);
-                              box2.querySelectorAll(
-                                '.td-chip[data-ti="' + ti + '"]')
-                                .forEach(function (x) {
-                                  x.classList.toggle("on", x === chip);
-                                });
-                            }
+                            if (!host || !TD[ti]) { return; }
+                            var cur = host.dataset.col !== undefined
+                              ? Number(host.dataset.col) : null;
+                            var curType = host.dataset.type || "bar";
+                            var newC = (c !== null && c !== undefined)
+                              ? Number(c) : (cur !== null ? cur
+                                : tdPickCols(TD[ti])[0].c);
+                            var newType = type || curType;
+                            host.dataset.col = newC;
+                            host.dataset.type = newType;
+                            host.innerHTML = (newType === "line")
+                              ? tdLine(TD[ti], newC, ti)
+                              : tdSvg(TD[ti], newC, ti);
+                            box2.querySelectorAll(
+                              '[data-ti="' + ti + '"]').forEach(function (x) {
+                                if (x === chip) { x.classList.add("on"); }
+                                else if (x.classList.contains("td-chip")
+                                  || x.classList.contains("td-type")) {
+                                  x.classList.remove("on");
+                                }
+                              });
                           });
                         });
                     } else {
@@ -2363,11 +2519,6 @@
             .catch(function (e) { body.textContent = "加载失败：" + e; });
         }
       }
-      document.getElementById("btnOrig").addEventListener("click",
-        function () { toggle("orig"); });
-      document.getElementById("btnFigs").addEventListener("click",
-        function () { toggle("figs"); });
-      document.getElementById("spClose").addEventListener("click", closePanel);
     }
   }
 
@@ -2376,5 +2527,21 @@
 
 })();
 </script>
-</body>
+<script>
+  window.__PA_ERR_SHOW = function () {
+    var b = document.getElementById("pa-err-badge");
+    if (!b) {
+      b = document.createElement("div");
+      b.id = "pa-err-badge";
+      b.style.cssText = "position:fixed;left:10px;bottom:64px;z-index:999;" +
+        "max-width:420px;background:#B4432A;color:#fff;font-size:12px;" +
+        "padding:8px 12px;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.3)";
+      document.body.appendChild(b);
+    }
+    b.textContent = "⚠ 页面脚本出错：" + window.__PA_ERR +
+      "（可截图反馈，或点工作台「诊断与修复」）";
+  };
+  if (window.__PA_ERR) { window.__PA_ERR_SHOW(); }
+  </script>
+  </body>
 </html>
