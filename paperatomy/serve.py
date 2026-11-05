@@ -1020,7 +1020,30 @@ class _Handler(BaseHTTPRequestHandler):
                                        encoding="utf-8", errors="replace"))
                 c["pdf_ok"] = (self.state.pdf_dir / (stem + ".pdf")).is_file()
                 reports.append(item)
-        return {"ok": True, "version": _version(), "reports": reports}
+        pending = []
+        known = {jf.stem for jf in self.state.out_dir.glob("*.json")} \
+            if self.state else set()
+
+        def _has_report(stem: str) -> bool:
+            # 报告名可能带去重后缀（x-1.json），前后缀都能对上才算有
+            if stem in known:
+                return True
+            return any(k.startswith(stem + "-") or stem.startswith(k + "-")
+                       for k in known)
+
+        if self.state:
+            now = time.time()
+            for pf in sorted(self.state.pdf_dir.glob("*.pdf"),
+                             key=lambda p: p.stat().st_mtime, reverse=True):
+                if _has_report(pf.stem):
+                    continue
+                if now - pf.stat().st_mtime > 7 * 86400:
+                    break  # 按新到旧排，超过一周的不再提示
+                pending.append(pf.name)
+                if len(pending) >= 8:
+                    break
+        return {"ok": True, "version": _version(), "reports": reports,
+                "pending": pending}
 
     def _fix(self, params: dict) -> None:
         """单项修复：render=重建 HTML；network=补文献网络。network 走后台线程。"""
@@ -1032,6 +1055,32 @@ class _Handler(BaseHTTPRequestHandler):
         if self.state is None:
             self._json({"ok": False, "error": "状态未就绪"}, 400)
             return
+        if action == "start":
+            # 一键开跑：papers/ 里已上传但没跑过的 PDF
+            pdf = self.state.pdf_dir / Path(file).name
+            if not pdf.is_file():
+                self._json({"ok": False, "error": "找不到这份 PDF"}, 404)
+                return
+            if self.state.running is not None:
+                self._json({"ok": False, "error": "已有任务在跑"}, 409)
+                return
+            from .parse import parse as _parse
+            from .llm import LLMConfig, load_config as _load
+            try:
+                det = detect_template(_parse(pdf))
+            except Exception:  # noqa: BLE001 —— 检测失败就按精读跑
+                det = {"suggest": "deep"}
+            template = det.get("suggest") or "deep"
+            if template not in ("survey", "deep", "skim"):
+                template = "deep"
+            task = Task(id=uuid.uuid4().hex[:12],
+                        name=Path(file).name,
+                        template=template, lang="zh")
+            self.state.start_task(task, pdf)
+            self._json({"ok": True, "task": task.public(),
+                        "template": template})
+            return
+
         rp = self.state.report_path(file)
         if rp is None or not rp.is_file():
             self._json({"ok": False, "error": "没有这份报告"}, 404)

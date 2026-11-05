@@ -737,6 +737,17 @@
             "</td></tr>";
         });
         h += "</table>";
+        if ((d.pending || []).length) {
+          h += '<div style="margin-top:14px;font-weight:600">已上传但还没开跑</div>' +
+            '<div style="color:var(--ink2);font-size:12.5px;margin:4px 0 8px">' +
+            '上次上传后没点「开始分析」——重启工作台也会丢失待确认任务。</div>';
+          d.pending.forEach(function (pf) {
+            h += '<div style="display:flex;align-items:center;gap:10px;' +
+              'margin-bottom:6px"><span>' + esc(pf) + '</span>' +
+              '<button class="fixbtn" data-file="' + esc(pf) +
+              '" data-action="start">一键开跑</button></div>';
+          });
+        }
         document.getElementById("diagBody").innerHTML = h;
         document.querySelectorAll("#diagBody .fixbtn").forEach(
           function (b) {
@@ -744,7 +755,16 @@
               b.disabled = true; b.textContent = "修复中…";
               fetch("/api/fix?file=" + encodeURIComponent(b.dataset.file) +
                     "&action=" + b.dataset.action, {method: "POST"})
-                .then(function () { setTimeout(runDiag, 4000); });
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                  if (b.dataset.action === "start" && d.ok) {
+                    b.textContent = "已开跑（" + (d.template || "") + "）";
+                    if (typeof loadReports === "function") { loadReports(); }
+                  } else if (b.dataset.action === "start") {
+                    b.textContent = d.error || "启动失败";
+                  }
+                  setTimeout(runDiag, 4000);
+                });
             });
           });
       })
