@@ -942,6 +942,18 @@
   .dm-lb { font-size: 11px; fill: #2C2C2A; animation: dmFade .4s ease backwards; }
   .dm-val { font-size: 11px; fill: #2E6F8E; font-weight: 600;
     animation: dmFade .4s ease .3s backwards; }
+  .dm-cmp-l { fill: #FBEDEA; stroke: #C0483B; stroke-width: 1.2; }
+  .dm-cmp-r { fill: #E8F2EF; stroke: #3E8E7E; stroke-width: 1.2; }
+  .dm-tt { font-size: 12px; font-weight: 600; fill: #2C2C2A;
+    animation: dmFade .4s ease backwards; }
+  .dm-vs { font-size: 13px; font-weight: 700; fill: #888780;
+    animation: dmPop .5s ease .5s backwards; }
+  .dm-cmp-l { fill: #FBEDEA; stroke: #C0483B; stroke-width: 1.2; }
+  .dm-cmp-r { fill: #E8F2EF; stroke: #3E8E7E; stroke-width: 1.2; }
+  .dm-tt { font-size: 12px; font-weight: 600; fill: #2C2C2A;
+    animation: dmFade .4s ease backwards; }
+  .dm-vs { font-size: 13px; font-weight: 700; fill: #888780;
+    animation: dmPop .5s ease .5s backwards; }
 </style>
 <script>
   window.__PA_ERR = "";
@@ -1470,24 +1482,59 @@
         rows + "</svg>";
     }
     if (v.type === "flow") {
+      var steps = v.steps || [];
+      var nn = steps.length;
+      var gap = 12, m2 = 14;
+      var bw = (460 - m2 * 2 - gap * (nn - 1)) / nn;
       var h2 = "";
-      (v.steps || []).forEach(function (st, i) {
-        var x = 14 + i * 110;
+      steps.forEach(function (st, i) {
+        var x = m2 + i * (bw + gap);
         h2 += "<rect class=\"dm-flow\" style=\"animation-delay:" + (i * 0.35) +
-          "s\" x=\"" + x + "\" y=\"48\" width=\"96\" height=\"52\" rx=\"10\"></rect>";
-        h2 += "<text class=\"dm-lb\" x=\"" + (x + 48) + "\" y=\"70\" " +
-          "style=\"animation-delay:" + (i * 0.35 + 0.15) + "s;font-size:10px\">" +
-          esc(st.slice(0, 8)) + "</text>";
-        h2 += "<text class=\"dm-lb\" x=\"" + (x + 48) + "\" y=\"86\" " +
-          "style=\"animation-delay:" + (i * 0.35 + 0.2) + "s;font-size:10px\">" +
-          esc(st.slice(8, 16)) + "</text>";
-        if (i < v.steps.length - 1) {
+          "s\" x=\"" + x.toFixed(1) + "\" y=\"36\" width=\"" + bw.toFixed(1) +
+          "\" height=\"72\" rx=\"10\"></rect>";
+        var lines = [];
+        for (var pp = 0; pp < st.length && lines.length < 3; pp += 6) {
+          lines.push(st.slice(pp, pp + 6));
+        }
+        var y0 = 70 - (lines.length - 1) * 13;
+        lines.forEach(function (ln, li) {
+          h2 += "<text class=\"dm-lb\" x=\"" + (x + bw / 2).toFixed(1) +
+            "\" y=\"" + (y0 + li * 14) + "\" text-anchor=\"middle\" " +
+            "style=\"animation-delay:" + (i * 0.35 + 0.15 + li * 0.06) +
+            "s;font-size:10px\">" + esc(ln) + "</text>";
+        });
+        if (i < nn - 1) {
           h2 += "<path class=\"dm-arrow\" style=\"animation-delay:" +
-            (i * 0.35 + 0.25) + "s\" d=\"M" + (x + 98) + " 74H" +
-            (x + 108) + "\"/>";
+            (i * 0.35 + 0.3) + "s\" d=\"M" + (x + bw + 1.5).toFixed(1) +
+            " 72H" + (x + bw + gap - 1.5).toFixed(1) + "\"/>";
         }
       });
-      return "<svg viewBox=\"0 0 460 130\" class=\"dm-svg\">" + h2 + "</svg>";
+      return "<svg viewBox=\"0 0 460 110\" class=\"dm-svg\">" + h2 + "</svg>";
+    }
+    if (v.type === "compare") {
+      var Lc = v.left || {}, Rc = v.right || {};
+      function cmpCol(x, title, items, cls) {
+        var h3 = "<rect x=\"" + x + "\" y=\"28\" width=\"212\" " +
+          "height=\"116\" rx=\"12\" class=\"dm-" + cls + "\"/>";
+        h3 += "<text x=\"" + (x + 106) + "\" y=\"50\" text-anchor=\"middle\" " +
+          "class=\"dm-tt\">" + esc(title) + "</text>";
+        (items || []).forEach(function (it, i) {
+          h3 += "<circle cx=\"" + (x + 18) + "\" cy=\"" + (74 + i * 24) +
+            "\" r=\"3.5\" fill=\"" + (cls === "cmp-l" ? "#C0483B" : "#3E8E7E") +
+            "\" class=\"dm-pop\" style=\"animation-delay:" +
+            (0.3 + i * 0.18) + "s\"/>";
+          h3 += "<text x=\"" + (x + 30) + "\" y=\"" + (78 + i * 24) +
+            "\" class=\"dm-lb\" style=\"animation-delay:" +
+            (0.35 + i * 0.18) + "s\">" + esc(String(it).slice(0, 15)) +
+            "</text>";
+        });
+        return h3;
+      }
+      var o4 = cmpCol(16, Lc.title || "现有方法", Lc.items, "cmp-l") +
+        cmpCol(232, Rc.title || "本文方法", Rc.items, "cmp-r");
+      o4 += "<text x=\"230\" y=\"92\" text-anchor=\"middle\" class=\"dm-vs\">VS" +
+        "</text>";
+      return "<svg viewBox=\"0 0 460 156\" class=\"dm-svg\">" + o4 + "</svg>";
     }
     if (v.type === "bars") {
       var items = v.items || [];

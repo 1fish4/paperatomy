@@ -600,28 +600,40 @@ class _State:
             blocks = {b.get("block_id"): str(b.get("content") or "")
                       for b in (data.get("findings") or [])}
             material = (
-                "标题：%s\n一句话：%s\n问题：%s\n方法概述：%s\n"
-                "方法步骤：%s\n结果：%s\n局限：%s"
+                "标题：%s\n一句话：%s\n问题：%s\n背景与已有做法：%s\n"
+                "已有做法的不足：%s\n方法概述：%s\n方法步骤：%s\n"
+                "与已有方法的对比：%s\n结果：%s\n局限：%s"
                 % (data.get("paper_title"), blocks.get("tl_dr", "")[:200],
-                   blocks.get("problem", "")[:300],
+                   blocks.get("problem", "")[:360],
+                   blocks.get("background", "")[:280],
+                   blocks.get("gap", "")[:280],
                    blocks.get("method_overview", "")[:300],
                    blocks.get("method_steps", "")[:300],
+                   blocks.get("comparison", "")[:280],
                    blocks.get("result", "")[:300],
                    blocks.get("limits", "")[:200]))
             prompt = (
                 "根据这篇论文的核心内容，设计一个『动态讲解』分镜脚本："
-                "像动画演示一样，先让观众看见问题（乱、缺、冲突），"
-                "再演示方法如何介入（元素重排/流程推进），最后用数字展示效果。"
+                "像动画演示一样把论文讲透。要求："
+                "①开头 1~2 镜把问题讲透——先展示现状的混乱或浪费（tokens），"
+                "再展示关键矛盾或约束冲突（tokens/bars）；"
+                "②中间 1~2 镜讲已有方法是怎么做的、哪里不够好"
+                "（优先用 compare：左列=已有方法要点，右列=本文对应改进）；"
+                "③再用 2~4 镜把本文方法逐步拆开讲（flow/tokens，每镜只讲一步）；"
+                "④最后 1~2 镜展示效果（bars/line，用真实数字）。"
                 "输出 JSON：{\"title\": \"讲解标题\", \"scenes\": ["
-                '{"narration": "本镜旁白（60字内，口语化）", '
-                '"viz": {"type": "tokens|flow|bars|line 之一", '
+                '{"narration": "本镜旁白（80字内，口语化，讲清楚这一镜在说什么）", '
+                '"viz": {"type": "tokens|flow|bars|line|compare 之一", '
                 '"caption": "画面标题（12字内）", '
-                "// tokens: 展示元素分组与变化，groups:[{label,color(red|teal|amber|gray),count}] 2~5组"
+                "// tokens: 元素分组堆放，groups:[{label,color(red|teal|amber|gray),count}] 2~5组"
                 "// flow: 流程逐步点亮，steps:[3~5步短句]"
                 "// bars: 柱状生长对比，items:[{label,value,tag(before|after|none)}] 2~4项, unit:数字单位"
                 "// line: 趋势折线，x:[3~10个标签], y:[对应数值], unit:数字单位"
-                "}, …] 共 4~6 镜，第一镜必须 tokens 展示问题，"
-                "中间至少一镜 flow 或 tokens 演示方法，最后一镜 bars 或 line 展示效果。"
+                '// compare: 左右对比，left:{title,items:[2~3条]}, right:{title,items:[2~3条]}'
+                "}, …] 。镜头数量由论文内容决定：讲到观众能看明白"
+                "问题、已有方法、本文方法、效果为止——内容多就多几镜"
+                "（最多 14 镜），内容简单就少几镜；不要为凑数拆碎，"
+                "也不要压掉关键步骤。"
                 "数字必须来自摘要材料，不要编造。\n\n" + material)
             from .llm import chat, load_config
             raw = chat([{"role": "user", "content": prompt}], load_config(),
@@ -646,7 +658,7 @@ class _State:
     def _norm_demo(script: dict) -> dict:
         """分镜规范化：只留四种画面，坏场景降级为纯旁白。"""
         out = []
-        for sc in (script.get("scenes") or [])[:7]:
+        for sc in (script.get("scenes") or [])[:14]:
             if not isinstance(sc, dict):
                 continue
             narr = str(sc.get("narration") or "").strip()[:160]
@@ -679,6 +691,21 @@ class _State:
                     if len(its) >= 2:
                         nv.update({"type": "bars", "items": its,
                                    "unit": str(v.get("unit") or "")[:12]})
+                elif t == "compare" and isinstance(v.get("left"), dict) \
+                        and isinstance(v.get("right"), dict):
+                    lv, rv = v["left"], v["right"]
+                    nv.update({"type": "compare",
+                               "left": {"title": str(lv.get("title"))[:14],
+                                        "items": [str(x)[:18] for x in
+                                                  (lv.get("items") or [])[:3]
+                                                  if str(x).strip()]},
+                               "right": {"title": str(rv.get("title"))[:14],
+                                         "items": [str(x)[:18] for x in
+                                                   (rv.get("items") or [])[:3]
+                                                   if str(x).strip()]}})
+                    if len(nv["left"]["items"]) < 1 or \
+                            len(nv["right"]["items"]) < 1:
+                        nv = {"caption": nv["caption"]}
                 elif t == "line" and isinstance(v.get("x"), list) \
                         and isinstance(v.get("y"), list):
                     xs = [str(x)[:10] for x in v["x"][:10]]
