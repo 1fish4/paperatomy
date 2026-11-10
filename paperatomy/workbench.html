@@ -262,6 +262,15 @@
     font-size: 15px; cursor: pointer; line-height: 1;
   }
   .rpt-del:hover { background: #FBEAEA; color: #B4483C; }
+  .rpt-col {
+    position: absolute; top: 10px; right: 40px; z-index: 2;
+    width: 22px; height: 22px; border-radius: 50%;
+    border: none; background: transparent; color: var(--ink3, #8A94A2);
+    cursor: pointer; line-height: 1; padding: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .rpt-col:hover { background: rgba(46,111,142,.12); color: #2E6F8E; }
+  .rpt-col svg { width: 13px; height: 13px; }
   .pager {
     display: flex; align-items: center; justify-content: center; gap: 16px;
     margin-top: 18px; font-size: 13px; color: var(--ink2);
@@ -718,7 +727,10 @@
         ].filter(Boolean).join("") + "</div>" +
         '<div class="open">打开报告 →</div></a>' +
         '<button class="rpt-col" data-col="' + esc(r.file) +
-        '" title="归入合集">🗂</button>' +
+        '" title="归入合集"><svg viewBox="0 0 24 24" fill="none" ' +
+        'stroke="currentColor" stroke-width="2" stroke-linecap="round" ' +
+        'stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5' +
+        'a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></button>' +
         '<button class="rpt-del" data-del="' + esc(r.file) +
         '" title="删除此报告">×</button></div>');
     });

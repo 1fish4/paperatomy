@@ -770,10 +770,11 @@ class _Handler(BaseHTTPRequestHandler):
                 self._json({"ok": False, "error": str(exc)}, 500)
                 return
             if 0 <= idx < len(figs):
-                self._json({"ok": True,
-                            "b64": figs[idx].get("b64"),
-                            "w": figs[idx].get("w"),
-                            "h": figs[idx].get("h")})
+                # 直接输出 PNG 字节：<img src> 指向本接口，
+                # 返回 JSON 会让浏览器解码失败（v0.11.0 全破图的根因）
+                import base64 as _b64
+                png = _b64.b64decode(figs[idx].get("b64") or "")
+                self._send(200, png, "image/png")
             else:
                 self._json({"ok": False, "error": "没有这张图"}, 404)
             return
@@ -1182,6 +1183,22 @@ class _Handler(BaseHTTPRequestHandler):
                     assign[i] = mo
         return assign
 
+    @staticmethod
+    def _pix_blank(pix) -> bool:
+        """空白图检测：抽样像素标准差极小 → 无内容（整页白底误判簇）。"""
+        try:
+            sm = pix.samples
+            n = len(sm)
+            if not n:
+                return True
+            step = max(1, n // 4096)
+            vals = [sm[i] for i in range(0, n, step)]
+            mean = sum(vals) / len(vals)
+            var = sum((v - mean) ** 2 for v in vals) / len(vals)
+            return var ** 0.5 < 4
+        except Exception:  # noqa: BLE001
+            return False
+
     def _extract_figs(self, file: str) -> list:
         """从 PDF 提取插图/表格（矢量簇 + 位图，过滤小装饰图）。
 
@@ -1209,9 +1226,16 @@ class _Handler(BaseHTTPRequestHandler):
                 clusters.sort(key=lambda r: -(r.width * r.height))
                 _kept = []
                 for r in clusters:
-                    if any(r.x0 >= k.x0 - 2 and r.x1 <= k.x1 + 2
-                           and r.y0 >= k.y0 - 2 and r.y1 <= k.y1 + 2
-                           for k in _kept):
+                    dup = False
+                    for k in _kept:
+                        inter = ((min(r.x1, k.x1) - max(r.x0, k.x0))
+                                 * (min(r.y1, k.y1) - max(r.y0, k.y0)))
+                        a_small = min(r.width * r.height,
+                                      k.width * k.height)
+                        if a_small > 0 and inter / a_small > 0.55:
+                            dup = True
+                            break
+                    if dup:
                         continue
                     _kept.append(r)
                 clusters = _kept
@@ -1224,6 +1248,8 @@ class _Handler(BaseHTTPRequestHandler):
                         continue
                     pix = page.get_pixmap(clip=r, dpi=150)
                     if pix.width < 280 or pix.height < 180:
+                        continue
+                    if self._pix_blank(pix):
                         continue
                     taken.append(fitz.Rect(r))
                     b64 = base64.b64encode(pix.tobytes("png")).decode()
@@ -1246,6 +1272,8 @@ class _Handler(BaseHTTPRequestHandler):
                             continue
                         if pix.colorspace and pix.colorspace.n > 3:
                             pix = fitz.Pixmap(fitz.csRGB, pix)
+                        if self._pix_blank(pix):
+                            continue
                         b64 = base64.b64encode(pix.tobytes("png")).decode()
                         rect = rects[0] if rects else None
                         out.append({"page": pno + 1,
@@ -1262,7 +1290,15 @@ class _Handler(BaseHTTPRequestHandler):
 
         finally:
             doc.close()
-        return out
+        seen = set()
+        uniq = []
+        for f in out:
+            key = (f.get("page"), (f.get("cap") or "").strip())
+            if key[1] and key in seen:
+                continue
+            seen.add(key)
+            uniq.append(f)
+        return uniq
 
     def _figures_payload(self, file: str, out: list) -> dict:
         """figures 载荷：kind（figure/table）+ 已缓存的模型解读 + 状态。"""
@@ -1278,14 +1314,33 @@ class _Handler(BaseHTTPRequestHandler):
                         # v1 缓存（字符串列表）照常展示，归属交给页码预归
                         raw = [{"explain": str(x), "module": None}
                                for x in (_d.get("figures_explain") or [])]
-                    explains = []
+                    norm = []
                     for x in raw:
                         if isinstance(x, dict):
-                            explains.append({"explain": str(x.get("explain") or "")[:400],
-                                             "module": x.get("module")})
+                            norm.append({"explain": str(x.get("explain") or "")[:400],
+                                         "module": x.get("module")})
                         else:
-                            explains.append({"explain": str(x)[:400],
-                                             "module": None})
+                            norm.append({"explain": str(x)[:400],
+                                         "module": None})
+                    # 缓存按当时的提取索引对位；提取去重会移位，
+                    # 用 (页码, 题注) 对齐回当前提取，避免张冠李戴
+                    slim = _d.get("figures_extract") or []
+                    cap_map = {}
+                    for j, sf in enumerate(slim):
+                        key = (str(sf.get("page")),
+                               (sf.get("cap") or "").strip())
+                        if key[1] and j < len(norm) and key not in cap_map:
+                            cap_map[key] = norm[j]
+                    same_len = (len(slim) == len(out) == len(norm)
+                                and bool(slim))
+                    explains = []
+                    for f in out:
+                        key = (str(f.get("page")),
+                               (f.get("cap") or "").strip())
+                        ex = cap_map.get(key)
+                        if ex is None and same_len:
+                            ex = norm[len(explains)]
+                        explains.append(ex or {"explain": "", "module": None})
                 except Exception:  # noqa: BLE001
                     explains = []
         for i, f in enumerate(out):
