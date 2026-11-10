@@ -38,3 +38,6 @@ extractions/
 docs/_build/
 reports.db
 out/serve.log
+logs/
+out/.trash/
+tasks.state.json
