@@ -906,6 +906,42 @@
     border-radius: 6px; background: rgba(46,111,142,.1); color: #2E6F8E;
     margin-right: 5px; }
   .mod-td { margin-top: 12px; }
+  .dm-wrap { padding: 4px 2px; }
+  .dm-title { font-weight: 600; margin-bottom: 6px; }
+  .dm-cap { font-size: 13px; color: var(--ink2, #56616F); margin: 8px 0 2px; }
+  .dm-stage { background: #fff; border: 1px solid var(--line);
+    border-radius: 12px; padding: 10px 8px; }
+  .dm-svg { width: 100%; display: block; }
+  .dm-narr { margin: 12px 0; font-size: 14.5px; line-height: 1.7;
+    background: #fff; border-left: 3px solid #2E6F8E;
+    padding: 10px 14px; border-radius: 0 10px 10px 0; }
+  .dm-ctl { display: flex; align-items: center; gap: 10px; }
+  .dm-ctl button { min-width: 40px; height: 40px; border-radius: 20px;
+    border: 1px solid var(--line); background: #fff; cursor: pointer;
+    font-size: 16px; }
+  #dmPlay { padding: 0 18px; background: #2E6F8E; color: #fff;
+    border-color: #2E6F8E; font-size: 13.5px; }
+  .dm-dots { display: flex; gap: 6px; flex: 1; justify-content: center; }
+  .dm-dot { width: 8px; height: 8px; border-radius: 50%;
+    background: #D3D1C7; cursor: pointer; }
+  .dm-dot.on { background: #2E6F8E; }
+  .dm-num { font-size: 12px; color: var(--ink3, #8A94A2); }
+  .dm-pop { animation: dmPop .5s ease backwards; }
+  @keyframes dmPop { from { opacity: 0; } }
+  .dm-bar { transform-box: fill-box; transform-origin: left center;
+    animation: dmGrow .8s ease backwards; }
+  @keyframes dmGrow { from { transform: scaleX(0); } }
+  .dm-flow { fill: #E9F1F5; stroke: #2E6F8E;
+    animation: dmFade .5s ease backwards; }
+  .dm-arrow { stroke: #5F5E5A; stroke-width: 1.5;
+    animation: dmFade .3s ease backwards; }
+  .dm-line { stroke-dasharray: 600; stroke-dashoffset: 600;
+    animation: dmDraw 1.6s ease forwards; }
+  @keyframes dmDraw { to { stroke-dashoffset: 0; } }
+  @keyframes dmFade { from { opacity: 0; } }
+  .dm-lb { font-size: 11px; fill: #2C2C2A; animation: dmFade .4s ease backwards; }
+  .dm-val { font-size: 11px; fill: #2E6F8E; font-weight: 600;
+    animation: dmFade .4s ease .3s backwards; }
 </style>
 <script>
   window.__PA_ERR = "";
@@ -1406,6 +1442,190 @@
       })
       .catch(function () { });
   }
+
+  // ---- 动态讲解（v0.14.0）：分镜播放器 ----
+  var DEMO = {idx: 0, playing: false, timer: null, script: null};
+
+  function demoColor(c) {
+    return {red: "#C0483B", teal: "#2E6F8E", amber: "#C98A2D",
+            gray: "#B4B2A9"}[c] || "#B4B2A9";
+  }
+
+  function demoSvg(v) {
+    v = v || {};
+    if (v.type === "tokens") {
+      var rows = "", yy = 46;
+      (v.groups || []).forEach(function (g, gi) {
+        for (var i = 0; i < (g.count || 1); i++) {
+          rows += "<circle class=\"dm-pop\" style=\"animation-delay:" +
+            ((gi * 3 + i) * 0.09) + "s\" cx=\"" + (34 + i * 26) +
+            "\" cy=\"" + yy + "\" r=\"9\" fill=\"" + demoColor(g.color) +
+            "\" opacity=\".85\"></circle>";
+        }
+        rows += "<text class=\"dm-lb\" x=\"" + (34 + (g.count || 1) * 26 + 12) +
+          "\" y=\"" + (yy + 4) + "\">" + esc(g.label) + "</text>";
+        yy += 34;
+      });
+      return "<svg viewBox=\"0 0 460 " + (yy + 8) + "\" class=\"dm-svg\">" +
+        rows + "</svg>";
+    }
+    if (v.type === "flow") {
+      var h2 = "";
+      (v.steps || []).forEach(function (st, i) {
+        var x = 14 + i * 110;
+        h2 += "<rect class=\"dm-flow\" style=\"animation-delay:" + (i * 0.35) +
+          "s\" x=\"" + x + "\" y=\"48\" width=\"96\" height=\"52\" rx=\"10\"></rect>";
+        h2 += "<text class=\"dm-lb\" x=\"" + (x + 48) + "\" y=\"70\" " +
+          "style=\"animation-delay:" + (i * 0.35 + 0.15) + "s;font-size:10px\">" +
+          esc(st.slice(0, 8)) + "</text>";
+        h2 += "<text class=\"dm-lb\" x=\"" + (x + 48) + "\" y=\"86\" " +
+          "style=\"animation-delay:" + (i * 0.35 + 0.2) + "s;font-size:10px\">" +
+          esc(st.slice(8, 16)) + "</text>";
+        if (i < v.steps.length - 1) {
+          h2 += "<path class=\"dm-arrow\" style=\"animation-delay:" +
+            (i * 0.35 + 0.25) + "s\" d=\"M" + (x + 98) + " 74H" +
+            (x + 108) + "\"/>";
+        }
+      });
+      return "<svg viewBox=\"0 0 460 130\" class=\"dm-svg\">" + h2 + "</svg>";
+    }
+    if (v.type === "bars") {
+      var items = v.items || [];
+      var mx = 1;
+      items.forEach(function (x) {
+        if (Math.abs(x.value) > mx) { mx = Math.abs(x.value); }
+      });
+      var o2 = "", y2 = 40;
+      items.forEach(function (x, i) {
+        var w2 = Math.max(8, Math.abs(x.value) / mx * 300);
+        o2 += "<text class=\"dm-lb\" x=\"10\" y=\"" + (y2 + 15) + "\">" +
+          esc(x.label) + "</text>";
+        o2 += "<rect class=\"dm-bar\" style=\"animation-delay:" + (i * 0.25) +
+          "s\" x=\"86\" y=\"" + y2 + "\" width=\"" + w2 + "\" height=\"22\" rx=\"6\" fill=\"" +
+          (x.tag === "after" ? "#3E8E7E"
+            : x.tag === "before" ? "#C0483B" : "#2E6F8E") + "\"></rect>";
+        o2 += "<text class=\"dm-val\" x=\"" + (92 + w2) + "\" y=\"" + (y2 + 15) +
+          "\">" + x.value + (v.unit ? " " + esc(v.unit) : "") + "</text>";
+        y2 += 40;
+      });
+      return "<svg viewBox=\"0 0 460 " + (y2 + 6) + "\" class=\"dm-svg\">" +
+        o2 + "</svg>";
+    }
+    if (v.type === "line") {
+      var xs = v.x || [], ys = v.y || [];
+      var ymin = Math.min.apply(null, ys), ymax = Math.max.apply(null, ys);
+      var span = (ymax - ymin) || 1;
+      var pts = ys.map(function (yv, i) {
+        return [60 + i * (360 / Math.max(1, xs.length - 1)),
+                24 + (1 - (yv - ymin) / span) * 84];
+      });
+      var o3 = "<polyline class=\"dm-line\" points=\"" +
+        pts.map(function (p) {
+          return p[0].toFixed(1) + "," + p[1].toFixed(1);
+        }).join(" ") +
+        "\" fill=\"none\" stroke=\"#2E6F8E\" stroke-width=\"2.5\"/>";
+      pts.forEach(function (p, i) {
+        o3 += "<circle class=\"dm-pop\" style=\"animation-delay:" +
+          (0.5 + i * 0.12) + "s\" cx=\"" + p[0].toFixed(1) + "\" cy=\"" +
+          p[1].toFixed(1) + "\" r=\"4\" fill=\"#2E6F8E\"></circle>";
+        o3 += "<text class=\"dm-lb\" x=\"" + p[0].toFixed(1) + "\" y=\"132\" " +
+          "text-anchor=\"middle\">" + esc(xs[i]) + "</text>";
+        o3 += "<text class=\"dm-val\" x=\"" + p[0].toFixed(1) + "\" y=\"" +
+          Math.max(14, p[1] - 10).toFixed(1) + "\" text-anchor=\"middle\">" +
+          ys[i] + "</text>";
+      });
+      return "<svg viewBox=\"0 0 460 140\" class=\"dm-svg\">" + o3 + "</svg>";
+    }
+    return "";
+  }
+
+  function demoAuto() {
+    if (DEMO.timer) { clearInterval(DEMO.timer); DEMO.timer = null; }
+    if (DEMO.playing && DEMO.script) {
+      DEMO.timer = setInterval(function () {
+        DEMO.idx = (DEMO.idx + 1) % DEMO.script.scenes.length;
+        renderDemoScene();
+      }, 6000);
+    }
+  }
+
+  function renderDemoScene() {
+    var sc = DEMO.script.scenes[DEMO.idx];
+    var body = document.getElementById("spBody");
+    var v = sc.viz || {};
+    var cap = v.caption ? '<div class="dm-cap">' + esc(v.caption) + "</div>"
+      : "";
+    body.innerHTML =
+      '<div class="dm-wrap"><div class="dm-title">' +
+      esc(DEMO.script.title) + "</div>" + cap +
+      '<div class="dm-stage">' + demoSvg(v) + "</div>" +
+      '<div class="dm-narr">' + esc(sc.narration) + "</div>" +
+      '<div class="dm-ctl">' +
+      '<button id="dmPrev" title="上一镜">‹</button>' +
+      '<button id="dmPlay">' + (DEMO.playing ? "暂停" : "播放") + "</button>" +
+      '<button id="dmNext" title="下一镜">›</button>' +
+      '<span class="dm-dots">' +
+      DEMO.script.scenes.map(function (_, i) {
+        return '<span class="dm-dot' + (i === DEMO.idx ? " on" : "") +
+          '" data-di="' + i + '"></span>';
+      }).join("") + "</span>" +
+      '<span class="dm-num">' + (DEMO.idx + 1) + "/" +
+      DEMO.script.scenes.length + "</span></div></div>";
+    document.getElementById("dmPrev").addEventListener("click", function () {
+      DEMO.idx = (DEMO.idx - 1 + DEMO.script.scenes.length) %
+        DEMO.script.scenes.length;
+      renderDemoScene();
+    });
+    document.getElementById("dmNext").addEventListener("click", function () {
+      DEMO.idx = (DEMO.idx + 1) % DEMO.script.scenes.length;
+      renderDemoScene();
+    });
+    document.getElementById("dmPlay").addEventListener("click", function () {
+      DEMO.playing = !DEMO.playing;
+      demoAuto();
+      renderDemoScene();
+    });
+    body.querySelectorAll(".dm-dot").forEach(function (d3) {
+      d3.addEventListener("click", function () {
+        DEMO.idx = Number(d3.getAttribute("data-di"));
+        renderDemoScene();
+      });
+    });
+    demoAuto();
+  }
+
+  function initDemo(body) {
+    body.innerHTML = '<p class="empty">正在准备动态讲解…</p>';
+    fetch("/api/demo?file=" + encodeURIComponent(__PA_SERVE__.report))
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d.script && d.script.scenes && d.script.scenes.length) {
+          DEMO.script = d.script;
+          DEMO.idx = 0;
+          DEMO.playing = true;
+          renderDemoScene();
+          return;
+        }
+        if (d.state === "running" || d.state === "none") {
+          body.innerHTML = '<p class="empty">模型正在为这篇论文生成分镜脚本…' +
+            "<br>约半分钟，生成后自动播放。</p>";
+          if (d.state === "none") {
+            fetch("/api/demo?file=" +
+                  encodeURIComponent(__PA_SERVE__.report),
+                  {method: "POST"});
+          }
+          setTimeout(function () { initDemo(body); }, 5000);
+          return;
+        }
+        body.innerHTML = '<p class="empty" style="cursor:pointer">' +
+          "生成失败：" + esc(d.error || "未知错误") + "<br>点击重试。</p>";
+        body.firstChild.addEventListener("click", function () {
+          initDemo(body);
+        });
+      })
+      .catch(function (e) { body.textContent = "加载失败：" + e; });
+  }
+
 
   initModFigs();
 
@@ -2470,7 +2690,8 @@
     if (PDF) {
       var btns = document.createElement("div");
       btns.className = "side-btns";
-      btns.innerHTML = '<button id="btnOrig">对照原文</button>';
+      btns.innerHTML = '<button id="btnOrig">对照原文</button>' +
+        '<button id="btnDemo">动态讲解</button>';
       document.body.appendChild(btns);
       btns.classList.add("show");
 
@@ -2484,9 +2705,11 @@
       // 按钮绑定（v0.9.6 图表 v3 拼接时被误删，导致面板点不开——回归测试已锁）
       document.getElementById("btnOrig").addEventListener("click",
         function () { toggle("orig"); });
+      document.getElementById("btnDemo").addEventListener("click",
+        function () { toggle("demo"); });
       document.getElementById("spClose").addEventListener("click",
         function () { closePanel(); });
-      panel.dataset.bound = "2";   // 诊断用：2 个按钮绑定完成（v0.11.0 起无图表速览）
+      panel.dataset.bound = "3";   // 诊断用：3 个按钮绑定完成
 
       var cur = "";
       // 深链：#orig 直达对照原文；#td/#figs 落到附图区（v0.11.0）
@@ -2496,6 +2719,12 @@
           var a = document.getElementById("figAnnex");
           if (a) { a.open = true; a.scrollIntoView({behavior: "smooth"}); }
         }, 1500);
+      }
+      if (location.hash === "#demo") {
+        setTimeout(function () {
+          var b = document.getElementById("btnDemo");
+          if (b) { b.click(); }
+        }, 300);
       }
       if (location.hash === "#orig") {
         setTimeout(function () {
@@ -2507,15 +2736,21 @@
         panel.classList.remove("open");
         document.body.classList.remove("with-side");
         document.getElementById("btnOrig").classList.remove("on");
+        document.getElementById("btnDemo").classList.remove("on");
+        DEMO.playing = false;
+        if (DEMO.timer) { clearInterval(DEMO.timer); DEMO.timer = null; }
         cur = "";
       }
-      function toggle(which) {  // v0.11.0 起只有 orig 一种
-        if (which !== "orig") { return; }
+      function toggle(which) {  // orig | demo
+        if (which !== "orig" && which !== "demo") { return; }
         if (cur === which) { closePanel(); return; }
         cur = which;
         panel.classList.add("open");
         document.body.classList.add("with-side");
-        document.getElementById("btnOrig").classList.toggle("on", true);
+        document.getElementById("btnOrig").classList.toggle("on",
+          which === "orig");
+        document.getElementById("btnDemo").classList.toggle("on",
+          which === "demo");
         var body = document.getElementById("spBody");
         var cap = document.getElementById("spCap");
         if (which === "orig") {
@@ -2534,6 +2769,9 @@
               body.innerHTML = h.join("");
             })
             .catch(function (e) { body.textContent = "加载失败：" + e; });
+        } else {
+          cap.textContent = "动态讲解（模型生成分镜）";
+          initDemo(body);
         }
       }
     }

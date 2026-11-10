@@ -576,6 +576,122 @@ class _State:
             job["error"] = str(exc)
             _LOG.exception("compare failed: %s", key)
 
+    def _start_demo(self, file: str) -> None:
+        """动态讲解：模型按论文核心生成分镜脚本，缓存进报告 JSON。"""
+        key = "demo:" + file
+        job = self.compare_jobs.get(key)
+        if job and job.get("state") == "running":
+            return
+        self.compare_jobs[key] = {"state": "running"}
+        threading.Thread(target=self._run_demo, args=(file,),
+                         daemon=True).start()
+
+    def _run_demo(self, file: str) -> None:
+        key = "demo:" + file
+        job = self.compare_jobs[key]
+        try:
+            rp = self.report_path(file)
+            if rp is None or not rp.is_file():
+                raise ValueError("没有这份报告")
+            data = json.loads(rp.read_text(encoding="utf-8"))
+            if data.get("demo_script"):
+                job["state"] = "done"
+                return
+            blocks = {b.get("block_id"): str(b.get("content") or "")
+                      for b in (data.get("findings") or [])}
+            material = (
+                "标题：%s\n一句话：%s\n问题：%s\n方法概述：%s\n"
+                "方法步骤：%s\n结果：%s\n局限：%s"
+                % (data.get("paper_title"), blocks.get("tl_dr", "")[:200],
+                   blocks.get("problem", "")[:300],
+                   blocks.get("method_overview", "")[:300],
+                   blocks.get("method_steps", "")[:300],
+                   blocks.get("result", "")[:300],
+                   blocks.get("limits", "")[:200]))
+            prompt = (
+                "根据这篇论文的核心内容，设计一个『动态讲解』分镜脚本："
+                "像动画演示一样，先让观众看见问题（乱、缺、冲突），"
+                "再演示方法如何介入（元素重排/流程推进），最后用数字展示效果。"
+                "输出 JSON：{\"title\": \"讲解标题\", \"scenes\": ["
+                '{"narration": "本镜旁白（60字内，口语化）", '
+                '"viz": {"type": "tokens|flow|bars|line 之一", '
+                '"caption": "画面标题（12字内）", '
+                "// tokens: 展示元素分组与变化，groups:[{label,color(red|teal|amber|gray),count}] 2~5组"
+                "// flow: 流程逐步点亮，steps:[3~5步短句]"
+                "// bars: 柱状生长对比，items:[{label,value,tag(before|after|none)}] 2~4项, unit:数字单位"
+                "// line: 趋势折线，x:[3~10个标签], y:[对应数值], unit:数字单位"
+                "}, …] 共 4~6 镜，第一镜必须 tokens 展示问题，"
+                "中间至少一镜 flow 或 tokens 演示方法，最后一镜 bars 或 line 展示效果。"
+                "数字必须来自摘要材料，不要编造。\n\n" + material)
+            from .llm import chat, load_config
+            raw = chat([{"role": "user", "content": prompt}], load_config(),
+                       json_mode=True)
+            m = re.search(r"\{.*\}", raw, re.S)
+            script = json.loads(m.group()) if m else {}
+            script = self._norm_demo(script)
+            if not script.get("scenes"):
+                raise ValueError("分镜脚本解析失败")
+            data["demo_script"] = script
+            rp.write_text(json.dumps(data, ensure_ascii=False, indent=2),
+                          encoding="utf-8")
+            job["state"] = "done"
+            _LOG.info("demo generated: %s (%d scenes)",
+                      file, len(script["scenes"]))
+        except Exception as exc:  # noqa: BLE001
+            job["state"] = "error"
+            job["error"] = str(exc)
+            _LOG.exception("demo failed: %s", file)
+
+    @staticmethod
+    def _norm_demo(script: dict) -> dict:
+        """分镜规范化：只留四种画面，坏场景降级为纯旁白。"""
+        out = []
+        for sc in (script.get("scenes") or [])[:7]:
+            if not isinstance(sc, dict):
+                continue
+            narr = str(sc.get("narration") or "").strip()[:160]
+            if not narr:
+                continue
+            v = sc.get("viz") or {}
+            t = str(v.get("type") or "")
+            nv = {"caption": str(v.get("caption") or "")[:20]}
+            try:
+                if t == "tokens" and isinstance(v.get("groups"), list):
+                    gs = [{"label": str(g.get("label"))[:12],
+                           "color": (str(g.get("color")) if g.get("color")
+                                     in ("red", "teal", "amber", "gray")
+                                     else "gray"),
+                           "count": max(1, min(9, int(g.get("count") or 1)))}
+                          for g in v["groups"][:5] if isinstance(g, dict)]
+                    if len(gs) >= 2:
+                        nv.update({"type": "tokens", "groups": gs})
+                elif t == "flow" and isinstance(v.get("steps"), list):
+                    ss = [str(x)[:18] for x in v["steps"][:5]
+                          if str(x).strip()]
+                    if len(ss) >= 2:
+                        nv.update({"type": "flow", "steps": ss})
+                elif t == "bars" and isinstance(v.get("items"), list):
+                    its = [{"label": str(x.get("label"))[:12],
+                            "value": round(float(x.get("value")), 3),
+                            "tag": (str(x.get("tag")) if x.get("tag")
+                                    in ("before", "after") else "none")}
+                           for x in v["items"][:4] if isinstance(x, dict)]
+                    if len(its) >= 2:
+                        nv.update({"type": "bars", "items": its,
+                                   "unit": str(v.get("unit") or "")[:12]})
+                elif t == "line" and isinstance(v.get("x"), list) \
+                        and isinstance(v.get("y"), list):
+                    xs = [str(x)[:10] for x in v["x"][:10]]
+                    ys = [round(float(y), 3) for y in v["y"][:10]]
+                    if len(xs) >= 3 and len(ys) == len(xs):
+                        nv.update({"type": "line", "x": xs, "y": ys,
+                                   "unit": str(v.get("unit") or "")[:12]})
+            except Exception:  # noqa: BLE001 —— 数据坏就丢弃画面
+                pass
+            out.append({"narration": narr, "viz": nv})
+        return {"title": str(script.get("title") or "动态讲解")[:30],
+                "scenes": out}
+
     def _save_task_state(self, task: Task) -> None:
         """任务状态落盘：重启后能告诉用户上次跑到哪。"""
         try:
@@ -864,6 +980,21 @@ class _Handler(BaseHTTPRequestHandler):
             self._json(self._figures_payload(file, out))
             return
 
+        if path == "/api/demo" and self.workbench:
+            file = str(params.get("file") or "")
+            rp = self.state.report_path(file)
+            script = None
+            if rp and rp.is_file():
+                try:
+                    script = json.loads(
+                        rp.read_text(encoding="utf-8")).get("demo_script")
+                except Exception:  # noqa: BLE001
+                    script = None
+            job = self.state.compare_jobs.get("demo:" + file) or {}
+            self._json({"ok": True, "state": job.get("state", "none"),
+                        "script": script, "error": job.get("error")})
+            return
+
         if path == "/api/lasttask" and self.workbench:
             self._json({"ok": True, "task": self.state.last_task})
             return
@@ -1026,6 +1157,18 @@ class _Handler(BaseHTTPRequestHandler):
             key = ",".join(sorted(files))
             if not self.state.compare_jobs.get(key):
                 self.state._start_compare(files)
+            self._json({"ok": True, "state": "running"})
+            return
+
+        if path == "/api/demo" and self.workbench:
+            if not self._same_origin():
+                self._json({"ok": False, "error": "拒绝跨站请求"}, 403)
+                return
+            file = str(params.get("file") or "")
+            if not self.state.report_path(file):
+                self._json({"ok": False, "error": "没有这份报告"}, 404)
+                return
+            self.state._start_demo(file)
             self._json({"ok": True, "state": "running"})
             return
 
