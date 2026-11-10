@@ -293,6 +293,29 @@
   </div>
 </div>
 
+<div id="colMask" style="display:none; position:fixed; inset:0; z-index:98;
+     background:rgba(15,24,36,.55); align-items:center; justify-content:center;">
+  <div style="background:#fff; border-radius:14px; padding:22px 26px;
+              max-width:420px; width:90%; box-shadow:0 18px 60px rgba(0,0,0,.28);">
+    <h3 style="margin:0 0 6px; font-size:17px;">归入合集</h3>
+    <div id="colFile" style="color:#56616F; font-size:13px; margin-bottom:12px;
+         word-break:break-all"></div>
+    <div id="colList" style="display:grid; gap:6px; margin-bottom:12px;
+         max-height:220px; overflow:auto"></div>
+    <div style="display:flex; gap:8px; margin-bottom:14px">
+      <input id="colNew" type="text" placeholder="新建合集名，回车保存"
+             style="flex:1; padding:8px 10px; border:1px solid #E7E2D8;
+                    border-radius:8px; font-size:13px">
+    </div>
+    <div style="display:flex; gap:10px; justify-content:space-between">
+      <button id="colRemove" style="padding:8px 14px; border:none;
+              background:none; color:#B4432A; cursor:pointer; font-size:13px">移出合集</button>
+      <button id="colClose" style="padding:8px 18px; border:1px solid #E7E2D8;
+              background:#fff; border-radius:8px; cursor:pointer">关闭</button>
+    </div>
+  </div>
+</div>
+
 <div class="app">
   <aside class="side">
     <section class="panel">
@@ -348,6 +371,10 @@
       <button class="fchip" data-f="survey">survey</button>
       <button class="fchip" data-f="skim">skim</button>
     </div>
+    <div class="tpl-filter" id="colFilter" style="display:none">
+      <button class="fchip on" data-c="">全部</button>
+      <button class="fchip" data-c="__none__">未归类</button>
+    </div>
     <div class="grid" id="grid"></div>
     <div class="pager" id="pager" style="display:none">
       <button id="pgPrev">← 上一页</button>
@@ -386,6 +413,90 @@
   }
 
   // ---- 模板 / 语言选择 ----
+  // ---- 文库：合集筛选 + 归档 ----
+  var colCache = [];
+
+  function renderColFilter(cols) {
+    colCache = cols || [];
+    var box = document.getElementById("colFilter");
+    if (!box) { return; }
+    if (!colCache.length && !libState.col) { box.style.display = "none"; return; }
+    box.style.display = "flex";
+    var h = '<button class="fchip' + (libState.col === "" ? " on" : "") +
+      '" data-c="">全部</button>' +
+      '<button class="fchip' + (libState.col === "__none__" ? " on" : "") +
+      '" data-c="__none__">未归类</button>';
+    colCache.forEach(function (c) {
+      h += '<button class="fchip' + (libState.col === c.name ? " on" : "") +
+        '" data-c="' + esc(c.name) + '">' + esc(c.name) +
+        ' <span style="opacity:.6">' + c.count + "</span></button>";
+    });
+    box.innerHTML = h;
+    box.querySelectorAll(".fchip").forEach(function (b) {
+      b.addEventListener("click", function () {
+        libState.col = b.getAttribute("data-c");
+        libState.page = 1;
+        loadReports();
+      });
+    });
+  }
+
+  var colFile = "";
+
+  function saveCollection(file, name) {
+    fetch("/api/collection?file=" + encodeURIComponent(file) +
+          "&name=" + encodeURIComponent(name), {method: "POST"})
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d.ok) { closeCol(); loadReports(); }
+      }).catch(function () { });
+  }
+
+  function openCol(file) {
+    colFile = file;
+    document.getElementById("colFile").textContent = file;
+    var list = document.getElementById("colList");
+    list.innerHTML = colCache.length ? "" :
+      '<div style="color:#8A94A0;font-size:13px">还没有合集，在下面输入名字新建</div>';
+    colCache.forEach(function (c) {
+      var b = document.createElement("button");
+      b.textContent = c.name + "（" + c.count + "）";
+      b.style.cssText = "text-align:left;padding:9px 12px;border:1px solid #E7E2D8;" +
+        "background:#fff;border-radius:8px;cursor:pointer;font-size:13px";
+      b.addEventListener("click", function () { saveCollection(colFile, c.name); });
+      list.appendChild(b);
+    });
+    document.getElementById("colMask").style.display = "flex";
+  }
+
+  function closeCol() {
+    document.getElementById("colMask").style.display = "none";
+    document.getElementById("colNew").value = "";
+  }
+
+  document.getElementById("colClose").addEventListener("click", closeCol);
+  document.getElementById("colMask").addEventListener("click", function (e) {
+    if (e.target === this) { closeCol(); }
+  });
+  document.getElementById("colNew").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") {
+      var v = this.value.trim();
+      if (v && colFile) { saveCollection(colFile, v); }
+    }
+  });
+  document.getElementById("colRemove").addEventListener("click", function () {
+    if (colFile) { saveCollection(colFile, ""); }
+  });
+
+  // 事件委托：归档按钮（卡片是动态渲染的）
+  document.getElementById("grid").addEventListener("click", function (e) {
+    var btn = e.target.closest(".rpt-col");
+    if (btn) {
+      e.preventDefault();
+      openCol(btn.getAttribute("data-col"));
+    }
+  });
+
   document.querySelectorAll("[data-tpl]").forEach(function (el) {
     el.addEventListener("click", function () {
       document.querySelectorAll("[data-tpl]").forEach(function (x) { x.classList.remove("on"); });
@@ -543,7 +654,7 @@
   });
 
   // ---- 报告库（服务端分页 + 时间分组 + 筛选 + 删除）----
-  var libState = {page: 1, pages: 1, q: "", tpl: ""};
+  var libState = {page: 1, pages: 1, q: "", tpl: "", col: ""};
 
   function timeGroup(mtime) {
     var d = new Date((mtime || 0) * 1000);
@@ -560,11 +671,13 @@
 
   function loadReports() {
     var qs = "?page=" + libState.page + "&size=12&q=" +
-             encodeURIComponent(libState.q) + "&tpl=" + libState.tpl;
+             encodeURIComponent(libState.q) + "&tpl=" + libState.tpl +
+             "&col=" + encodeURIComponent(libState.col);
     fetch("/api/reports" + qs)
       .then(function (r) { return r.json(); })
       .then(function (data) {
         if (!data.ok) { return; }
+        renderColFilter(data.collections || []);
         renderReports(data);
       })
       .catch(function () {});
@@ -594,6 +707,8 @@
       h.push('<div class="rpt-wrap"><a class="rpt" data-tpl="' + esc(tpl) +
         '" href="/report?file=' + encodeURIComponent(r.file) + '">' +
         '<div class="row1"><span class="badge">' + esc(tpl) + "</span>" +
+        (r.collection ? '<span class="badge" style="background:rgba(46,111,142,.12);' +
+          'color:#2E6F8E">' + esc(r.collection) + "</span>" : "") +
         '<span class="when">' + when + "</span></div>" +
         "<h3>" + esc(r.title) + "</h3>" +
         '<div class="chips">' + [
@@ -602,6 +717,8 @@
           r.chain ? '<span class="chip2">链 ' + r.chain + "</span>" : ""
         ].filter(Boolean).join("") + "</div>" +
         '<div class="open">打开报告 →</div></a>' +
+        '<button class="rpt-col" data-col="' + esc(r.file) +
+        '" title="归入合集">🗂</button>' +
         '<button class="rpt-del" data-del="' + esc(r.file) +
         '" title="删除此报告">×</button></div>');
     });

@@ -277,7 +277,14 @@ class _State:
             "CREATE TABLE IF NOT EXISTS reports ("
             "file TEXT PRIMARY KEY, title TEXT, template TEXT, "
             "pages INTEGER, blocks INTEGER, chain INTEGER, mtime INTEGER)")
+        try:
+            conn.execute("ALTER TABLE reports ADD COLUMN "
+                         "collection TEXT NOT NULL DEFAULT ''")
+        except Exception:  # noqa: BLE001 —— 列已存在
+            pass
         known = {r[0] for r in conn.execute("SELECT file FROM reports")}
+        coll = {r[0]: r[1] for r in
+                conn.execute("SELECT file, collection FROM reports")}
         for jf in sorted(self.out_dir.glob("*.json")):
             try:
                 data = json.loads(jf.read_text(encoding="utf-8"))
@@ -285,13 +292,14 @@ class _State:
                 continue
             chain = data.get("chain") or {}
             conn.execute(
-                "INSERT OR REPLACE INTO reports VALUES (?,?,?,?,?,?,?)",
+                "INSERT OR REPLACE INTO reports VALUES (?,?,?,?,?,?,?,?)",
                 (jf.name, str(data.get("paper_title") or jf.stem),
                  str((data.get("template") or {}).get("id", "")),
                  int(data.get("pages", 0) or 0),
                  len(data.get("findings") or []),
                  len(chain.get("nodes") or []),
-                 int(jf.stat().st_mtime)))
+                 int(jf.stat().st_mtime),
+                 coll.get(jf.name, "")))
         present = {p.name for p in self.out_dir.glob("*.json")}
         for fname in list(known):
             if fname not in present:
@@ -299,8 +307,17 @@ class _State:
         conn.commit()
         conn.close()
 
+    def set_collection(self, file: str, name: str) -> None:
+        """把报告归入合集（name 空 = 移出）。单归属。"""
+        import sqlite3
+        conn = sqlite3.connect(self.db_path)
+        conn.execute("UPDATE reports SET collection=? WHERE file=?",
+                     (name, file))
+        conn.commit()
+        conn.close()
+
     def query_reports(self, page: int = 1, size: int = 12,
-                      q: str = "", tpl: str = "") -> dict:
+                      q: str = "", tpl: str = "", col: str = "") -> dict:
         """分页 + 筛选的报告查询。"""
         self._sync_db()
         conn = self._db()
@@ -311,6 +328,11 @@ class _State:
         if tpl in ("survey", "deep", "skim"):
             where.append("template = ?")
             args.append(tpl)
+        if col == "__none__":
+            where.append("collection = ''")
+        elif col:
+            where.append("collection = ?")
+            args.append(col)
         where_sql = ("WHERE " + " AND ".join(where)) if where else ""
         total = conn.execute(
             f"SELECT COUNT(*) FROM reports {where_sql}", args).fetchone()[0]
@@ -318,10 +340,14 @@ class _State:
             f"SELECT * FROM reports {where_sql} "
             "ORDER BY mtime DESC LIMIT ? OFFSET ?",
             args + [size, (page - 1) * size]).fetchall()
-        conn.close()
         pages = max(1, (total + size - 1) // size)
+        cols = conn.execute(
+            "SELECT collection, COUNT(*) FROM reports WHERE collection<>'' "
+            "GROUP BY collection ORDER BY COUNT(*) DESC").fetchall()
+        conn.close()
         return {"reports": [dict(r) for r in rows], "total": total,
-                "page": page, "pages": pages}
+                "page": page, "pages": pages,
+                "collections": [{"name": n, "count": c} for n, c in cols]}
 
     def delete_report(self, file: str) -> int:
         """删除一份报告的三件套与索引。返回删除的文件数。"""
@@ -689,88 +715,67 @@ class _Handler(BaseHTTPRequestHandler):
             return
 
         if path == "/api/figures" and self.workbench:
-            # 内嵌图片提取（过滤小装饰图），返回 base64
             file = str(params.get("file") or "")
-            stem = Path(file).stem
-            pdf = self.state.pdf_dir / (stem + ".pdf")
-            if not pdf.is_file():
-                self._json({"ok": True, "figures": []})
-                return
-            import base64
-            import fitz
-            out = []
             try:
-                doc = fitz.open(pdf)
-                for pno in range(min(doc.page_count, 40)):
-                    page = doc[pno]
-                    taken: list = []
-                    # ① 矢量图簇——学术论文的图表大多是矢量绘图，
-                    #    get_images() 只能抓到位图，纯矢量论文会一张都没有
-                    try:
-                        clusters = [fitz.Rect(r)
-                                    for r in page.cluster_drawings()]
-                    except Exception:  # noqa: BLE001
-                        clusters = []
-                    # 嵌套去重：大簇套小簇只留大的（框线图常一层套一层）
-                    clusters.sort(key=lambda r: -(r.width * r.height))
-                    _kept = []
-                    for r in clusters:
-                        if any(r.x0 >= k.x0 - 2 and r.x1 <= k.x1 + 2
-                               and r.y0 >= k.y0 - 2 and r.y1 <= k.y1 + 2
-                               for k in _kept):
-                            continue
-                        _kept.append(r)
-                    clusters = _kept
-                    for r in clusters:
-                        if r.width < 140 or r.height < 90:
-                            continue
-                        # 近整页的「簇」是版面框，不是图
-                        if (r.width > page.rect.width * 0.96
-                                and r.height > page.rect.height * 0.92):
-                            continue
-                        pix = page.get_pixmap(clip=r, dpi=150)
-                        if pix.width < 280 or pix.height < 180:
-                            continue
-                        taken.append(fitz.Rect(r))
-                        b64 = base64.b64encode(pix.tobytes("png")).decode()
-                        out.append({"page": pno + 1,
-                                    "w": pix.width, "h": pix.height,
-                                    "b64": b64,
-                                    "cap": _fig_caption(page, r)})
-                        if len(out) >= 24:
-                            break
-                    # ② 位图插图，跳过已被矢量簇覆盖的
-                    for img in page.get_images(full=True):
-                        xref = img[0]
-                        try:
-                            rects = page.get_image_rects(xref)
-                            if rects and any(rects[0].intersects(t)
-                                             for t in taken):
-                                continue
-                            pix = fitz.Pixmap(doc, xref)
-                            if pix.width < 300 or pix.height < 200:
-                                continue
-                            if pix.colorspace and pix.colorspace.n > 3:
-                                pix = fitz.Pixmap(fitz.csRGB, pix)
-                            b64 = base64.b64encode(pix.tobytes("png")).decode()
-                            rect = rects[0] if rects else None
-                            out.append({"page": pno + 1,
-                                        "w": pix.width, "h": pix.height,
-                                        "b64": b64,
-                                        "cap": _fig_caption(page, rect)
-                                        if rect is not None else ""})
-                            if len(out) >= 24:
-                                break
-                        except Exception:
-                            continue
-                    if len(out) >= 24:
-                        break
-                doc.close()
+                out = self._extract_figs(file)
             except Exception as exc:  # noqa: BLE001
                 self._json({"ok": False, "error": str(exc)}, 500)
                 return
-            self._json(self._figures_payload(
-                str(params.get("file") or ""), out))
+            self._json(self._figures_payload(file, out))
+            return
+
+        if path == "/api/modfigs" and self.workbench:
+            file = str(params.get("file") or "")
+            try:
+                figs = self._extract_figs(file)
+            except Exception as exc:  # noqa: BLE001
+                self._json({"ok": False, "error": str(exc)}, 500)
+                return
+            payload = self._figures_payload(file, figs)
+            figs2 = payload.get("figures") or figs
+            assign = self._fig_assignment(file, figs)
+            mods = {}
+            for i, a in enumerate(assign):
+                if a:
+                    mods.setdefault(a, []).append(i)
+            td, td_state = self._tabledata_cached(file)
+            td_mods = {}
+            figs_by_cap = {re.sub(r"\W+", "", str(f.get("cap") or ""))[:40]: a
+                           for f, a in zip(figs2, assign)}
+            for ti, tb in enumerate(td or []):
+                key = re.sub(r"\W+", "", str(tb.get("cap") or ""))[:40]
+                mo = figs_by_cap.get(key)
+                if mo:
+                    td_mods.setdefault(mo, []).append(ti)
+            self._json({"ok": True,
+                        "figures": [{k: f.get(k) for k in
+                                     ("page", "cap", "w", "h", "kind",
+                                      "explain")} for f in figs2],
+                        "modules": mods,
+                        "td": td or [],
+                        "td_modules": td_mods,
+                        "td_state": td_state,
+                        "explain_state": payload.get("explain_state")})
+            return
+
+        if path == "/api/figure" and self.workbench:
+            file = str(params.get("file") or "")
+            try:
+                idx = int(params.get("idx") or -1)
+            except ValueError:
+                idx = -1
+            try:
+                figs = self._extract_figs(file)
+            except Exception as exc:  # noqa: BLE001
+                self._json({"ok": False, "error": str(exc)}, 500)
+                return
+            if 0 <= idx < len(figs):
+                self._json({"ok": True,
+                            "b64": figs[idx].get("b64"),
+                            "w": figs[idx].get("w"),
+                            "h": figs[idx].get("h")})
+            else:
+                self._json({"ok": False, "error": "没有这张图"}, 404)
             return
 
         if path == "/api/reports" and self.workbench:
@@ -784,7 +789,8 @@ class _Handler(BaseHTTPRequestHandler):
                 size = 12
             data = self.state.query_reports(
                 page=page, size=size, q=str(params.get("q") or ""),
-                tpl=str(params.get("tpl") or ""))
+                tpl=str(params.get("tpl") or ""),
+                col=str(params.get("col") or ""))
             data["ok"] = True
             self._json(data)
             return
@@ -831,6 +837,19 @@ class _Handler(BaseHTTPRequestHandler):
         if path == "/api/start":
             self._start(params)
             return
+        if path == "/api/collection" and self.workbench:
+            if not self._same_origin():
+                self._json({"ok": False, "error": "拒绝跨站请求"}, 403)
+                return
+            file = str(params.get("file") or "")
+            name = str(params.get("name") or "").strip()[:40]
+            if not file:
+                self._json({"ok": False, "error": "缺少 file"}, 400)
+                return
+            self.state.set_collection(file, name)
+            self._json({"ok": True, "collection": name})
+            return
+
         if path == "/api/fix":
             self._fix(params)
             return
@@ -1129,6 +1148,122 @@ class _Handler(BaseHTTPRequestHandler):
 
         self._json({"ok": False, "error": "未知修复项 " + action}, 400)
 
+    def _fig_assignment(self, file: str, figs: list) -> list:
+        """图→模块分配：①页码预归（图页命中板块证据页）②模型复核。"""
+        rp = self.state.report_path(file) if self.state else None
+        data = {}
+        if rp and rp.is_file():
+            try:
+                data = json.loads(rp.read_text(encoding="utf-8"))
+            except Exception:  # noqa: BLE001
+                data = {}
+        blocks = [(str(b.get("block_id")), b)
+                  for b in (data.get("findings") or [])
+                  if b.get("block_id")]
+        assign = [None] * len(figs)
+        for i, f in enumerate(figs):
+            p = f.get("page")
+            best, best_n = None, 0
+            for bid, b in blocks:
+                n = sum(1 for e in (b.get("evidence") or [])
+                        if isinstance(e, dict) and e.get("page") == p)
+                if n > best_n:
+                    best, best_n = bid, n
+            assign[i] = best
+        ex = data.get("figures_explain2") or []
+        valid = {bid for bid, _ in blocks}
+        for i, f in enumerate(figs):
+            if i >= len(ex):
+                break
+            e = ex[i]
+            if isinstance(e, dict):
+                mo = e.get("module")
+                if mo and mo != "none" and mo in valid:
+                    assign[i] = mo
+        return assign
+
+    def _extract_figs(self, file: str) -> list:
+        """从 PDF 提取插图/表格（矢量簇 + 位图，过滤小装饰图）。
+
+        /api/figures、/api/modfigs、/api/figure 三处共用。"""
+        stem = Path(file).stem
+        pdf = (self.state.pdf_dir / (stem + ".pdf")) if self.state else None
+        if pdf is None or not pdf.is_file():
+            return []
+        import base64
+        import fitz
+        out = []
+        doc = fitz.open(pdf)
+        try:
+            for pno in range(min(doc.page_count, 40)):
+                page = doc[pno]
+                taken: list = []
+                # ① 矢量图簇——学术论文的图表大多是矢量绘图，
+                #    get_images() 只能抓到位图，纯矢量论文会一张都没有
+                try:
+                    clusters = [fitz.Rect(r)
+                                for r in page.cluster_drawings()]
+                except Exception:  # noqa: BLE001
+                    clusters = []
+                # 嵌套去重：大簇套小簇只留大的（框线图常一层套一层）
+                clusters.sort(key=lambda r: -(r.width * r.height))
+                _kept = []
+                for r in clusters:
+                    if any(r.x0 >= k.x0 - 2 and r.x1 <= k.x1 + 2
+                           and r.y0 >= k.y0 - 2 and r.y1 <= k.y1 + 2
+                           for k in _kept):
+                        continue
+                    _kept.append(r)
+                clusters = _kept
+                for r in clusters:
+                    if r.width < 140 or r.height < 90:
+                        continue
+                    # 近整页的「簇」是版面框，不是图
+                    if (r.width > page.rect.width * 0.96
+                            and r.height > page.rect.height * 0.92):
+                        continue
+                    pix = page.get_pixmap(clip=r, dpi=150)
+                    if pix.width < 280 or pix.height < 180:
+                        continue
+                    taken.append(fitz.Rect(r))
+                    b64 = base64.b64encode(pix.tobytes("png")).decode()
+                    out.append({"page": pno + 1,
+                                "w": pix.width, "h": pix.height,
+                                "b64": b64,
+                                "cap": _fig_caption(page, r)})
+                    if len(out) >= 24:
+                        break
+                # ② 位图插图，跳过已被矢量簇覆盖的
+                for img in page.get_images(full=True):
+                    xref = img[0]
+                    try:
+                        rects = page.get_image_rects(xref)
+                        if rects and any(rects[0].intersects(t)
+                                         for t in taken):
+                            continue
+                        pix = fitz.Pixmap(doc, xref)
+                        if pix.width < 300 or pix.height < 200:
+                            continue
+                        if pix.colorspace and pix.colorspace.n > 3:
+                            pix = fitz.Pixmap(fitz.csRGB, pix)
+                        b64 = base64.b64encode(pix.tobytes("png")).decode()
+                        rect = rects[0] if rects else None
+                        out.append({"page": pno + 1,
+                                    "w": pix.width, "h": pix.height,
+                                    "b64": b64,
+                                    "cap": _fig_caption(page, rect)
+                                    if rect is not None else ""})
+                        if len(out) >= 24:
+                            break
+                    except Exception:
+                        continue
+                if len(out) >= 24:
+                    break
+
+        finally:
+            doc.close()
+        return out
+
     def _figures_payload(self, file: str, out: list) -> dict:
         """figures 载荷：kind（figure/table）+ 已缓存的模型解读 + 状态。"""
         state = self.state.explain_state(file) if self.state else "none"
@@ -1137,9 +1272,20 @@ class _Handler(BaseHTTPRequestHandler):
             rp = self.state.report_path(file)
             if rp and rp.is_file():
                 try:
-                    explains = (json.loads(rp.read_text(encoding="utf-8"))
-                                .get("figures_explain2")
-                                or data.get("figures_explain") or [])
+                    _d = json.loads(rp.read_text(encoding="utf-8"))
+                    raw = _d.get("figures_explain2") or []
+                    if not raw:
+                        # v1 缓存（字符串列表）照常展示，归属交给页码预归
+                        raw = [{"explain": str(x), "module": None}
+                               for x in (_d.get("figures_explain") or [])]
+                    explains = []
+                    for x in raw:
+                        if isinstance(x, dict):
+                            explains.append({"explain": str(x.get("explain") or "")[:400],
+                                             "module": x.get("module")})
+                        else:
+                            explains.append({"explain": str(x)[:400],
+                                             "module": None})
                 except Exception:  # noqa: BLE001
                     explains = []
         for i, f in enumerate(out):
@@ -1147,7 +1293,9 @@ class _Handler(BaseHTTPRequestHandler):
             f["kind"] = ("table" if re.match(r"(?i)^\s*(table|表)", cap)
                          else "figure")
             if i < len(explains):
-                f["explain"] = explains[i]        # 首次请求：把提取清单写进报告 JSON，并触发一次批量模型解读
+                f["explain"] = (explains[i].get("explain")
+                                    if isinstance(explains[i], dict)
+                                    else explains[i])        # 首次请求：把提取清单写进报告 JSON，并触发一次批量模型解读
         if out and self.state:
             try:
                 rp = self.state.report_path(file)
@@ -1160,7 +1308,9 @@ class _Handler(BaseHTTPRequestHandler):
                         rp.write_text(
                             json.dumps(data, ensure_ascii=False, indent=2),
                             encoding="utf-8")
-                    if (not data.get("figures_explain")
+                    has_explain = bool(data.get("figures_explain2")) or \
+                        bool(data.get("figures_explain"))
+                    if (not has_explain
                             and self.state.explain_state(file) == "none"
                             and self.cfg and self.cfg.api_key):
                         self._start_explain(file, slim)
@@ -1202,14 +1352,22 @@ class _Handler(BaseHTTPRequestHandler):
                     + ("\n   该页正文节选：" + page_ctx[int(f['page'])][:900]
                        if page_ctx.get(int(f.get('page') or 0)) else "")
                     for i, f in enumerate(figs))
+                mods = [str(b.get("block_id"))
+                        for b in (data.get("findings") or [])
+                        if b.get("block_id")]
+                mod_list = "、".join(mods) if mods else "（无）"
                 prompt = (
                     "下面是一篇论文中提取出的插图/表格清单（含页码、原题注、"
-                    "所在页正文节选）。为每一项用中文写一段 2~3 句的解读，包含："
+                    "所在页正文节选）。为每一项输出一个 JSON 对象："
+                    '{"explain": "用中文写 2~3 句解读：'
                     "①图/表里画了什么（内容与结构）；"
                     "②作者在论文里用它说明什么论点；"
-                    "③建议读者结合论文哪部分一起看（如某节或某个结论）。"
+                    '③建议读者结合论文哪部分一起看。", '
+                    '"module": "这张图/表最适合放进报告的哪个板块，'
+                    "从这些板块编号里选一个：" + mod_list +
+                    '；都不合适就填 none"}。'
                     "只依据题注、正文节选与领域常识，不要编造具体数据。"
-                    "输出 JSON 数组，每项一个字符串，顺序与清单一致。\n\n"
+                    "输出 JSON 数组，每项一个对象，顺序与清单一致。\n\n"
                     + items)
                 from .llm import chat
                 raw = chat([{"role": "user", "content": prompt}], self.cfg)
@@ -1217,7 +1375,15 @@ class _Handler(BaseHTTPRequestHandler):
                 arr = json.loads(m.group()) if m else []
                 if isinstance(arr, list) and arr:
                     data = json.loads(rp.read_text(encoding="utf-8"))
-                    data["figures_explain2"] = [str(x)[:400] for x in arr]
+                    allowed = set(mods)
+                    data["figures_explain2"] = [
+                        ({"explain": str(x.get("explain") or "")[:400],
+                          "module": (str(x.get("module") or "none")
+                                     if str(x.get("module") or "none")
+                                     in allowed else "none")}
+                         if isinstance(x, dict)
+                         else {"explain": str(x)[:400], "module": "none"})
+                        for x in arr]
                     rp.write_text(
                         json.dumps(data, ensure_ascii=False, indent=2),
                         encoding="utf-8")

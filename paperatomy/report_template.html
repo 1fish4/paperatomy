@@ -895,6 +895,17 @@
     .ask-fab { right: 16px; bottom: 16px; }
   }
 
+  .mod-figs { margin-top: 12px; display: grid; gap: 14px; }
+  .mod-figs:empty { display: none; }
+  figure.mfig { margin: 0; }
+  figure.mfig img { width: 100%; border: 1px solid var(--line, #E7E2D8);
+    border-radius: 10px; background: #fff; }
+  figure.mfig figcaption { font-size: 12.5px; color: var(--ink2, #56616F);
+    margin-top: 5px; }
+  figure.mfig .fkind { display: inline-block; font-size: 11px; padding: 1px 7px;
+    border-radius: 6px; background: rgba(46,111,142,.1); color: #2E6F8E;
+    margin-right: 5px; }
+  .mod-td { margin-top: 12px; }
 </style>
 <script>
   window.__PA_ERR = "";
@@ -1068,16 +1079,335 @@
       if (b.evidence && b.evidence.length) {
         main.push(evHTML(b.evidence));
       }
+      main.push('<div class="mod-figs" data-bid="' + esc(b.id || "") +
+        '"></div>');
       main.push("</div></article>");
     });
 
     main.push("</div></section>");
   });
 
+    main.push('<section style="margin-top:22px"><details id="figAnnex">' +
+      '<summary style="cursor:pointer;font-weight:600;color:var(--ink2)">' +
+      "附图 · 未归入上述模块的图表</summary>" +
+      '<div id="figAnnexBody" style="margin-top:12px"></div></details></section>');
   document.getElementById("jump").innerHTML = jump.join("");
   document.getElementById("main").innerHTML = main.join("");
   initChain();
   initNetwork();
+
+  // ---- 图进模块（v0.11.0）：/api/modfigs 分配 → 模块内懒加载 ----
+  var TD = [];
+  var FIG = {file: encodeURIComponent(__PA_SERVE__.report), timer: null,
+             tdTimer: null, tdModules: {}};
+
+// ---- 数据动图：表格数据 → 动画条形图 ----
+  function renderBars(tables) {
+    TD = tables;
+    var th = "";
+    tables.forEach(function (tb, ti) {
+      var cands = tdPickCols(tb);
+      if (!cands.length) { return; }
+      var trend = tdIsTrend(tb);
+      th += '<div class="bar-cap">' + esc(tb.cap || ("表 " + (ti + 1))) + '</div>';
+      th += '<div class="td-chips">';
+      if (trend) {
+        th += '<span class="td-type on" data-ti="' + ti +
+          '" data-type="line">折线（看趋势）</span>' +
+          '<span class="td-type" data-ti="' + ti +
+          '" data-type="bar">柱状</span>';
+      }
+      cands.forEach(function (cd, ci) {
+        th += '<span class="td-chip' + (ci === 0 ? ' on' : '') +
+          '" data-ti="' + ti + '" data-c="' + cd.c + '">' +
+          esc(String(tb.columns[cd.c]).slice(0, 14)) + '</span>';
+      });
+      th += '</div>';
+      th += '<div class="td-svg" data-ti="' + ti + '">' +
+        (trend ? tdLine(tb, cands[0].c, ti)
+               : tdSvg(tb, cands[0].c, ti)) + '</div>' +
+        '<div class="bar-note">数据来自论文，点击列名/类型可切换</div>';
+    });
+    return th;
+  }
+  function tdPickCols(tb) {
+    var cols = tb.columns || [], rows = tb.rows || [];
+    var cands = [];
+    for (var c = 1; c < cols.length; c++) {
+      var ok = 0, sum = 0, sq = 0;
+      rows.forEach(function (r) {
+        var v = parseFloat(String(r[c]).replace(/[,%××\s]/g, ""));
+        if (isFinite(v)) { ok++; sum += Math.abs(v); sq += v * v; }
+      });
+      if (ok < Math.ceil(rows.length * 0.6) || sum === 0) { continue; }
+      var mean = sum / ok;
+      cands.push({ c: c, sum: sum, va: sq / ok - mean * mean });
+    }
+    cands.sort(function (a, b) { return b.va - a.va || b.sum - a.sum; });
+    return cands;
+  }
+  function tdIsTrend(tb) {
+    // 首列多数为数值/年份且整体递增 → 趋势型，可画折线
+    var rows = tb.rows || [];
+    if (rows.length < 3) { return false; }
+    var nums = rows.map(function (r) {
+      var s0 = String(r[0]).trim();
+      var v = parseFloat(s0);
+      if (isFinite(v) && /^\d{1,4}([.,]\d+)?$/.test(s0)) { return v; }
+      var m = s0.match(/(?:19|20)\d{2}/);
+      return m ? parseFloat(m[0]) : NaN;
+    });
+    var fin = nums.filter(function (v) { return isFinite(v); });
+    if (fin.length < Math.ceil(rows.length * 0.7)) { return false; }
+    var inc = 0;
+    for (var i = 1; i < nums.length; i++) {
+      if (isFinite(nums[i]) && isFinite(nums[i - 1])
+          && nums[i] >= nums[i - 1]) { inc++; }
+    }
+    return inc >= nums.length - 2;
+  }
+  function tdLine(tb, col, ti) {
+    var rows = tb.rows || [];
+    var pts = [];
+    rows.forEach(function (r, ri) {
+      var s0 = String(r[0]).trim();
+      var x = parseFloat(s0);
+      if (!isFinite(x)) {
+        var m = s0.match(/(?:19|20)\d{2}/);
+        x = m ? parseFloat(m[0]) : ri;
+      }
+      var y = parseFloat(String(r[col]).replace(/[,%××\s]/g, ""));
+      if (isFinite(y)) { pts.push([x, y, r]); }
+    });
+    if (pts.length < 2) { return tdSvg(tb, col, ti); }
+    var L = 150, R = 634, top = 14, H = 300, W = 660, bot = H - 40;
+    var xs = pts.map(function (p) { return p[0]; });
+    var ys = pts.map(function (p) { return p[1]; });
+    var x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs);
+    var y0 = Math.min(0, Math.min.apply(null, ys));
+    var y1 = Math.max.apply(null, ys);
+    if (x1 === x0) { x1 = x0 + 1; }
+    if (y1 === y0) { y1 = y0 + 1; }
+    function px(x) { return L + (x - x0) / (x1 - x0) * (R - L); }
+    function py(y) { return bot - (y - y0) / (y1 - y0) * (bot - top); }
+    var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%">';
+    for (var g = 0; g <= 4; g++) {
+      var gy = top + (bot - top) * g / 4;
+      s += '<line x1="' + L + '" y1="' + gy + '" x2="' + R +
+        '" y2="' + gy + '" stroke="rgba(120,130,140,.16)"/>';
+      s += '<text x="' + (L - 8) + '" y="' + (gy + 4) +
+        '" text-anchor="end" class="tdlab">' +
+        (y1 - (y1 - y0) * g / 4).toFixed(1) + '</text>';
+    }
+    var line = pts.map(function (p, i) {
+      return (i ? "L" : "M") + px(p[0]).toFixed(1) + " " +
+        py(p[1]).toFixed(1);
+    }).join(" ");
+    s += '<path d="' + line + '" fill="none" stroke="#2E6F8E" ' +
+      'stroke-width="2.5" stroke-dasharray="2000" ' +
+      'stroke-dashoffset="0" style="animation: tdDraw 1.8s ease backwards"/>';
+    s += '<polygon points="' + L + "," + bot + " " +
+      pts.map(function (p) {
+        return px(p[0]).toFixed(1) + "," + py(p[1]).toFixed(1);
+      }).join(" ") + " " + R + "," + bot +
+      '" fill="rgba(46,111,142,.10)"/>';
+    pts.forEach(function (p) {
+      s += '<circle cx="' + px(p[0]).toFixed(1) + '" cy="' +
+        py(p[1]).toFixed(1) + '" r="3.5" fill="#2E6F8E"/>';
+    });
+    s += '<text x="' + (L + (R - L) / 2) + '" y="' + (H - 8) +
+      '" text-anchor="middle" class="tdax">' +
+      esc(String(tb.columns[col]).slice(0, 26)) + '（随 ' +
+      esc(String(tb.columns[0]).slice(0, 14)) + ' 变化）</text>';
+    s += '</svg>';
+    return s;
+  }
+  function tdSvg(tb, col, ti) {
+    var rows = tb.rows || [];
+    var vals = rows.map(function (r) {
+      return parseFloat(String(r[col]).replace(/[,%××\s]/g, ""));
+    });
+    var mx = 0;
+    vals.forEach(function (v) {
+      if (isFinite(v) && Math.abs(v) > mx) { mx = Math.abs(v); }
+    });
+    if (!mx) { mx = 1; }
+    var L = 150, R = 634, top = 10, rowH = 34, W = 660;
+    var shown = rows.slice(0, 12);
+    var H = top + shown.length * rowH + 26;
+    var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%">';
+    s += '<defs><linearGradient id="tdg' + ti + '" x1="0" y1="0" x2="1" y2="0">' +
+      '<stop offset="0" stop-color="#2E6F8E"/><stop offset="1" stop-color="#63B3D2"/>' +
+      '</linearGradient></defs>';
+    for (var g = 0; g <= 4; g++) {
+      var gx = L + (R - L) * g / 4;
+      s += '<line x1="' + gx + '" y1="' + (top - 4) + '" x2="' + gx +
+        '" y2="' + (H - 22) + '" stroke="rgba(120,130,140,.16)" stroke-width="1"/>';
+    }
+    shown.forEach(function (r, ri) {
+      var v = vals[ri];
+      var w = isFinite(v) ? Math.max(2, Math.abs(v) / mx * (R - L)) : 2;
+      var y = top + ri * rowH;
+      s += '<text x="' + (L - 8) + '" y="' + (y + 14) +
+        '" text-anchor="end" class="tdlab">' +
+        esc(String(r[0]).slice(0, 16)) + '</text>';
+      s += '<rect class="tdbar" x="' + L + '" y="' + y +
+        '" width="' + w.toFixed(1) + '" height="20" rx="4" fill="url(#tdg' + ti + ')"/>';
+      s += '<text x="' + (L + w + 6) + '" y="' + (y + 14) +
+        '" class="tdval">' + esc(String(r[col])) + '</text>';
+    });
+    s += '<line x1="' + L + '" y1="' + (top - 4) + '" x2="' + L +
+      '" y2="' + (H - 22) + '" stroke="rgba(120,130,140,.45)" stroke-width="1"/>';
+    s += '<text x="' + (L + (R - L) / 2) + '" y="' + (H - 5) +
+      '" text-anchor="middle" class="tdax">' +
+      esc(String(tb.columns[col]).slice(0, 26)) + '</text>';
+    s += '</svg>';
+    return s;
+  }
+
+  
+
+  function mfigCard(f, i) {
+    var cap = f.cap ? esc(f.cap) : ("p." + (f.page || "?") + " · " +
+      (f.w || "?") + "×" + (f.h || "?"));
+    var ex = f.explain
+      ? '<div class="fig-explain"><b>解读</b> ' + esc(f.explain) + "</div>"
+      : "";
+    return '<figure class="mfig">' +
+      '<img loading="lazy" src="/api/figure?file=' + FIG.file +
+      '&idx=' + i + '" alt="p.' + (f.page || "?") + '">' +
+      '<figcaption><span class="fkind">' +
+      (f.kind === "table" ? "原表" : "原图") + "</span> " + cap +
+      "</figcaption>" + ex + "</figure>";
+  }
+
+  function bindTdChips(box, tables) {
+    box.querySelectorAll(".td-chip, .td-type").forEach(
+      function (chip) {
+        chip.addEventListener("click", function () {
+          var ti = Number(chip.getAttribute("data-ti"));
+          var type = chip.getAttribute("data-type");
+          var c = chip.getAttribute("data-c");
+          var host = box.querySelector('.td-svg[data-ti="' + ti + '"]');
+          if (!host || !tables[ti]) { return; }
+          var cur = host.dataset.col !== undefined
+            ? Number(host.dataset.col) : null;
+          var curType = host.dataset.type || "bar";
+          var pick = tdPickCols(tables[ti])[0] || {c: 1};
+          var newC = (c !== null && c !== undefined) ? Number(c)
+            : (cur !== null ? cur : pick.c);
+          var newType = type || curType;
+          host.dataset.col = newC;
+          host.dataset.type = newType;
+          host.innerHTML = (newType === "line")
+            ? tdLine(tables[ti], newC, ti)
+            : tdSvg(tables[ti], newC, ti);
+          box.querySelectorAll('[data-ti="' + ti + '"]').forEach(
+            function (x) {
+              if (x === chip) { x.classList.add("on"); }
+              else if (x.classList.contains("td-chip")
+                       || x.classList.contains("td-type")) {
+                x.classList.remove("on");
+              }
+            });
+        });
+      });
+  }
+
+  function renderModFigs(d) {
+    var figs = d.figures || [];
+    var assigned = {};
+    Object.keys(d.modules || {}).forEach(function (bid) {
+      (d.modules[bid] || []).forEach(function (i) { assigned[i] = true; });
+    });
+    document.querySelectorAll(".mod-figs").forEach(function (host) {
+      var bid = host.getAttribute("data-bid");
+      var list = (d.modules || {})[bid] || [];
+      host.innerHTML = list.map(function (i) {
+        return figs[i] ? mfigCard(figs[i], i) : "";
+      }).join("");
+    });
+    var annex = document.getElementById("figAnnexBody");
+    if (annex) {
+      var un = [];
+      figs.forEach(function (f, i) {
+        if (!assigned[i]) { un.push(mfigCard(f, i)); }
+      });
+      annex.innerHTML = un.length ? un.join("")
+        : "<p class='empty'>全部图表都已归入上面的模块。</p>";
+    }
+  }
+
+  function renderTdModules(d) {
+    var tds = d.td || [];
+    var byMod = d.td_modules || {};
+    document.querySelectorAll(".mod-td").forEach(function (el) { el.remove(); });
+    Object.keys(byMod).forEach(function (bid) {
+      var host = document.querySelector('.mod-figs[data-bid="' + bid + '"]');
+      if (!host) { return; }
+      var sub = (byMod[bid] || []).map(function (ti) {
+        return tds[ti];
+      }).filter(Boolean);
+      if (!sub.length) { return; }
+      var el = document.createElement("div");
+      el.className = "mod-td";
+      el.innerHTML = renderBars(sub);
+      host.appendChild(el);
+      bindTdChips(el, sub);
+    });
+  }
+
+  function loadTdModules() {
+    fetch("/api/tabledata?file=" + FIG.file)
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d.state === "running") {
+          if (!FIG.tdTimer) {
+            FIG.tdTimer = setTimeout(function () {
+              FIG.tdTimer = null;
+              loadTdModules();
+            }, 8000);
+          }
+          return;
+        }
+        if (d.tables && d.tables.length) {
+          renderTdModules({td: d.tables, td_modules: FIG.tdModules});
+        }
+      })
+      .catch(function () { });
+  }
+
+  function initModFigs() {
+    fetch("/api/modfigs?file=" + FIG.file)
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d.ok) { return; }
+        renderModFigs(d);
+        if ((d.explain_state || "") === "running" && !FIG.timer) {
+          FIG.timer = setInterval(function () {
+            fetch("/api/modfigs?file=" + FIG.file)
+              .then(function (r) { return r.json(); })
+              .then(function (d2) {
+                if (!d2.ok) { return; }
+                renderModFigs(d2);
+                if (d2.explain_state !== "running") {
+                  clearInterval(FIG.timer);
+                  FIG.timer = null;
+                }
+              }).catch(function () { });
+          }, 5000);
+        }
+        if ((d.td_state || "") === "done") {
+          renderTdModules(d);
+        } else {
+          FIG.tdModules = d.td_modules || {};
+          loadTdModules();
+        }
+      })
+      .catch(function () { });
+  }
+
+  initModFigs();
 
   document.getElementById("stat").textContent =
     (D.blocks || 0) + " 个板块 · 全部内容均来自原文抽取";
@@ -2140,8 +2470,7 @@
     if (PDF) {
       var btns = document.createElement("div");
       btns.className = "side-btns";
-      btns.innerHTML = '<button id="btnOrig">对照原文</button>' +
-        '<button id="btnFigs">图表速览</button>';
+      btns.innerHTML = '<button id="btnOrig">对照原文</button>';
       document.body.appendChild(btns);
       btns.classList.add("show");
 
@@ -2155,33 +2484,22 @@
       // 按钮绑定（v0.9.6 图表 v3 拼接时被误删，导致面板点不开——回归测试已锁）
       document.getElementById("btnOrig").addEventListener("click",
         function () { toggle("orig"); });
-      document.getElementById("btnFigs").addEventListener("click",
-        function () { toggle("figs"); });
       document.getElementById("spClose").addEventListener("click",
         function () { closePanel(); });
-      panel.dataset.bound = "3";   // 诊断用：3 个按钮绑定完成
+      panel.dataset.bound = "2";   // 诊断用：2 个按钮绑定完成（v0.11.0 起无图表速览）
 
       var cur = "";
-      // 深链：#orig / #figs 直达对应面板（与 #ask 同模式）
-      if (location.hash === "#td") {
-        var tdTries = 0;
-        var tdTimer = setInterval(function () {
-          var td = document.getElementById("tdBox");
-          var sb = document.querySelector(".sp-body");
-          if (td && sb && td.innerHTML.indexOf("bar-cap") >= 0) {
-            sb.scrollTop = td.offsetTop - 40;
-            clearInterval(tdTimer);
-          } else if (++tdTries > 20) { clearInterval(tdTimer); }
-        }, 600);
+      // 深链：#orig 直达对照原文；#td/#figs 落到附图区（v0.11.0）
+      if (location.hash === "#td" || location.hash === "#figs") {
+        // v0.11.0 图已进模块，老深链落到文末附图区
         setTimeout(function () {
-          var b = document.getElementById("btnFigs");
-          if (b) { b.click(); }
-        }, 200);
+          var a = document.getElementById("figAnnex");
+          if (a) { a.open = true; a.scrollIntoView({behavior: "smooth"}); }
+        }, 1500);
       }
-      if (location.hash === "#orig" || location.hash === "#figs") {
+      if (location.hash === "#orig") {
         setTimeout(function () {
-          var b = document.getElementById(
-            location.hash === "#orig" ? "btnOrig" : "btnFigs");
+          var b = document.getElementById("btnOrig");
           if (b) { b.click(); }
         }, 300);
       }
@@ -2189,16 +2507,15 @@
         panel.classList.remove("open");
         document.body.classList.remove("with-side");
         document.getElementById("btnOrig").classList.remove("on");
-        document.getElementById("btnFigs").classList.remove("on");
         cur = "";
       }
-      function toggle(which) {
+      function toggle(which) {  // v0.11.0 起只有 orig 一种
+        if (which !== "orig") { return; }
         if (cur === which) { closePanel(); return; }
         cur = which;
         panel.classList.add("open");
         document.body.classList.add("with-side");
-        document.getElementById("btnOrig").classList.toggle("on", which === "orig");
-        document.getElementById("btnFigs").classList.toggle("on", which === "figs");
+        document.getElementById("btnOrig").classList.toggle("on", true);
         var body = document.getElementById("spBody");
         var cap = document.getElementById("spCap");
         if (which === "orig") {
@@ -2215,306 +2532,6 @@
                 h.push('<div class="pno">第 ' + i + " 页 / 共 " + d.pages + " 页</div>");
               }
               body.innerHTML = h.join("");
-            })
-            .catch(function (e) { body.textContent = "加载失败：" + e; });
-        } else {
-          cap.textContent = "论文图表（内嵌图片提取）";
-          body.textContent = "提取中…";
-          fetch("/api/figures?file=" + encodeURIComponent(__PA_SERVE__.report))
-            .then(function (r) { return r.json(); })
-            .then(function (d) {
-              if (!d.figures || !d.figures.length) {
-                body.textContent = "这篇论文没有提取到较大的插图。";
-                return;
-              }
-              var groups = {figure: [], table: []};
-              d.figures.forEach(function (f, idx) {
-                f._idx = idx;
-                groups[f.kind === "table" ? "table" : "figure"].push(f);
-              });
-              var running = d.explain_state === "running";
-              function figHtml(f) {
-                var line = f.cap ? esc(f.cap)
-                  : ("p." + f.page + " · " + f.w + "×" + f.h);
-                var ex = f.explain
-                  ? '<div class="fig-explain"><b>解读</b> ' + esc(f.explain) + '</div>'
-                  : (running
-                     ? '<div class="fig-explain" data-i="' + f._idx +
-                       '"><b>解读</b> 生成中…</div>' : "");
-                return '<figure data-fidx="' + f._idx + '">' +
-                  '<img src="data:image/png;base64,' + f.b64 +
-                  '" alt="p.' + f.page + '"><figcaption>' + line +
-                  "</figcaption>" + ex + "</figure>";
-              }
-              var h = "";
-              if (groups.figure.length) {
-                h += '<div class="fig-group">插图（' + groups.figure.length + '）</div>'
-                  + groups.figure.map(figHtml).join("");
-              }
-              if (groups.table.length) {
-                h += '<div class="fig-group">表格（' + groups.table.length + '）</div>'
-                  + groups.table.map(figHtml).join("");
-              }
-              body.innerHTML = (h || "<p>没有提取到较大的插图。</p>") +
-                (running
-                 ? '<div class="fig-pending" id="figPending">图表解读生成中…完成后自动补上</div>'
-                 : "");
-              if (running) {
-                // 原地轮询：解读完成后逐项填入，面板全程保持打开
-                var polls = 0;
-                var poll = function () {
-                  if (cur !== "figs") { return; }
-                  fetch("/api/figures?file=" +
-                      encodeURIComponent(__PA_SERVE__.report))
-                    .then(function (r) { return r.json(); })
-                    .then(function (d2) {
-                      if (cur !== "figs") { return; }
-                      (d2.figures || []).forEach(function (f) {
-                        if (!f.explain) { return; }
-                        var el = body.querySelector(
-                          '.fig-explain[data-i="' + f._idx + '"]');
-                        if (el) {
-                          el.innerHTML = "<b>解读</b> " + esc(f.explain);
-                        }
-                      });
-                      var pend = document.getElementById("figPending");
-                      if (d2.explain_state === "done") {
-                        if (pend) { pend.style.display = "none"; }
-                        return;
-                      }
-                      if (++polls < 20) { setTimeout(poll, 4000); }
-                    }).catch(function () { });
-                };
-                setTimeout(poll, 5000);
-              }
-
-              // ---- 数据动图：表格数据 → 动画条形图 ----
-              function renderBars(tables) {
-                TD = tables;
-                var th = "";
-                tables.forEach(function (tb, ti) {
-                  var cands = tdPickCols(tb);
-                  if (!cands.length) { return; }
-                  var trend = tdIsTrend(tb);
-                  th += '<div class="bar-cap">' + esc(tb.cap || ("表 " + (ti + 1))) + '</div>';
-                  th += '<div class="td-chips">';
-                  if (trend) {
-                    th += '<span class="td-type on" data-ti="' + ti +
-                      '" data-type="line">折线（看趋势）</span>' +
-                      '<span class="td-type" data-ti="' + ti +
-                      '" data-type="bar">柱状</span>';
-                  }
-                  cands.forEach(function (cd, ci) {
-                    th += '<span class="td-chip' + (ci === 0 ? ' on' : '') +
-                      '" data-ti="' + ti + '" data-c="' + cd.c + '">' +
-                      esc(String(tb.columns[cd.c]).slice(0, 14)) + '</span>';
-                  });
-                  th += '</div>';
-                  th += '<div class="td-svg" data-ti="' + ti + '">' +
-                    (trend ? tdLine(tb, cands[0].c, ti)
-                           : tdSvg(tb, cands[0].c, ti)) + '</div>' +
-                    '<div class="bar-note">数据来自论文，点击列名/类型可切换</div>';
-                });
-                return th;
-              }
-              function tdPickCols(tb) {
-                var cols = tb.columns || [], rows = tb.rows || [];
-                var cands = [];
-                for (var c = 1; c < cols.length; c++) {
-                  var ok = 0, sum = 0, sq = 0;
-                  rows.forEach(function (r) {
-                    var v = parseFloat(String(r[c]).replace(/[,%××\s]/g, ""));
-                    if (isFinite(v)) { ok++; sum += Math.abs(v); sq += v * v; }
-                  });
-                  if (ok < Math.ceil(rows.length * 0.6) || sum === 0) { continue; }
-                  var mean = sum / ok;
-                  cands.push({ c: c, sum: sum, va: sq / ok - mean * mean });
-                }
-                cands.sort(function (a, b) { return b.va - a.va || b.sum - a.sum; });
-                return cands;
-              }
-              function tdIsTrend(tb) {
-                // 首列多数为数值/年份且整体递增 → 趋势型，可画折线
-                var rows = tb.rows || [];
-                if (rows.length < 3) { return false; }
-                var nums = rows.map(function (r) {
-                  var s0 = String(r[0]).trim();
-                  var v = parseFloat(s0);
-                  if (isFinite(v) && /^\d{1,4}([.,]\d+)?$/.test(s0)) { return v; }
-                  var m = s0.match(/(?:19|20)\d{2}/);
-                  return m ? parseFloat(m[0]) : NaN;
-                });
-                var fin = nums.filter(function (v) { return isFinite(v); });
-                if (fin.length < Math.ceil(rows.length * 0.7)) { return false; }
-                var inc = 0;
-                for (var i = 1; i < nums.length; i++) {
-                  if (isFinite(nums[i]) && isFinite(nums[i - 1])
-                      && nums[i] >= nums[i - 1]) { inc++; }
-                }
-                return inc >= nums.length - 2;
-              }
-              function tdLine(tb, col, ti) {
-                var rows = tb.rows || [];
-                var pts = [];
-                rows.forEach(function (r, ri) {
-                  var s0 = String(r[0]).trim();
-                  var x = parseFloat(s0);
-                  if (!isFinite(x)) {
-                    var m = s0.match(/(?:19|20)\d{2}/);
-                    x = m ? parseFloat(m[0]) : ri;
-                  }
-                  var y = parseFloat(String(r[col]).replace(/[,%××\s]/g, ""));
-                  if (isFinite(y)) { pts.push([x, y, r]); }
-                });
-                if (pts.length < 2) { return tdSvg(tb, col, ti); }
-                var L = 150, R = 634, top = 14, H = 300, W = 660, bot = H - 40;
-                var xs = pts.map(function (p) { return p[0]; });
-                var ys = pts.map(function (p) { return p[1]; });
-                var x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs);
-                var y0 = Math.min(0, Math.min.apply(null, ys));
-                var y1 = Math.max.apply(null, ys);
-                if (x1 === x0) { x1 = x0 + 1; }
-                if (y1 === y0) { y1 = y0 + 1; }
-                function px(x) { return L + (x - x0) / (x1 - x0) * (R - L); }
-                function py(y) { return bot - (y - y0) / (y1 - y0) * (bot - top); }
-                var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%">';
-                for (var g = 0; g <= 4; g++) {
-                  var gy = top + (bot - top) * g / 4;
-                  s += '<line x1="' + L + '" y1="' + gy + '" x2="' + R +
-                    '" y2="' + gy + '" stroke="rgba(120,130,140,.16)"/>';
-                  s += '<text x="' + (L - 8) + '" y="' + (gy + 4) +
-                    '" text-anchor="end" class="tdlab">' +
-                    (y1 - (y1 - y0) * g / 4).toFixed(1) + '</text>';
-                }
-                var line = pts.map(function (p, i) {
-                  return (i ? "L" : "M") + px(p[0]).toFixed(1) + " " +
-                    py(p[1]).toFixed(1);
-                }).join(" ");
-                s += '<path d="' + line + '" fill="none" stroke="#2E6F8E" ' +
-                  'stroke-width="2.5" stroke-dasharray="2000" ' +
-                  'stroke-dashoffset="0" style="animation: tdDraw 1.8s ease backwards"/>';
-                s += '<polygon points="' + L + "," + bot + " " +
-                  pts.map(function (p) {
-                    return px(p[0]).toFixed(1) + "," + py(p[1]).toFixed(1);
-                  }).join(" ") + " " + R + "," + bot +
-                  '" fill="rgba(46,111,142,.10)"/>';
-                pts.forEach(function (p) {
-                  s += '<circle cx="' + px(p[0]).toFixed(1) + '" cy="' +
-                    py(p[1]).toFixed(1) + '" r="3.5" fill="#2E6F8E"/>';
-                });
-                s += '<text x="' + (L + (R - L) / 2) + '" y="' + (H - 8) +
-                  '" text-anchor="middle" class="tdax">' +
-                  esc(String(tb.columns[col]).slice(0, 26)) + '（随 ' +
-                  esc(String(tb.columns[0]).slice(0, 14)) + ' 变化）</text>';
-                s += '</svg>';
-                return s;
-              }
-              function tdSvg(tb, col, ti) {
-                var rows = tb.rows || [];
-                var vals = rows.map(function (r) {
-                  return parseFloat(String(r[col]).replace(/[,%××\s]/g, ""));
-                });
-                var mx = 0;
-                vals.forEach(function (v) {
-                  if (isFinite(v) && Math.abs(v) > mx) { mx = Math.abs(v); }
-                });
-                if (!mx) { mx = 1; }
-                var L = 150, R = 634, top = 10, rowH = 34, W = 660;
-                var shown = rows.slice(0, 12);
-                var H = top + shown.length * rowH + 26;
-                var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%">';
-                s += '<defs><linearGradient id="tdg' + ti + '" x1="0" y1="0" x2="1" y2="0">' +
-                  '<stop offset="0" stop-color="#2E6F8E"/><stop offset="1" stop-color="#63B3D2"/>' +
-                  '</linearGradient></defs>';
-                for (var g = 0; g <= 4; g++) {
-                  var gx = L + (R - L) * g / 4;
-                  s += '<line x1="' + gx + '" y1="' + (top - 4) + '" x2="' + gx +
-                    '" y2="' + (H - 22) + '" stroke="rgba(120,130,140,.16)" stroke-width="1"/>';
-                }
-                shown.forEach(function (r, ri) {
-                  var v = vals[ri];
-                  var w = isFinite(v) ? Math.max(2, Math.abs(v) / mx * (R - L)) : 2;
-                  var y = top + ri * rowH;
-                  s += '<text x="' + (L - 8) + '" y="' + (y + 14) +
-                    '" text-anchor="end" class="tdlab">' +
-                    esc(String(r[0]).slice(0, 16)) + '</text>';
-                  s += '<rect class="tdbar" x="' + L + '" y="' + y +
-                    '" width="' + w.toFixed(1) + '" height="20" rx="4" fill="url(#tdg' + ti + ')"/>';
-                  s += '<text x="' + (L + w + 6) + '" y="' + (y + 14) +
-                    '" class="tdval">' + esc(String(r[col])) + '</text>';
-                });
-                s += '<line x1="' + L + '" y1="' + (top - 4) + '" x2="' + L +
-                  '" y2="' + (H - 22) + '" stroke="rgba(120,130,140,.45)" stroke-width="1"/>';
-                s += '<text x="' + (L + (R - L) / 2) + '" y="' + (H - 5) +
-                  '" text-anchor="middle" class="tdax">' +
-                  esc(String(tb.columns[col]).slice(0, 26)) + '</text>';
-                s += '</svg>';
-                return s;
-              }
-              function loadTableData() {
-                fetch("/api/tabledata?file=" +
-                    encodeURIComponent(__PA_SERVE__.report))
-                  .then(function (r) { return r.json(); })
-                  .then(function (d) {
-                    if (d.state === "running") {
-                      var box = document.getElementById("tdBox");
-                      if (box && !box.dataset.done) {
-                        box.textContent = "表格数据提取中…模型正在读表，几秒后自动刷新";
-                        setTimeout(function () {
-                          var b2 = document.getElementById("tdBox");
-                          if (b2) { loadTableData(); }
-                        }, 8000);
-                      }
-                      return;
-                    }
-                    var box2 = document.getElementById("tdBox");
-                    if (!box2) { return; }
-                    box2.dataset.done = "1";
-                    if (d.tables && d.tables.length) {
-                      box2.innerHTML = '<div class="fig-group">数据动图（' +
-                        d.tables.length + '）</div>' + renderBars(d.tables);
-                      box2.querySelectorAll(".td-chip").forEach(
-                        function (chip) {
-                          chip.addEventListener("click", function () {
-                            var ti = Number(chip.getAttribute("data-ti"));
-                            var type = chip.getAttribute("data-type");
-                            var c = chip.getAttribute("data-c");
-                            var host = box2.querySelector(
-                              '.td-svg[data-ti="' + ti + '"]');
-                            if (!host || !TD[ti]) { return; }
-                            var cur = host.dataset.col !== undefined
-                              ? Number(host.dataset.col) : null;
-                            var curType = host.dataset.type || "bar";
-                            var newC = (c !== null && c !== undefined)
-                              ? Number(c) : (cur !== null ? cur
-                                : tdPickCols(TD[ti])[0].c);
-                            var newType = type || curType;
-                            host.dataset.col = newC;
-                            host.dataset.type = newType;
-                            host.innerHTML = (newType === "line")
-                              ? tdLine(TD[ti], newC, ti)
-                              : tdSvg(TD[ti], newC, ti);
-                            box2.querySelectorAll(
-                              '[data-ti="' + ti + '"]').forEach(function (x) {
-                                if (x === chip) { x.classList.add("on"); }
-                                else if (x.classList.contains("td-chip")
-                                  || x.classList.contains("td-type")) {
-                                  x.classList.remove("on");
-                                }
-                              });
-                          });
-                        });
-                    } else {
-                      box2.innerHTML = "";
-                    }
-                  })
-                  .catch(function () { });
-              }
-              if (d.state !== undefined) { /* figs 响应里没有 tabledata，另行请求 */ }
-              var tdHost = document.createElement("div");
-              tdHost.id = "tdBox";
-              body.appendChild(tdHost);
-              loadTableData();
             })
             .catch(function (e) { body.textContent = "加载失败：" + e; });
         }
