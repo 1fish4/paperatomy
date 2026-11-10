@@ -35,8 +35,12 @@ _RE_SURVEY_HINT = __import__("re").compile(
 import threading
 import time
 import urllib.parse
+import glob
+import logging
 import uuid
 import webbrowser
+
+_LOG = logging.getLogger("paperatomy")
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -176,6 +180,20 @@ class _State:
     def __init__(self, root: Path):
         self.root = root
         self.tasks: dict[str, Task] = {}
+        self.state_file = self.root / "tasks.state.json"
+        self.compare_jobs: dict = {}
+        self.last_task: dict | None = None
+        try:
+            if self.state_file.is_file():
+                _st = json.loads(
+                    self.state_file.read_text(encoding="utf-8"))
+                if _st.get("status") == "running":
+                    _st["status"] = "interrupted"
+                    self.last_task = _st
+                    _LOG.warning("上次任务中断：%s（%s 阶段）",
+                                 _st.get("name"), _st.get("stage"))
+        except Exception:  # noqa: BLE001 —— 状态文件损坏就当没有
+            self.last_task = None
         self.db_path = self.root / "reports.db"
         self._sync_db()
         self._refresh_stale_html()
@@ -361,20 +379,48 @@ class _State:
                           "by_tpl": by_tpl, "collections": ncol}}
 
     def delete_report(self, file: str) -> int:
-        """删除一份报告的三件套与索引。返回删除的文件数。"""
+        """删除 = 移入回收站（out/.trash/，可在诊断面板恢复）。"""
         path = self.report_path(file)
         if path is None:
             raise ValueError("报告不存在或路径不合法")
+        trash = self.out_dir / ".trash"
+        trash.mkdir(exist_ok=True)
         n = 0
         for ext in (".json", ".md", ".html"):
             f = path.with_suffix(ext)
             if f.exists():
-                f.unlink()
+                f.rename(trash / ("%s~%d%s" % (path.stem, int(time.time()),
+                                               ext)))
                 n += 1
         conn = self._db()
         conn.execute("DELETE FROM reports WHERE file=?", (file,))
         conn.commit()
         conn.close()
+        _LOG.info("report -> trash: %s", file)
+        return n
+
+    def trash_list(self) -> list:
+        """回收站里的报告（按原文件名聚合）。"""
+        trash = self.out_dir / ".trash"
+        if not trash.is_dir():
+            return []
+        items: dict = {}
+        for p in sorted(trash.glob("*.json")):
+            stem = p.name.split("~")[0]
+            items[stem] = items.get(stem, 0) + 1
+        return [{"file": k + ".json", "count": v} for k, v in items.items()]
+
+    def restore_report(self, file: str) -> int:
+        """从回收站恢复一份报告的三件套。"""
+        stem = Path(file).stem
+        trash = self.out_dir / ".trash"
+        n = 0
+        for p in sorted(trash.glob(glob.escape(stem) + "~*")):
+            dst = self.out_dir / (stem + p.suffix)
+            if dst.exists():
+                continue
+            p.rename(dst)
+            n += 1
         return n
 
     def report_path(self, file: str) -> Path | None:
@@ -456,8 +502,88 @@ class _State:
             task.error = "已有任务在跑，等它结束再传"
             return
         self.running = task.id
+        self._save_task_state(task)
+        _LOG.info("task start: %s (%s/%s)", task.name, task.template, task.lang)
         thread = threading.Thread(target=self._run, args=(task, pdf), daemon=True)
         thread.start()
+
+    def _start_compare(self, files: list) -> str:
+        """多篇对比：结构对齐 + LLM 综合分析，产单文件 HTML。"""
+        key = ",".join(sorted(files))
+        job = self.compare_jobs.get(key)
+        if job and job.get("state") == "running":
+            return key
+        self.compare_jobs[key] = {"state": "running"}
+        threading.Thread(target=self._run_compare,
+                         args=(key, list(files)), daemon=True).start()
+        return key
+
+    def _run_compare(self, key: str, files: list) -> None:
+        job = self.compare_jobs[key]
+        try:
+            dicts = []
+            for f in files:
+                rp = self.report_path(f)
+                if rp is None or not rp.is_file():
+                    raise ValueError("没有这份报告：" + f)
+                dicts.append(json.loads(rp.read_text(encoding="utf-8")))
+            if len(dicts) < 2:
+                raise ValueError("至少选两份报告")
+            from .compare import (compare_many_payload,
+                                  to_compare_html_many)
+            payload = compare_many_payload(dicts)
+            digest = []
+            for i, d in enumerate(dicts):
+                blocks = {b.get("block_id"): str(b.get("content") or "")
+                          for b in (d.get("findings") or [])}
+                digest.append(
+                    "【论文%d】%s（模板：%s）\n一句话：%s\n问题：%s\n"
+                    "方法：%s\n结果：%s\n局限：%s"
+                    % (i + 1, d.get("paper_title"),
+                       (d.get("template") or {}).get("id", ""),
+                       blocks.get("tl_dr", "")[:200],
+                       blocks.get("problem", "")[:280],
+                       blocks.get("method_overview",
+                                  blocks.get("method", ""))[:280],
+                       blocks.get("result",
+                                  blocks.get("consensus", ""))[:280],
+                       blocks.get("limits", "")[:200]))
+            prompt = (
+                "以下是同一研究领域、不同方法/侧重的 %d 篇论文的分析摘要。"
+                "请输出一个 JSON 对象："
+                '{"common": "2~3 句概括这几篇论文共同关注的问题与共识", '
+                '"table": [{"dim": "对比维度（如方法路线/实验设置/核心结论/'
+                '适用场景）", "cells": ["论文1在该维度的具体对比", "论文2…", '
+                "…]}], "
+                '"verdict": "2~3 句给读者的选读建议与整体评价"}。'
+                "对比要具体、有信息量，不要空话；cells 顺序与论文编号一致。"
+                "\n\n" + "\n\n".join(digest))
+            from .llm import chat, load_config
+            raw = chat([{"role": "user", "content": prompt}], load_config())
+            m = re.search(r"\{.*\}", raw, re.S)
+            analysis = json.loads(m.group()) if m else {}
+            payload["analysis"] = analysis
+            title = "对比分析：%s" % " vs ".join(
+                str(d.get("paper_title"))[:24] for d in dicts)
+            html = to_compare_html_many(payload, title)
+            name = "compare_%d.html" % int(time.time())
+            (self.out_dir / name).write_text(html, encoding="utf-8")
+            job["state"] = "done"
+            job["url"] = "/comparefile/" + name
+            _LOG.info("compare done: %s -> %s", key, name)
+        except Exception as exc:  # noqa: BLE001
+            job["state"] = "error"
+            job["error"] = str(exc)
+            _LOG.exception("compare failed: %s", key)
+
+    def _save_task_state(self, task: Task) -> None:
+        """任务状态落盘：重启后能告诉用户上次跑到哪。"""
+        try:
+            self.state_file.write_text(
+                json.dumps(task.public(), ensure_ascii=False, indent=2),
+                encoding="utf-8")
+        except Exception:  # noqa: BLE001
+            pass
 
     def _run(self, task: Task, pdf: Path) -> None:
         task.status = "running"
@@ -495,6 +621,9 @@ class _State:
             task.error = str(exc)
         finally:
             self.running = None
+            self._save_task_state(task)
+            _LOG.info("task end: %s -> %s %s", task.name, task.status,
+                      task.error or "")
 
 
 def detect_template(paper) -> dict:
@@ -735,6 +864,42 @@ class _Handler(BaseHTTPRequestHandler):
             self._json(self._figures_payload(file, out))
             return
 
+        if path == "/api/lasttask" and self.workbench:
+            self._json({"ok": True, "task": self.state.last_task})
+            return
+
+        if path == "/api/trash" and self.workbench:
+            self._json({"ok": True, "items": self.state.trash_list()})
+            return
+
+        if path == "/api/compare" and self.workbench:
+            files = [x for x in str(params.get("files") or "").split(",")
+                     if x]
+            if len(files) < 2:
+                self._json({"ok": False, "error": "至少选两份报告"}, 400)
+                return
+            key = ",".join(sorted(files))
+            job = self.state.compare_jobs.get(key)
+            if not job:
+                self.state._start_compare(files)
+                self._json({"ok": True, "state": "running"})
+                return
+            self._json({"ok": True, "state": job.get("state"),
+                        "url": job.get("url"), "error": job.get("error")})
+            return
+
+        if path.startswith("/comparefile/") and self.workbench:
+            name = path.split("/", 2)[2]
+            if not re.match(r"^compare_\d+\.html$", name):
+                self._json({"ok": False, "error": "非法文件名"}, 404)
+                return
+            _cf = self.state.out_dir / name
+            if not _cf.is_file():
+                self._json({"ok": False, "error": "对比报告不存在"}, 404)
+                return
+            self._send(200, _cf.read_bytes(), "text/html; charset=utf-8")
+            return
+
         if path == "/api/modfigs" and self.workbench:
             file = str(params.get("file") or "")
             try:
@@ -849,6 +1014,34 @@ class _Handler(BaseHTTPRequestHandler):
         if path == "/api/start":
             self._start(params)
             return
+        if path == "/api/compare" and self.workbench:
+            if not self._same_origin():
+                self._json({"ok": False, "error": "拒绝跨站请求"}, 403)
+                return
+            files = [x for x in str(params.get("files") or "").split(",")
+                     if x]
+            if len(files) < 2:
+                self._json({"ok": False, "error": "至少选两份报告"}, 400)
+                return
+            key = ",".join(sorted(files))
+            if not self.state.compare_jobs.get(key):
+                self.state._start_compare(files)
+            self._json({"ok": True, "state": "running"})
+            return
+
+        if path == "/api/restore" and self.workbench:
+            if not self._same_origin():
+                self._json({"ok": False, "error": "拒绝跨站请求"}, 403)
+                return
+            file = str(params.get("file") or "")
+            try:
+                n = self.state.restore_report(file)
+            except Exception as exc:  # noqa: BLE001
+                self._json({"ok": False, "error": str(exc)}, 400)
+                return
+            self._json({"ok": True, "restored": n})
+            return
+
         if path == "/api/collection" and self.workbench:
             if not self._same_origin():
                 self._json({"ok": False, "error": "拒绝跨站请求"}, 403)
@@ -899,8 +1092,18 @@ class _Handler(BaseHTTPRequestHandler):
 
             # 上传只做「保存 + 类型检测」——开跑要等用户在确认框里点头。
             # 检测是本地解析（几秒），不调模型、不花钱。
+            import fitz as _fz
+            _doc = _fz.open(pdf)
+            _locked = _doc.needs_pass
+            _doc.close()
+            if _locked:
+                raise ValueError("PDF 已加密，请先解除密码再上传")
             from .parse import parse
             paper = parse(pdf)
+            if getattr(paper, "chars", 0) < 500:
+                raise ValueError(
+                    "这份 PDF 几乎没有文本层（可能是扫描版），暂不支持，"
+                    "请换文字版 PDF")
             det = detect_template(paper)
             self._json({"ok": True, "file": pdf.name, "detect": det})
         except Exception as exc:  # noqa: BLE001
@@ -1652,6 +1855,15 @@ def serve(
     cfg: LLMConfig | None = None,
 ) -> int:
     """起服务并阻塞。给 ``json_path`` 进报告模式，不给进工作台模式。"""
+    from logging.handlers import RotatingFileHandler
+    _log_dir = (Path(root) if root else Path.cwd()) / "logs"
+    _log_dir.mkdir(exist_ok=True)
+    _rh = RotatingFileHandler(_log_dir / "serve.log", maxBytes=1_000_000,
+                              backupCount=5, encoding="utf-8")
+    _rh.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+    _LOG.setLevel(logging.INFO)
+    _LOG.addHandler(_rh)
+
     cfg = cfg or load_config()
     if not cfg.api_key and not cfg.is_local():
         print("✗ 没有配置 API key。先跑 paperatomy config set --api-key sk-xxx")

@@ -317,6 +317,16 @@
   </div>
 </div>
 
+<div id="cmpBar" style="display:none; position:fixed; bottom:26px;
+     left:50%; transform:translateX(-50%); z-index:90; gap:10px;
+     align-items:center; background:#24303B; color:#fff; border-radius:24px;
+     padding:10px 14px 10px 20px; box-shadow:0 10px 30px rgba(0,0,0,.25);">
+  <span id="cmpGo" style="font-size:13.5px">对比分析</span>
+  <button id="cmpCancel" style="border:none; background:rgba(255,255,255,.15);
+          color:#fff; border-radius:16px; padding:5px 12px; cursor:pointer;
+          font-size:12px">取消选择</button>
+</div>
+
 <div id="colMask" style="display:none; position:fixed; inset:0; z-index:98;
      background:rgba(15,24,36,.55); align-items:center; justify-content:center;">
   <div style="background:#fff; border-radius:14px; padding:22px 26px;
@@ -451,6 +461,7 @@
   // ---- 模板 / 语言选择 ----
   // ---- 文库：合集筛选 + 归档 ----
   var colCache = [];
+  var sel = {};   // 多选对比：file -> true
 
   function renderStats(st) {
     var sb = document.getElementById("statbar");
@@ -491,6 +502,16 @@
         libState.col = b.getAttribute("data-c");
         libState.page = 1;
         loadReports();
+  fetch("/api/lasttask").then(function (r) { return r.json(); })
+    .then(function (d) {
+      var t = d.task;
+      if (t && t.status === "interrupted") {
+        showTask({name: t.name, status: "error",
+                  error: "上次任务在「" + (t.stage || "分析") +
+                    "」阶段中断（服务重启过）。论文还在，" +
+                    "可在「诊断与修复」里一键重跑。"});
+      }
+    }).catch(function () { });
       });
     });
   }
@@ -548,8 +569,71 @@
     if (btn) {
       e.preventDefault();
       openCol(btn.getAttribute("data-col"));
+      return;
+    }
+    var pick = e.target.closest(".rpt-pick");
+    if (pick) {
+      var f = pick.getAttribute("data-pick");
+      if (sel[f]) { delete sel[f]; } else { sel[f] = true; }
+      pick.classList.toggle("on", !!sel[f]);
+      pick.textContent = sel[f] ? "✓" : "";
+      updateCmpBar();
     }
   });
+
+  function updateCmpBar() {
+    var n = Object.keys(sel).length;
+    var bar = document.getElementById("cmpBar");
+    if (!bar) { return; }
+    bar.style.display = n >= 2 ? "flex" : "none";
+    var b = document.getElementById("cmpGo");
+    if (b) { b.textContent = "对比分析（" + n + " 篇）"; }
+  }
+
+  function clearSel() {
+    sel = {};
+    document.querySelectorAll(".rpt-pick").forEach(function (p) {
+      p.classList.remove("on");
+      p.textContent = "";
+    });
+    updateCmpBar();
+  }
+
+  function runCompare() {
+    var files = Object.keys(sel);
+    if (files.length < 2) { return; }
+    var qs = files.map(function (f) { return encodeURIComponent(f); }).join(",");
+    showTask({name: files.length + " 篇对比分析", status: "running",
+              stage: "模型综合对比中…", detail: "结构对齐 + 生成对比分析"});
+    fetch("/api/compare?files=" + qs, {method: "POST"})
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d.ok) { showTask({name: "对比分析", status: "error",
+                               error: d.error}); return; }
+        var timer = setInterval(function () {
+          fetch("/api/compare?files=" + qs)
+            .then(function (r) { return r.json(); })
+            .then(function (d2) {
+              if (d2.state === "done") {
+                clearInterval(timer);
+                showTask({name: files.length + " 篇对比分析", status: "done",
+                          stage: "完成", detail: "对比报告已生成",
+                          report: "COMPARE"});
+                openBtn.classList.add("show");
+                state.openWhenDone = d2.url;
+                clearSel();
+              } else if (d2.state === "error") {
+                clearInterval(timer);
+                showTask({name: "对比分析", status: "error",
+                          error: d2.error || "失败"});
+              }
+            }).catch(function () { });
+        }, 2500);
+      })
+      .catch(function (err) {
+        showTask({name: "对比分析", status: "error", error: String(err)});
+      });
+  }
 
   document.querySelectorAll("[data-tpl]").forEach(function (el) {
     el.addEventListener("click", function () {
@@ -836,11 +920,17 @@
 
     var report = t.report || state.openWhenDone;
     openBtn.classList.toggle("show", t.status === "done" && !!report);
+    openBtn.textContent = (report && report.indexOf("compare_") === 0)
+      ? "打开对比报告 →" : "打开报告 →";
     if (report) { state.openWhenDone = report; }
   }
 
   openBtn.addEventListener("click", function () {
     if (state.openWhenDone) {
+      if (state.openWhenDone.indexOf("/") === 0) {
+        location.href = state.openWhenDone;  // 对比报告等站内绝对路径
+        return;
+      }
       location.href = "/report?file=" + encodeURIComponent(state.openWhenDone);
     }
   });
@@ -897,7 +987,11 @@
                  String(d.getHours()).padStart(2, "0") + ":" +
                  String(d.getMinutes()).padStart(2, "0");
       var tpl = r.template || "report";
-      h.push('<div class="rpt-wrap"><a class="rpt" data-tpl="' + esc(tpl) +
+      h.push('<div class="rpt-wrap">' +
+        '<button class="rpt-pick' + (sel[r.file] ? " on" : "") +
+        '" data-pick="' + esc(r.file) + '" title="选中对比">' +
+        (sel[r.file] ? "✓" : "") + "</button>" +
+        '<a class="rpt" data-tpl="' + esc(tpl) +
         '" href="/report?file=' + encodeURIComponent(r.file) + '">' +
         '<div class="rpt-cover"><img loading="lazy" src="/pageimg/' +
         encodeURIComponent(String(r.file).replace(/\.json$/, "")) +
@@ -1011,6 +1105,8 @@
     else { confirmStart(); }
   });
   document.getElementById("cfCancel").addEventListener("click", confirmCancel);
+  document.getElementById("cmpCancel").addEventListener("click", clearSel);
+  document.getElementById("cmpGo").addEventListener("click", runCompare);
 
   // ---- 诊断与修复 ----
   var DIAG_LABELS = [
@@ -1030,8 +1126,12 @@
   function runDiag() {
     document.getElementById("diagMask").style.display = "flex";
     document.getElementById("diagBody").textContent = "正在体检…";
-    fetch("/api/diagnose").then(function (r) { return r.json(); })
-      .then(function (d) {
+    Promise.all([
+      fetch("/api/diagnose").then(function (r) { return r.json(); }),
+      fetch("/api/trash").then(function (r) { return r.json(); })
+        .catch(function () { return {items: []}; })
+    ]).then(function (rs) {
+      var d = rs[0], tr = rs[1] || {items: []};
         var h = '<div style="margin-bottom:10px;color:var(--ink2)">' +
           '服务版本 v' + esc(d.version || "?") +
           ' · 出问题先点对应「修复」，修不好的再截图问 AI</div>' +
@@ -1070,7 +1170,27 @@
               '" data-action="start">一键开跑</button></div>';
           });
         }
+        if ((tr.items || []).length) {
+          h += '<div style="margin-top:14px;font-weight:600">回收站' +
+            '（误删可恢复）</div>';
+          tr.items.forEach(function (it) {
+            h += '<div style="display:flex;align-items:center;gap:10px;' +
+              'margin-bottom:6px"><span>' + esc(it.file) + '</span>' +
+              '<button class="fixbtn" data-restore="' + esc(it.file) +
+              '">恢复</button></div>';
+          });
+        }
         document.getElementById("diagBody").innerHTML = h;
+        document.querySelectorAll("#diagBody [data-restore]").forEach(
+          function (b) {
+            b.addEventListener("click", function () {
+              b.disabled = true; b.textContent = "恢复中…";
+              fetch("/api/restore?file=" +
+                    encodeURIComponent(b.getAttribute("data-restore")),
+                    {method: "POST"})
+                .then(function () { loadReports(); runDiag(); });
+            });
+          });
         document.querySelectorAll("#diagBody .fixbtn").forEach(
           function (b) {
             b.addEventListener("click", function () {

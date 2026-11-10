@@ -12,7 +12,8 @@ import html
 import json
 from pathlib import Path
 
-__all__ = ["compare_payload", "to_compare_html"]
+__all__ = ["compare_payload", "to_compare_html",
+            "compare_many_payload", "to_compare_html_many"]
 
 
 def _load(path: Path) -> dict:
@@ -203,3 +204,125 @@ def run_compare(path_a: str, path_b: str, output: str | None = None) -> int:
     out_path.write_text(html_out, encoding="utf-8")
     print(f"已写出 {out_path}  ← 用浏览器打开这个")
     return 0
+
+
+# ---------------------------------------------------------------------------
+# N 篇对比（v0.13.0）：结构对齐 + 模型综合分析（分析由 serve 侧生成后传入）
+# ---------------------------------------------------------------------------
+
+def compare_many_payload(dicts: list) -> dict:
+    """N 篇报告对齐：block_id 并集为行，每篇一列。"""
+    metas = [_meta(d) for d in dicts]
+    maps = [{f.get("block_id"): f for f in (d.get("findings") or [])}
+            for d in dicts]
+    order: list[str] = []
+    for m in maps:
+        for k in m:
+            if k not in order:
+                order.append(k)
+    rows = []
+    for bid in order:
+        cells = [m.get(bid) for m in maps]
+        have = sum(1 for x in cells if x is not None)
+        label = bid
+        for x in cells:
+            if x:
+                label = x.get("label", bid)
+                break
+        rows.append({"block_id": bid, "label": label,
+                     "cells": cells, "only_one": have == 1})
+    return {"metas": metas, "rows": rows}
+
+
+def to_compare_html_many(payload: dict, title: str) -> str:
+    """N 篇对比页：模型综合分析置顶 + 结构对齐表。"""
+
+    def esc(x) -> str:
+        return html.escape(str(x or ""))
+
+    metas = payload.get("metas") or []
+    rows = payload.get("rows") or []
+    ana = payload.get("analysis") or {}
+    n = len(metas)
+
+    meta_cards = "".join(
+        "<div class='m'><b>" + esc(m.get("title"))[:52] +
+        "</b><div class='sub'>" + esc(m.get("template")) + " · " +
+        str(m.get("blocks", 0)) + " 块 · 链 " + str(m.get("chain", 0)) +
+        " · 网络 " + str(m.get("network", 0)) + "</div></div>"
+        for m in metas)
+
+    common = esc(ana.get("common") or "")
+    verdict = esc(ana.get("verdict") or "")
+    table = ana.get("table") or []
+    parts = []
+    if common:
+        parts.append("<p class='lead'>" + common + "</p>")
+    if table:
+        head_row = "<tr><th style='width:110px'>维度</th>" + "".join(
+            "<th>论文" + str(i + 1) + "</th>" for i in range(n)) + "</tr>"
+        trows = ""
+        for t in table:
+            cells = t.get("cells") or []
+            tds = "".join(
+                "<td>" + esc(cells[i] if i < len(cells) else "—") + "</td>"
+                for i in range(n))
+            trows += "<tr><th>" + esc(t.get("dim")) + "</th>" + tds + "</tr>"
+        parts.append("<table>" + head_row + trows + "</table>")
+    if verdict:
+        parts.append("<p class='lead'><b>选读建议：</b>" + verdict + "</p>")
+    ana_html = ("<div class='sec'><h2>模型综合对比</h2>" + "".join(parts) +
+                "</div>") if parts else (
+        "<div class='sec'><p class='lead'>模型综合分析未生成（可在工作台重试）。</p></div>")
+
+    align_head = "<tr><th style='width:130px'>板块</th>" + "".join(
+        "<th>论文" + str(i + 1) + "</th>" for i in range(n)) + "</tr>"
+    align_rows = ""
+    for r in rows:
+        cells_html = ""
+        for x in (r.get("cells") or []):
+            if x is None:
+                cells_html += "<td class='na'>—</td>"
+            else:
+                body = str(x.get("content") or "")
+                more = "…" if len(body) > 260 else ""
+                cells_html += "<td>" + esc(body[:260]) + more + "</td>"
+        tag = "<span class='tag'>仅一篇</span>" if r.get("only_one") else ""
+        align_rows += "<tr><th>" + esc(r.get("label")) + tag + "</th>" + cells_html + "</tr>"
+
+    tpl = (
+        "<!DOCTYPE html><html><head><meta charset='utf-8'><title>__TITLE__</title>"
+        "<style>"
+        "body{font-family:'Segoe UI',system-ui,sans-serif;max-width:1080px;"
+        "margin:26px auto;padding:0 18px;color:#24303B;background:#FBFAF7}"
+        "h1{font-size:20px}h2{font-size:16px;margin:0 0 10px}"
+        ".meta{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0 6px}"
+        ".m{border:1px solid #E7E2D8;border-radius:10px;padding:10px 14px;"
+        "flex:1;min-width:220px;background:#fff}"
+        ".m .sub{font-size:12px;color:#56616F;margin-top:4px}"
+        "table{border-collapse:collapse;width:100%;font-size:13.5px;"
+        "background:#fff;margin-top:8px}"
+        "td,th{border:1px solid #E7E2D8;padding:8px 10px;vertical-align:top;"
+        "text-align:left;line-height:1.55}"
+        "th{background:#F0EDE5;font-weight:600;white-space:nowrap}"
+        "td.na{color:#B9B2A4;text-align:center}"
+        ".sec{margin:24px 0;background:#fff;border:1px solid #E7E2D8;"
+        "border-radius:12px;padding:16px 18px}"
+        ".lead{font-size:14px;line-height:1.7;margin:8px 0}"
+        ".tag{display:inline-block;background:rgba(46,111,142,.1);"
+        "color:#2E6F8E;border-radius:6px;padding:1px 8px;font-size:11px;"
+        "margin-left:6px;font-weight:400}"
+        ".back{font-size:13px;color:#2E6F8E;text-decoration:none}"
+        "</style></head><body>"
+        "<a class='back' href='javascript:history.back()'>← 返回</a>"
+        "<h1>__TITLE__</h1>"
+        "<div class='meta'>__META__</div>"
+        "__ANA__"
+        "<div class='sec'><h2>板块对齐（逐块对照）</h2>"
+        "<table>__AHEAD____AROWS__</table>"
+        "</div></body></html>")
+    return (tpl.replace("__TITLE__", esc(title))
+               .replace("__META__", meta_cards)
+               .replace("__ANA__", ana_html)
+               .replace("__AHEAD__", align_head)
+               .replace("__AROWS__", align_rows))
