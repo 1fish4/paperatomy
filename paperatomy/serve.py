@@ -341,13 +341,24 @@ class _State:
             "ORDER BY mtime DESC LIMIT ? OFFSET ?",
             args + [size, (page - 1) * size]).fetchall()
         pages = max(1, (total + size - 1) // size)
+        week = conn.execute(
+            "SELECT COUNT(*) FROM reports WHERE mtime >= ?",
+            (int(time.time()) - 7 * 86400,)).fetchone()[0]
+        by_tpl = dict(conn.execute(
+            "SELECT template, COUNT(*) FROM reports "
+            "WHERE template<>'' GROUP BY template").fetchall())
+        ncol = conn.execute(
+            "SELECT COUNT(DISTINCT collection) FROM reports "
+            "WHERE collection<>''").fetchone()[0]
         cols = conn.execute(
             "SELECT collection, COUNT(*) FROM reports WHERE collection<>'' "
             "GROUP BY collection ORDER BY COUNT(*) DESC").fetchall()
         conn.close()
         return {"reports": [dict(r) for r in rows], "total": total,
                 "page": page, "pages": pages,
-                "collections": [{"name": n, "count": c} for n, c in cols]}
+                "collections": [{"name": n, "count": c} for n, c in cols],
+                "stats": {"total": total, "week": week,
+                          "by_tpl": by_tpl, "collections": ncol}}
 
     def delete_report(self, file: str) -> int:
         """删除一份报告的三件套与索引。返回删除的文件数。"""

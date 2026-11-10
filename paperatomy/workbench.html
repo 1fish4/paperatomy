@@ -271,6 +271,21 @@
   }
   .rpt-col:hover { background: rgba(46,111,142,.12); color: #2E6F8E; }
   .rpt-col svg { width: 13px; height: 13px; }
+  .rpt { transition: transform .18s ease, box-shadow .18s ease; }
+  .rpt:hover { transform: translateY(-3px);
+    box-shadow: 0 12px 28px rgba(15,24,36,.10); }
+  .rpt-cover { height: 116px; overflow: hidden;
+    border-radius: 10px 10px 0 0; background: #F6F4EF;
+    border-bottom: 1px solid rgba(15,24,36,.06); }
+  .rpt-cover img { width: 100%; height: 100%; object-fit: cover;
+    object-position: top; display: block; }
+  .statbar { display: flex; gap: 10px; margin: 0 0 14px; flex-wrap: wrap; }
+  .stat { flex: 1; min-width: 88px; background: #fff;
+    border: 1px solid rgba(15,24,36,.08); border-radius: 12px;
+    padding: 10px 14px; display: flex; flex-direction: column; gap: 2px; }
+  .stat span { font-size: 12px; color: var(--ink2, #56616F); }
+  .stat b { font-size: 20px; }
+  .fchip { transition: background .15s ease, color .15s ease; }
   .pager {
     display: flex; align-items: center; justify-content: center; gap: 16px;
     margin-top: 18px; font-size: 13px; color: var(--ink2);
@@ -335,8 +350,8 @@
           <path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>
         </svg>
         <div class="t1">拖拽 PDF 到这里，或点击选择</div>
-        <div class="t2" id="dropHint">任意领域；页数越多抽取越慢（35 页约 1 分钟）</div>
-        <input type="file" id="file" accept=".pdf,application/pdf" hidden>
+        <div class="t2" id="dropHint">可一次拖入多篇 PDF 排队分析；单篇约 1–2 分钟</div>
+        <input type="file" id="file" accept=".pdf,application/pdf" hidden multiple>
       </div>
       <div class="opts">
         <div class="opt-group">
@@ -374,6 +389,7 @@
       <div class="panel-t">报告库 <span class="count" id="libCount"></span></div>
       <input id="libSearch" type="search" placeholder="搜索标题或模板…">
     </div>
+    <div class="statbar" id="statbar"></div>
     <div class="tpl-filter">
       <button class="fchip on" data-f="">全部</button>
       <button class="fchip" data-f="deep">deep</button>
@@ -390,7 +406,18 @@
       <span id="pgInfo"></span>
       <button id="pgNext">下一页 →</button>
     </div>
-    <div class="empty" id="empty" style="display:none">还没有报告。左侧传一篇，或用命令行 paperatomy extract 生成。</div>
+    <div class="empty" id="empty" style="display:none">
+      <svg viewBox="0 0 120 90" width="120" height="90"
+           style="opacity:.5;display:block;margin:0 auto 8px" fill="none"
+           stroke="#8A94A2" stroke-width="2" stroke-linecap="round"
+           stroke-linejoin="round">
+        <rect x="18" y="10" width="60" height="72" rx="6"/>
+        <path d="M30 26h36M30 38h36M30 50h22"/>
+        <circle cx="86" cy="60" r="15"/>
+        <path d="M97 71l11 11"/>
+      </svg>
+      还没有报告。左侧传一篇（可一次拖多份），或用命令行 paperatomy extract 生成。
+    </div>
     <p class="hint">报告可脱离本服务使用：<code>out/*.html</code> 是单文件，双击即开；
     报告页内追问需要本地服务（<code>paperatomy serve out/报告.json</code>）。</p>
   </main>
@@ -424,6 +451,24 @@
   // ---- 模板 / 语言选择 ----
   // ---- 文库：合集筛选 + 归档 ----
   var colCache = [];
+
+  function renderStats(st) {
+    var sb = document.getElementById("statbar");
+    if (!sb) { return; }
+    var by = st.by_tpl || {};
+    var items = [
+      ["报告总数", st.total || 0],
+      ["本周新增", st.week || 0],
+      ["精读 deep", by.deep || 0],
+      ["综述 survey", by.survey || 0],
+      ["速读 skim", by.skim || 0],
+      ["合集", (st.collections || 0)]
+    ];
+    sb.innerHTML = items.map(function (x) {
+      return '<div class="stat"><span>' + esc(x[0]) + "</span><b>" +
+        x[1] + "</b></div>";
+    }).join("");
+  }
 
   function renderColFilter(cols) {
     colCache = cols || [];
@@ -529,12 +574,12 @@
     drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove("over"); });
   });
   drop.addEventListener("drop", function (e) {
-    var f = e.dataTransfer.files && e.dataTransfer.files[0];
-    if (f) upload(f);
+    var fs = e.dataTransfer && e.dataTransfer.files;
+    if (fs && fs.length) { uploadAll(fs); }
   });
   drop.addEventListener("click", function () { fileInput.click(); });
   fileInput.addEventListener("change", function () {
-    if (fileInput.files && fileInput.files[0]) upload(fileInput.files[0]);
+    if (fileInput.files && fileInput.files.length) { uploadAll(fileInput.files); }
     fileInput.value = "";
   });
 
@@ -571,6 +616,7 @@
 
   // ---- 确认模态框：类型检测后、开跑前的一次确认 ----
   function showConfirm(det, file) {
+    state.batchPending = null;
     if (det && det.suggest) { setTpl(det.suggest); }  // 框内框外两组卡同步高亮
     var box = document.getElementById("confirmBox");
     document.getElementById("cfTitle").textContent =
@@ -600,6 +646,142 @@
       });
   }
 
+  // ---- 批量上传：多 PDF 逐篇本地检测 → 一次确认 → 排队串行分析 ----
+  function uploadAll(files) {
+    var pdfs = Array.prototype.filter.call(files, function (f) {
+      return /\.pdf$/i.test(f.name);
+    });
+    if (!pdfs.length) {
+      showTask({name: "非 PDF 文件", status: "error", error: "只接受 PDF 文件"});
+      return;
+    }
+    if (pdfs.length === 1) { upload(pdfs[0]); return; }
+    state.batchPending = [];
+    showTask({name: pdfs.length + " 篇论文", status: "running",
+              stage: "批量检测中…", detail: ""});
+    var idx = 0, errs = [];
+    (function next() {
+      if (idx >= pdfs.length) {
+        if (!state.batchPending.length) {
+          showTask({name: "批量上传", status: "error",
+                    error: "全部检测失败：" + errs.join("；")});
+          return;
+        }
+        showBatchConfirm(state.batchPending, errs);
+        return;
+      }
+      var f = pdfs[idx++];
+      fetch("/api/upload?name=" + encodeURIComponent(f.name),
+            {method: "POST", body: f})
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (d.ok) {
+            state.batchPending.push({file: d.file, name: f.name,
+                                     tpl: (d.detect || {}).suggest || "deep"});
+          } else {
+            errs.push(f.name + "（" + (d.error || "检测失败") + "）");
+          }
+          showTask({name: pdfs.length + " 篇论文", status: "running",
+                    stage: "批量检测中…",
+                    detail: "已完成 " + idx + "/" + pdfs.length});
+          next();
+        })
+        .catch(function () {
+          errs.push(f.name + "（连不上服务）");
+          next();
+        });
+    })();
+  }
+
+  function showBatchConfirm(pending, errs) {
+    state.batchPending = pending;
+    var box = document.getElementById("confirmBox");
+    document.getElementById("cfTitle").textContent =
+      "确认批量分析 " + pending.length + " 篇";
+    var h = pending.map(function (p) {
+      return "<div style=\"margin:2px 0\">· " + esc(p.name) +
+        " <span style=\"color:#2E6F8E\">[" + esc(p.tpl) + "]</span></div>";
+    }).join("");
+    if (errs && errs.length) {
+      h += "<div style=\"color:#B4483C;font-size:12px;margin-top:6px\">跳过：" +
+        esc(errs.join("；")) + "</div>";
+    }
+    document.getElementById("cfList").innerHTML = h;
+    document.getElementById("cfReason").textContent =
+      "默认每篇按检测建议的模板分析；点下方模板可强制统一。";
+    var opts = box.querySelector(".opt-group");
+    var optsAll = box.querySelectorAll(".opt-group .opt");
+    optsAll.forEach(function (x) { x.classList.remove("on"); });
+    var auto = document.getElementById("cfAuto");
+    if (!auto) {
+      auto = document.createElement("div");
+      auto.className = "opt";
+      auto.id = "cfAuto";
+      auto.setAttribute("data-tpl", "auto");
+      auto.innerHTML = "auto · 按检测<small>每篇用各自检测出的模板</small>";
+      opts.insertBefore(auto, opts.firstChild);
+      auto.addEventListener("click", function () {
+        box.querySelectorAll(".opt-group .opt").forEach(function (x) {
+          x.classList.remove("on");
+        });
+        auto.classList.add("on");
+        state.tpl = "auto";
+      });
+    }
+    auto.classList.add("on");
+    state.tpl = "auto";
+    box.style.display = "flex";
+  }
+
+  function confirmBatchStart() {
+    var pending = state.batchPending || [];
+    state.batchPending = [];
+    document.getElementById("confirmBox").style.display = "none";
+    (function startNext(i) {
+      if (i >= pending.length) {
+        showTask({name: "批量完成（" + pending.length + " 篇）", status: "done",
+                  stage: "完成", detail: "报告库已刷新"});
+        loadReports();
+        return;
+      }
+      var p = pending[i];
+      showTask({name: "(" + (i + 1) + "/" + pending.length + ") " + p.name,
+                status: "running", stage: "开始分析", detail: ""});
+      var tpl = (state.tpl === "auto") ? p.tpl : state.tpl;
+      fetch("/api/start?file=" + encodeURIComponent(p.file) +
+            "&template=" + tpl + "&lang=" + state.lang, {method: "POST"})
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (!d.ok) {
+            showTask({name: p.name, status: "error", error: d.error});
+            startNext(i + 1);
+            return;
+          }
+          pollBatch(d.task.id, function () { startNext(i + 1); });
+        })
+        .catch(function () { startNext(i + 1); });
+    })(0);
+  }
+
+  function pollBatch(id, onDone) {
+    if (state.timer) { clearInterval(state.timer); }
+    state.timer = setInterval(function () {
+      fetch("/api/task/" + id)
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data.ok) { showTask(data.task); }
+          if (data.task && (data.task.status === "done"
+                            || data.task.status === "error")) {
+            clearInterval(state.timer);
+            state.timer = null;
+            loadReports();
+            if (onDone) { onDone(data.task); }
+          }
+        })
+        .catch(function () { });
+    }, 1500);
+  }
+
   function hideTask() {
     taskBox.classList.remove("show");
   }
@@ -608,6 +790,7 @@
     document.getElementById("confirmBox").style.display = "none";
     state.pendingFile = null;
     state.file = null;
+    state.batchPending = null;
     hideTask();
   }
 
@@ -687,6 +870,7 @@
       .then(function (data) {
         if (!data.ok) { return; }
         renderColFilter(data.collections || []);
+        renderStats(data.stats || {});
         renderReports(data);
       })
       .catch(function () {});
@@ -715,6 +899,10 @@
       var tpl = r.template || "report";
       h.push('<div class="rpt-wrap"><a class="rpt" data-tpl="' + esc(tpl) +
         '" href="/report?file=' + encodeURIComponent(r.file) + '">' +
+        '<div class="rpt-cover"><img loading="lazy" src="/pageimg/' +
+        encodeURIComponent(String(r.file).replace(/\.json$/, "")) +
+        '/1.png" alt="" onerror="this.parentElement.style.display=\'none\'">' +
+        "</div>" +
         '<div class="row1"><span class="badge">' + esc(tpl) + "</span>" +
         (r.collection ? '<span class="badge" style="background:rgba(46,111,142,.12);' +
           'color:#2E6F8E">' + esc(r.collection) + "</span>" : "") +
@@ -795,7 +983,9 @@
               max-width:520px; width:92%; box-shadow:0 18px 60px rgba(0,0,0,.28);">
     <h3 style="margin:0 0 6px; font-size:17px;">确认开始分析</h3>
     <div id="cfTitle" style="color:#56616F; font-size:13.5px; margin-bottom:6px;"></div>
-    <div id="cfReason" style="color:#2E6F8E; font-size:13px; margin-bottom:14px;"></div>
+    <div id="cfReason" style="color:#2E6F8E; font-size:13px; margin-bottom:10px;"></div>
+    <div id="cfList" style="max-height:170px; overflow:auto; font-size:13px;
+         color:#56616F; margin-bottom:10px"></div>
     <div class="opt-label">分析模板（已按检测结果选中，可改）</div>
     <div class="opts" style="margin-bottom:12px;">
       <div class="opt" data-tpl="survey">survey · 综述<small>分类框架与开放问题</small></div>
@@ -816,7 +1006,10 @@
   </div>
 </div>
 <script>
-  document.getElementById("cfGo").addEventListener("click", confirmStart);
+  document.getElementById("cfGo").addEventListener("click", function () {
+    if (state.batchPending && state.batchPending.length) { confirmBatchStart(); }
+    else { confirmStart(); }
+  });
   document.getElementById("cfCancel").addEventListener("click", confirmCancel);
 
   // ---- 诊断与修复 ----
