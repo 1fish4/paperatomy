@@ -599,11 +599,16 @@ class _State:
                 return
             blocks = {b.get("block_id"): str(b.get("content") or "")
                       for b in (data.get("findings") or [])}
+            struct_ids = [b.get("block_id") for b in
+                          (data.get("findings") or []) if b.get("block_id")]
+            struct_line = " → ".join(str(x) for x in struct_ids)
             material = (
-                "标题：%s\n一句话：%s\n问题：%s\n背景与已有做法：%s\n"
+                "标题：%s\n一句话：%s\n全文结构（板块顺序）：%s\n"
+                "问题：%s\n背景与已有做法：%s\n"
                 "已有做法的不足：%s\n方法概述：%s\n方法步骤：%s\n"
                 "与已有方法的对比：%s\n结果：%s\n局限：%s"
                 % (data.get("paper_title"), blocks.get("tl_dr", "")[:200],
+                   struct_line,
                    blocks.get("problem", "")[:360],
                    blocks.get("background", "")[:280],
                    blocks.get("gap", "")[:280],
@@ -615,7 +620,11 @@ class _State:
             prompt = (
                 "根据这篇论文的核心内容，设计一个『动态讲解』分镜脚本："
                 "像动画演示一样把论文讲透。画面要求："
-                "①开头 1~2 镜把问题讲透——先展示现状的混乱或浪费（tokens），"
+                "①第一镜必须是 mindmap：以研究主题为中心，"
+                "按『全文结构（板块顺序）』展开分支——每个分支是一篇论文的一个部分"
+                "（如研究问题/方法模块/实验/结论），节点写该部分的关键词；"
+                "这一镜是全文导图，让观众先看到整篇论文的骨架和研究问题所在。"
+                "②接着 1~2 镜把问题讲透——展示现状的混乱或浪费（tokens），"
                 "再展示关键矛盾或约束冲突（tokens/bars）；"
                 "②中间 1~2 镜讲已有方法是怎么做的、哪里不够好"
                 "（优先用 compare：左列=已有方法要点，右列=本文对应改进）；"
@@ -629,7 +638,9 @@ class _State:
                 "// flow: 流程逐步点亮，steps:[3~5步短句]"
                 "// bars: 柱状生长对比，items:[{label,value,tag(before|after|none)}] 2~4项, unit:数字单位"
                 "// line: 趋势折线，x:[3~10个标签], y:[对应数值], unit:数字单位"
-                '// compare: 左右对比，left:{title,items:[2~3条]}, right:{title,items:[2~3条]}'
+                "// compare: 左右对比，left:{title,items:[2~3条]}, right:{title,items:[2~3条]}"
+                "// mindmap: 全文导图，center:研究主题(16字内), "
+                "branches:[{label:分支名(8字内),nodes:[2~4个关键词]}] 2~5个分支"
                 "}, …] 。"
                 "旁白是整个讲解的灵魂，必须像科普讲解员对着一屋子人讲话："
                 "①用短句，一句一个意思，禁止一句套一句的学术长句；"
@@ -706,6 +717,20 @@ class _State:
                     if len(its) >= 2:
                         nv.update({"type": "bars", "items": its,
                                    "unit": str(v.get("unit") or "")[:12]})
+                elif t == "mindmap" and isinstance(v.get("branches"), list):
+                    brs = []
+                    for b in v["branches"][:5]:
+                        if isinstance(b, dict):
+                            nodes = [str(x)[:14] for x in
+                                     (b.get("nodes") or [])[:4]
+                                     if str(x).strip()]
+                            if nodes:
+                                brs.append({"label": str(b.get("label"))[:8],
+                                            "nodes": nodes})
+                    if len(brs) >= 2:
+                        nv.update({"type": "mindmap",
+                                   "center": str(v.get("center"))[:16],
+                                   "branches": brs})
                 elif t == "compare" and isinstance(v.get("left"), dict) \
                         and isinstance(v.get("right"), dict):
                     lv, rv = v["left"], v["right"]

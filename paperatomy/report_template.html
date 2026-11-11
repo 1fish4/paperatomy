@@ -629,6 +629,12 @@
     display: none; flex-direction: column;
   }
   .side-panel.open { display: flex; }
+  .side-panel.wide { width: min(88vw, 1120px); }
+  .side-panel.wide .dm-stage { padding: 18px 14px; }
+  .side-panel.wide .dm-narr { font-size: 16px; }
+  .side-panel.wide { width: min(88vw, 1120px); }
+  .side-panel.wide .dm-stage { padding: 18px 14px; }
+  .side-panel.wide .dm-narr { font-size: 16px; }
   .side-panel .sp-head {
     display: flex; align-items: center; justify-content: space-between;
     padding: 10px 16px; border-bottom: 1px solid var(--line);
@@ -942,6 +948,25 @@
   .dm-lb { font-size: 11px; fill: #2C2C2A; animation: dmFade .4s ease backwards; }
   .dm-val { font-size: 11px; fill: #2E6F8E; font-weight: 600;
     animation: dmFade .4s ease .3s backwards; }
+  .dm-mm-c { fill: #2E6F8E; }
+  .dm-mm-ct { fill: #fff; font-size: 12px; font-weight: 600;
+    animation: dmPop .5s ease backwards; }
+  .dm-mm-line { stroke: #B9C6CF; fill: none; stroke-width: 1.5;
+    stroke-dasharray: 220; stroke-dashoffset: 220;
+    animation: dmDraw 1s ease forwards; }
+  .dm-mm-b { fill: #fff; stroke: #E7E2D8; animation: dmFade .5s ease backwards; }
+  .dm-mm-bt { font-size: 12.5px; font-weight: 700; }
+  .dm-nd { font-size: 12px; fill: #24303B;
+    animation: dmFade .35s ease backwards; }
+  .dm-mm-c { fill: #2E6F8E; }
+  .dm-mm-ct { fill: #fff; font-size: 12px; font-weight: 600;
+    animation: dmPop .5s ease backwards; }
+  .dm-mm-line { stroke: #B9C6CF; fill: none; stroke-width: 1.5;
+    stroke-dasharray: 220; stroke-dashoffset: 220;
+    animation: dmDraw 1s ease forwards; }
+  .dm-mm-b { fill: #fff; stroke: #E7E2D8; animation: dmFade .5s ease backwards; }
+  .dm-mm-bt { font-size: 11.5px; font-weight: 600; fill: #2C2C2A;
+    animation: dmFade .4s ease backwards; }
   .dm-cmp-l { fill: #FBEDEA; stroke: #C0483B; stroke-width: 1.2; }
   .dm-cmp-r { fill: #E8F2EF; stroke: #3E8E7E; stroke-width: 1.2; }
   .dm-tt { font-size: 12px; font-weight: 600; fill: #2C2C2A;
@@ -1510,6 +1535,82 @@
         }
       });
       return "<svg viewBox=\"0 0 460 110\" class=\"dm-svg\">" + h2 + "</svg>";
+    }
+    if (v.type === "mindmap") {
+      var center = v.center || "研究主题";
+      var branches = v.branches || [];
+      var nb = branches.length;
+      var bw3 = (460 - 24 - (nb - 1) * 10) / nb;
+      var o5 = "";
+      o5 += "<rect x=\"160\" y=\"14\" width=\"140\" height=\"46\" rx=\"14\" " +
+        "class=\"dm-mm-c\"/>";
+      o5 += "<text x=\"230\" y=\"34\" text-anchor=\"middle\" class=\"dm-mm-ct\">" +
+        esc(center.slice(0, 8)) + "</text>";
+      if (center.length > 8) {
+        o5 += "<text x=\"230\" y=\"50\" text-anchor=\"middle\" class=\"dm-mm-ct\">" +
+          esc(center.slice(8, 16)) + "</text>";
+      }
+      branches.forEach(function (b, i) {
+        var x = 12 + i * (bw3 + 10);
+        var cx = (x + bw3 / 2).toFixed(1);
+        o5 += "<path stroke=\"#8FA5B1\" class=\"dm-mm-line\" style=\"animation-delay:" +
+          (0.4 + i * 0.15) + "s\" d=\"M230 62 C 230 80, " + cx +
+          " 74, " + cx + " 92\"/>";
+        var tints = [["#FBEDEA", "#C0483B"], ["#E8F2EF", "#2E6F8E"],
+          ["#FBF1E6", "#C98A2D"], ["#EAF0EA", "#4E9A72"],
+          ["#F0EDE5", "#5F5E5A"]];
+        var tint = tints[i % tints.length];
+        o5 += "<rect x=\"" + x.toFixed(1) + "\" y=\"92\" width=\"" +
+          bw3.toFixed(1) + "\" height=\"118\" rx=\"10\" fill=\"" + tint[0] +
+          "\" stroke=\"" + tint[1] + "\" stroke-width=\"1.3\"/>";
+        o5 += "<text x=\"" + cx + "\" y=\"112\" text-anchor=\"middle\" " +
+          "class=\"dm-mm-bt\" fill=\"" + tint[1] + "\" style=\"animation-delay:" +
+          (0.2 + i * 0.1) + "s\">" + esc((b.label || "").slice(0, 8)) + "</text>";
+        (b.nodes || []).slice(0, 4).forEach(function (nd, ni) {
+          o5 += "<text x=\"" + (x + 8).toFixed(1) + "\" y=\"" + (136 + ni * 20) +
+            "\" class=\"dm-nd\" style=\"animation-delay:" +
+            (0.25 + i * 0.1 + ni * 0.08) + "s\">" +
+            esc(String(nd).slice(0, Math.max(4, Math.floor(bw3 / 10.5)))) +
+            "</text>";
+        });
+      });
+      return "<svg viewBox=\"0 0 460 226\" class=\"dm-svg\">" + o5 + "</svg>";
+    }
+    if (v.type === "mindmap") {
+      var center = v.center || "研究主题";
+      var branches = v.branches || [];
+      var nb = branches.length;
+      var bw3 = (460 - 24 - (nb - 1) * 10) / nb;
+      var o5 = "";
+      o5 += "<rect x=\"160\" y=\"14\" width=\"140\" height=\"46\" rx=\"14\" " +
+        "class=\"dm-mm-c\"/>";
+      o5 += "<text x=\"230\" y=\"34\" text-anchor=\"middle\" class=\"dm-mm-ct\">" +
+        esc(center.slice(0, 8)) + "</text>";
+      if (center.length > 8) {
+        o5 += "<text x=\"230\" y=\"50\" text-anchor=\"middle\" class=\"dm-mm-ct\">" +
+          esc(center.slice(8, 16)) + "</text>";
+      }
+      branches.forEach(function (b, i) {
+        var x = 12 + i * (bw3 + 10);
+        var cx = (x + bw3 / 2).toFixed(1);
+        o5 += "<path stroke=\"#8FA5B1\" class=\"dm-mm-line\" style=\"animation-delay:" +
+          (0.4 + i * 0.15) + "s\" d=\"M230 62 C 230 80, " + cx +
+          " 74, " + cx + " 92\"/>";
+        o5 += "<rect x=\"" + x.toFixed(1) + "\" y=\"92\" width=\"" +
+          bw3.toFixed(1) + "\" height=\"118\" rx=\"10\" class=\"dm-mm-b\" " +
+          "style=\"animation-delay:" + (0.5 + i * 0.15) + "s\"/>";
+        o5 += "<text x=\"" + cx + "\" y=\"112\" text-anchor=\"middle\" " +
+          "class=\"dm-mm-bt\" style=\"animation-delay:" + (0.55 + i * 0.15) +
+          "s\">" + esc((b.label || "").slice(0, 8)) + "</text>";
+        (b.nodes || []).slice(0, 4).forEach(function (nd, ni) {
+          o5 += "<text x=\"" + (x + 7).toFixed(1) + "\" y=\"" + (134 + ni * 19) +
+            "\" class=\"dm-lb\" style=\"animation-delay:" +
+            (0.7 + i * 0.15 + ni * 0.08) + "s\">" +
+            esc(String(nd).slice(0, Math.max(4, Math.floor(bw3 / 10.5)))) +
+            "</text>";
+        });
+      });
+      return "<svg viewBox=\"0 0 460 226\" class=\"dm-svg\">" + o5 + "</svg>";
     }
     if (v.type === "compare") {
       var Lc = v.left || {}, Rc = v.right || {};
@@ -2781,6 +2882,8 @@
       }
       function closePanel() {
         panel.classList.remove("open");
+        panel.classList.remove("wide");
+        panel.classList.remove("wide");
         document.body.classList.remove("with-side");
         document.getElementById("btnOrig").classList.remove("on");
         document.getElementById("btnDemo").classList.remove("on");
@@ -2790,6 +2893,8 @@
       }
       function toggle(which) {  // orig | demo
         if (which !== "orig" && which !== "demo") { return; }
+        panel.classList.toggle("wide", which === "demo");
+        panel.classList.toggle("wide", which === "demo");
         if (cur === which) { closePanel(); return; }
         cur = which;
         panel.classList.add("open");
