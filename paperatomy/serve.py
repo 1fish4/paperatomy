@@ -602,21 +602,47 @@ class _State:
             struct_ids = [b.get("block_id") for b in
                           (data.get("findings") or []) if b.get("block_id")]
             struct_line = " → ".join(str(x) for x in struct_ids)
+            chain_lines = []
+            for n in ((data.get("chain") or {}).get("nodes") or [])[:10]:
+                if not isinstance(n, dict):
+                    continue
+                ch = n.get("change") or {}
+                bef = ch.get("before") if isinstance(ch, dict) else None
+                aft = ch.get("after") if isinstance(ch, dict) else None
+                bef = bef.get("label") if isinstance(bef, dict) else bef
+                aft = aft.get("label") if isinstance(aft, dict) else aft
+                mtc = n.get("metric") or {}
+                parts = [str(n.get("label") or n.get("title") or "")[:20]]
+                if bef:
+                    parts.append("改动前:%s" % str(bef)[:18])
+                if aft:
+                    parts.append("改动后:%s" % str(aft)[:18])
+                if mtc.get("value") is not None:
+                    parts.append("指标:%s%s" % (mtc.get("value"),
+                                               mtc.get("unit") or ""))
+                ln = " ".join(x for x in parts if x)
+                if ln.strip():
+                    chain_lines.append(ln[:110])
             material = (
                 "标题：%s\n一句话：%s\n全文结构（板块顺序）：%s\n"
                 "问题：%s\n背景与已有做法：%s\n"
                 "已有做法的不足：%s\n方法概述：%s\n方法步骤：%s\n"
-                "与已有方法的对比：%s\n结果：%s\n局限：%s"
+                "方法细节/机制：%s\n"
+                "与已有方法的对比：%s\n结果：%s\n局限：%s\n"
+                "论证链：%s"
                 % (data.get("paper_title"), blocks.get("tl_dr", "")[:200],
                    struct_line,
-                   blocks.get("problem", "")[:360],
-                   blocks.get("background", "")[:280],
-                   blocks.get("gap", "")[:280],
-                   blocks.get("method_overview", "")[:300],
-                   blocks.get("method_steps", "")[:300],
-                   blocks.get("comparison", "")[:280],
-                   blocks.get("result", "")[:300],
-                   blocks.get("limits", "")[:200]))
+                   blocks.get("problem", "")[:420],
+                   blocks.get("background", "")[:300],
+                   blocks.get("gap", "")[:300],
+                   blocks.get("method_overview", "")[:340],
+                   blocks.get("method_steps", "")[:420],
+                   (blocks.get("mechanism")
+                    or blocks.get("method_details") or "")[:360],
+                   blocks.get("comparison", "")[:300],
+                   blocks.get("result", "")[:340],
+                   blocks.get("limits", "")[:200],
+                   "；".join(chain_lines)))
             prompt = (
                 "根据这篇论文的核心内容，设计一个『动态讲解』分镜脚本："
                 "像动画演示一样把论文讲透。画面要求："
@@ -632,7 +658,9 @@ class _State:
                 "④最后 1~2 镜展示效果（bars/line，用真实数字）。"
                 "输出 JSON：{\"title\": \"讲解标题\", \"scenes\": ["
                 '{"narration": "本镜旁白（80字内，口语化，讲清楚这一镜在说什么）", '
-                '"viz": {"type": "tokens|flow|bars|line|compare 之一", '
+                '"viz": {"type": '
+                '"tokens|flow|bars|line|compare|mapping|transform|pipeline '
+                '之一", '
                 '"caption": "画面标题（12字内）", '
                 "// tokens: 元素分组堆放，groups:[{label,color(red|teal|amber|gray),count}] 2~5组"
                 "// flow: 流程逐步点亮，steps:[3~5步短句]"
@@ -641,7 +669,27 @@ class _State:
                 "// compare: 左右对比，left:{title,items:[2~3条]}, right:{title,items:[2~3条]}"
                 "// mindmap: 全文导图，center:研究主题(16字内), "
                 "branches:[{label:分支名(8字内),nodes:[2~4个关键词]}] 2~5个分支"
+                "// mapping: 映射连线，left:[左列实体3~5个(10字内)], "
+                "right:[右列实体3~5个], links:[[左序号,右序号]]3~8条 —— "
+                "演谁被映射/匹配到谁（调度、检索、匹配类论文的核心画面）"
+                "// transform: 结构替换，before:{blocks:[2~3个符号串(12字内)]}, "
+                "after:{blocks:[2~3个]}, note:一句话 —— 演什么被换成了什么"
+                "// pipeline: 端到端流水线，stages:[{name(6字内),note(14字内)}] "
+                "3~5站 —— 数据从左流到右逐站加工"
                 "}, …] 。"
+                "所有实体名/符号串必须逐字来自材料，禁止编造——程序会回查，"
+                "查不到的元素直接丢弃、整镜可能作废。\n"
+                "重点镜用 beats 分拍（2~4 拍），一镜讲一个『过程』：\n"
+                'beats: [{"say": "本拍旁白(45字内)", '
+                '"act": {"kind": "reveal|highlight|move", '
+                '"target": 组或元素序号(0起)}} …]\n'
+                "reveal=第 target 个元素（组/步骤/分支/柱/连线）这拍才出现；"
+                "highlight=高亮第 target 个；"
+                "move=仅 tokens，{\"from\":组序号,\"to\":组序号,"
+                "\"n\":个数} 演元素从一组挪到另一组。\n"
+                "问题镜、方法过程镜、效果镜至少各有一镜带 beats——"
+                "比如方法镜：第1拍出现第1步，第2拍出现第2步，第3拍高亮关键一步；"
+                "没有分拍的镜保留 narration+viz 即可。'"
                 "旁白是整个讲解的灵魂，必须像科普讲解员对着一屋子人讲话："
                 "①用短句，一句一个意思，禁止一句套一句的学术长句；"
                 "②禁止堆术语——必须出现的方法名/指标名可以保留，"
@@ -661,12 +709,39 @@ class _State:
                 "（最多 14 镜），内容简单就少几镜；不要为凑数拆碎，"
                 "也不要压掉关键步骤。"
                 "数字必须来自摘要材料，不要编造。\n\n" + material)
+            blob = json.dumps({k: v for k, v in data.items()
+                               if k != "demo_script"},
+                              ensure_ascii=False).lower()
             from .llm import chat, load_config
-            raw = chat([{"role": "user", "content": prompt}], load_config(),
-                       json_mode=True)
-            m = re.search(r"\{.*\}", raw, re.S)
-            script = json.loads(m.group()) if m else {}
-            script = self._norm_demo(script)
+            cfg = load_config()
+
+            def _gen(extra=""):
+                raw = chat([{"role": "user", "content": prompt + extra}],
+                           cfg, json_mode=True)
+                m = re.search(r"\{.*\}", raw, re.S)
+                return self._norm_demo(
+                    json.loads(m.group()) if m else {}, blob)
+
+            script = _gen()
+            scs = script.get("scenes") or []
+            good = sum(1 for s2 in scs
+                       if (s2.get("viz") or {}).get("type"))
+            if len(scs) < 4 or good < max(3, (len(scs) + 1) // 2):
+                _LOG.info("demo retry: %s (%d/%d scenes with viz)",
+                          file, good, len(scs))
+                try:
+                    script2 = _gen(
+                        "\n\n注意：上一版 %d 镜里只有 %d 镜画面合规。"
+                        "重写完整脚本：实体名/符号必须逐字来自材料"
+                        "（程序会逐个回查），beats 的 act 只能用"
+                        " reveal|highlight|move 三种且字段名一字不差。"
+                        % (len(scs), good))
+                    g2 = sum(1 for s2 in (script2.get("scenes") or [])
+                             if (s2.get("viz") or {}).get("type"))
+                    if g2 > good:
+                        script = script2
+                except Exception:  # noqa: BLE001
+                    pass
             if not script.get("scenes"):
                 raise ValueError("分镜脚本解析失败")
             data["demo_script"] = script
@@ -681,13 +756,59 @@ class _State:
             _LOG.exception("demo failed: %s", file)
 
     @staticmethod
-    def _norm_demo(script: dict) -> dict:
-        """分镜规范化：只留四种画面，坏场景降级为纯旁白。"""
+    def _norm_demo(script, blob=""):
+        """分镜规范化：9 种画面原语 + 镜内节拍；实体逐个回查材料，
+        查不到就丢弃；坏镜降级为纯旁白，播放器永不空屏。"""
+
+        def _in(x):
+            return (not blob) or (str(x).lower() in blob)
+
+        def _acts(raw_beats):
+            bts = []
+            for b in (raw_beats or [])[:5]:
+                if not isinstance(b, dict):
+                    continue
+                say = str(b.get("say") or "").strip()[:120]
+                if not say:
+                    continue
+                a = b.get("act") or {}
+                kind = str(a.get("kind") or "")
+                na = {}
+                if kind in ("reveal", "highlight"):
+                    try:
+                        tg = max(0, min(9, int(a.get("target") or 0)))
+                    except (TypeError, ValueError):
+                        tg = 0
+                    na = {"kind": kind, "target": tg}
+                elif kind == "move":
+                    try:
+                        f, to = int(a.get("from")), int(a.get("to"))
+                        n = int(a.get("n") or 3)
+                    except (TypeError, ValueError):
+                        continue
+                    if f == to or not (0 <= f <= 4) or not (0 <= to <= 4):
+                        continue
+                    na = {"kind": "move", "from": f, "to": to,
+                          "n": max(1, min(9, n))}
+                elif kind:
+                    continue
+                nb = {"say": say}
+                if na:
+                    nb["act"] = na
+                bts.append(nb)
+            return bts
+
         out = []
         for sc in (script.get("scenes") or [])[:14]:
             if not isinstance(sc, dict):
                 continue
-            narr = str(sc.get("narration") or "").strip()[:160]
+            bts = _acts(sc.get("beats")) \
+                if isinstance(sc.get("beats"), list) else []
+            narr = ""
+            if bts:
+                narr = " ".join(b["say"] for b in bts)[:160]
+            if not narr:
+                narr = str(sc.get("narration") or "").strip()[:160]
             if not narr:
                 continue
             v = sc.get("viz") or {}
@@ -743,7 +864,8 @@ class _State:
                                          "items": [str(x)[:18] for x in
                                                    (rv.get("items") or [])[:3]
                                                    if str(x).strip()]}})
-                    if len(nv["left"]["items"]) < 1 or \
+                    if len(nv["left"][
+                            "items"]) < 1 or \
                             len(nv["right"]["items"]) < 1:
                         nv = {"caption": nv["caption"]}
                 elif t == "line" and isinstance(v.get("x"), list) \
@@ -753,9 +875,50 @@ class _State:
                     if len(xs) >= 3 and len(ys) == len(xs):
                         nv.update({"type": "line", "x": xs, "y": ys,
                                    "unit": str(v.get("unit") or "")[:12]})
+                elif t == "mapping" and isinstance(v.get("left"), list) \
+                        and isinstance(v.get("right"), list):
+                    ls = [str(x)[:10] for x in v["left"][:5]
+                          if str(x).strip() and _in(x)]
+                    rs = [str(x)[:10] for x in v["right"][:5]
+                          if str(x).strip() and _in(x)]
+                    lks = []
+                    for lk in (v.get("links") or [])[:8]:
+                        if (isinstance(lk, (list, tuple)) and len(lk) == 2
+                                and all(isinstance(x, int) for x in lk)
+                                and 0 <= lk[0] < len(ls)
+                                and 0 <= lk[1] < len(rs)):
+                            lks.append([lk[0], lk[1]])
+                    if len(ls) >= 2 and len(rs) >= 2 and len(lks) >= 1:
+                        nv.update({"type": "mapping", "left": ls,
+                                   "right": rs, "links": lks})
+                elif t == "transform" and isinstance(v.get("before"), dict) \
+                        and isinstance(v.get("after"), dict):
+                    bfr = [str(x)[:12] for x in
+                           (v["before"].get("blocks") or [])[:3]
+                           if str(x).strip() and _in(x)]
+                    aft = [str(x)[:12] for x in
+                           (v["after"].get("blocks") or [])[:3]
+                           if str(x).strip() and _in(x)]
+                    if len(bfr) >= 2 and len(aft) >= 2:
+                        nv.update({"type": "transform",
+                                   "before": {"blocks": bfr},
+                                   "after": {"blocks": aft},
+                                   "note": str(v.get("note") or "")[:20]})
+                elif t == "pipeline" and isinstance(v.get("stages"), list):
+                    sts = [{"name": str(x.get("name"))[:8],
+                            "note": str(x.get("note") or "")[:16]}
+                           for x in v["stages"][:5]
+                           if isinstance(x, dict)
+                           and str(x.get("name") or "").strip()
+                           and _in(x.get("name"))]
+                    if len(sts) >= 3:
+                        nv.update({"type": "pipeline", "stages": sts})
             except Exception:  # noqa: BLE001 —— 数据坏就丢弃画面
                 pass
-            out.append({"narration": narr, "viz": nv})
+            sc_out = {"narration": narr, "viz": nv}
+            if bts:
+                sc_out["beats"] = bts
+            out.append(sc_out)
         return {"title": str(script.get("title") or "动态讲解")[:30],
                 "scenes": out}
 
