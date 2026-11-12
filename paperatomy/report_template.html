@@ -1236,7 +1236,8 @@
 
   // ---- 图进模块（v0.11.0）：/api/modfigs 分配 → 模块内懒加载 ----
   var TD = [];
-  var FIG = {file: encodeURIComponent(__PA_SERVE__.report), timer: null,
+  var FIG = {file: (window.__PA_SERVE__
+    ? encodeURIComponent(window.__PA_SERVE__.report) : ""), timer: null,
              tdTimer: null, tdModules: {}};
 
 // ---- 数据动图：表格数据 → 动画条形图 ----
@@ -2006,7 +2007,7 @@
       .catch(function (e) { body.textContent = "加载失败：" + e; });
   }
 
-  initModFigs();
+  if (window.__PA_SERVE__) { initModFigs(); }
 
   document.getElementById("stat").textContent =
     (D.blocks || 0) + " 个板块 · 全部内容均来自原文抽取";
@@ -3065,7 +3066,7 @@
     document.body.appendChild(backTop);
 
     // 对照原文 / 图表速览：报告对应 PDF 存在时才提供
-    var PDF = window.__PA_SERVE__.pdf;
+    var PDF = window.__PA_SERVE__ ? window.__PA_SERVE__.pdf : null;
     if (PDF) {
       var btns = document.createElement("div");
       btns.className = "side-btns";

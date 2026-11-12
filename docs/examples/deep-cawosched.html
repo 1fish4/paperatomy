@@ -1,0 +1,3186 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>paperatomy · 论文解剖</title>
+<style>
+  :root {
+    --bg:       #FAF8F4;
+    --card:     #FFFFFF;
+    --ink:      #1B2430;
+    --ink2:     #56616F;
+    --ink3:     #8A94A2;
+    --line:     #E7E2D8;
+    --line2:    #F1EDE5;
+    --accent:   #2E6F8E;
+    --accent2:  #4A9BBF;
+    --soft:     #E7F1F6;
+    --warn:     #B8703F;
+    --warnSoft: #FBF1E6;
+    --ok:       #4E9A72;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+            "Hiragino Sans GB", "Microsoft YaHei", "Source Han Sans SC", sans-serif;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Consolas,
+            "Liberation Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: var(--sans); font-size: 15px; line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 32px 96px; }
+
+  header.top { padding: 56px 0 28px; border-bottom: 1px solid var(--line); }
+  .kicker {
+    font-family: var(--mono); font-size: 12px; letter-spacing: .12em;
+    color: var(--accent); text-transform: uppercase; margin-bottom: 14px;
+  }
+  h1 {
+    margin: 0 0 14px; font-size: 30px; line-height: 1.3;
+    letter-spacing: -.015em; font-weight: 600; max-width: 40ch;
+  }
+  .meta { font-size: 13px; color: var(--ink3); display: flex; flex-wrap: wrap; gap: 6px 14px; }
+  .meta span { display: inline-flex; align-items: center; gap: 5px; }
+  .meta b { font-weight: 600; color: var(--ink2); }
+
+  nav.jump {
+    position: sticky; top: 0; z-index: 20;
+    background: rgba(250,248,244,.92); backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 0; margin-bottom: 34px;
+  }
+  .jump-links { display: flex; gap: 4px; overflow-x: auto; flex: 1; min-width: 0; }
+  nav.jump a {
+    font-size: 13px; color: var(--ink2); text-decoration: none;
+    padding: 5px 12px; border-radius: 7px; white-space: nowrap;
+    transition: background .15s, color .15s;
+  }
+  nav.jump a:hover { background: var(--line2); color: var(--ink); }
+  .jump-toggle {
+    flex: none; font-size: 12px; font-family: inherit;
+    color: var(--ink2); background: var(--card);
+    border: 1px solid var(--line); border-radius: 7px;
+    padding: 5px 12px; cursor: pointer;
+    transition: border-color .15s, color .15s;
+  }
+  .jump-toggle:hover { border-color: var(--accent2); color: var(--accent); }
+
+  .hero {
+    background: var(--card); border: 1px solid var(--line);
+    border-left: 4px solid var(--accent);
+    border-radius: 14px; padding: 30px 34px; margin-bottom: 42px;
+    box-shadow: 0 1px 2px rgba(27,36,48,.03), 0 8px 28px rgba(27,36,48,.045);
+  }
+  .hero .label {
+    font-size: 11.5px; font-weight: 700; letter-spacing: .1em;
+    color: var(--accent); text-transform: uppercase; margin-bottom: 12px;
+  }
+  .hero p { margin: 0; font-size: 20px; line-height: 1.72; letter-spacing: -.01em; }
+
+  section.group { margin-bottom: 52px; scroll-margin-top: 68px; }
+  .g-head {
+    display: flex; align-items: baseline; gap: 12px;
+    margin-bottom: 18px; padding-bottom: 10px; border-bottom: 1px solid var(--line);
+  }
+  .g-head h2 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -.01em; }
+  .g-head .count { font-size: 12px; color: var(--ink3); font-family: var(--mono); }
+
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 16px; align-items: start;
+  }
+
+  article.card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--gc, var(--line));
+    border-radius: 12px; padding: 0; overflow: hidden;
+    transition: border-color .18s, box-shadow .18s;
+  }
+  article.card:hover { border-color: #D8D1C3; box-shadow: 0 4px 18px rgba(27,36,48,.05); }
+  .c-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 16px 20px; cursor: pointer; user-select: none;
+  }
+  .c-head h3 { margin: 0; font-size: 14.5px; font-weight: 600; flex: 1; }
+  .badge {
+    font-size: 11px; padding: 1px 8px; border-radius: 999px;
+    border: 1px solid var(--line); color: var(--ink3); white-space: nowrap;
+  }
+  .badge.low { color: var(--warn); border-color: var(--warn); background: var(--warnSoft); }
+  .chev {
+    width: 16px; height: 16px; flex: none; color: var(--ink3);
+    transition: transform .2s;
+  }
+  article.open .chev { transform: rotate(90deg); }
+
+  .c-body { display: none; padding: 0 20px 18px; }
+  article.open .c-body { display: block; }
+  .c-body .txt { font-size: 14.5px; line-height: 1.8; color: var(--ink2); }
+  .c-body .txt p { margin: 0 0 12px; }
+  .c-body .txt p:last-child { margin-bottom: 0; }
+
+  .txt ul { margin: 0 0 12px; padding-left: 20px; }
+  .txt li { margin-bottom: 5px; }
+  .txt ul ul { margin-top: 5px; margin-bottom: 0; }
+  .txt li::marker { color: var(--accent2); }
+
+  .ev { margin-top: 16px; border-top: 1px dashed var(--line); padding-top: 14px; }
+  .ev-title {
+    font-size: 11.5px; font-weight: 700; letter-spacing: .08em;
+    color: var(--ink3); text-transform: uppercase; margin-bottom: 9px;
+  }
+  .ev-item { display: flex; gap: 10px; margin-bottom: 9px; font-size: 13px; line-height: 1.65; }
+  .ev-item:last-child { margin-bottom: 0; }
+  .ev-page {
+    flex: none; font-family: var(--mono); font-size: 11px;
+    color: var(--accent); background: var(--soft);
+    border-radius: 5px; padding: 1px 7px; height: fit-content;
+    min-width: 40px; text-align: center;
+  }
+  .ev-quote { color: var(--ink3); font-style: italic; }
+
+  .empty { color: var(--ink3); font-style: italic; }
+
+  /* ---------- 论证链（深色舞台） ---------- */
+  /* 深色内嵌舞台是刻意的：它把这块和正文区分开，读起来像「一段视频」而不是「又一段文字」 */
+  .chain-card {
+    position: relative;
+    border-radius: 16px;
+    padding: 24px 26px 18px;
+    background: radial-gradient(115% 130% at 12% 0%, #22303F 0%, #141D27 45%, #0E141B 100%);
+    box-shadow: 0 20px 50px rgba(16, 24, 34, .28);
+    overflow: hidden;
+    color: #E9EFF6;
+  }
+  .chain-card::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background-image:
+      linear-gradient(rgba(255,255,255,.028) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.028) 1px, transparent 1px);
+    background-size: 26px 26px;
+    -webkit-mask-image: radial-gradient(85% 80% at 50% 25%, #000 35%, transparent 100%);
+    mask-image: radial-gradient(85% 80% at 50% 25%, #000 35%, transparent 100%);
+  }
+  .chain-card > * { position: relative; }
+
+  .chain-thesis {
+    margin: 0 0 20px; padding-left: 13px;
+    border-left: 2px solid rgba(111,179,217,.6);
+    font-size: 15px; line-height: 1.72; color: #D8E4F0;
+  }
+  .chain-thesis b {
+    color: #8FD2F0; font-weight: 600; letter-spacing: .08em;
+    margin-right: 9px; font-size: 11.5px; text-transform: uppercase;
+  }
+
+  /* --- 链条横排 --- */
+  .chain-rail { display: flex; align-items: stretch; margin-bottom: 20px; }
+  .cc {
+    flex: 1 1 0; min-width: 92px; max-width: 172px; position: relative;
+    padding: 11px 10px 12px; border-radius: 11px;
+    border: 1px solid rgba(255,255,255,.13);
+    background: rgba(255,255,255,.035);
+    cursor: pointer; opacity: .4;
+    transition: opacity .45s ease, transform .45s cubic-bezier(.34,1.4,.64,1),
+                border-color .45s, background .45s, box-shadow .45s;
+  }
+  .cc:hover { opacity: .72; }
+  .cc.is-done {
+    opacity: .82; border-color: rgba(255,255,255,.2);
+    background: rgba(255,255,255,.06);
+  }
+  .cc.is-active {
+    opacity: 1; transform: translateY(-5px);
+    background: rgba(255,255,255,.1);
+    border-color: var(--c);
+    box-shadow: 0 0 0 1px var(--c), 0 16px 36px -10px var(--c);
+  }
+  .cc-t {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 10px; letter-spacing: .1em; color: #9FB0C2; margin-bottom: 5px;
+  }
+  .cc-t i { display: block; width: 6px; height: 6px; border-radius: 2px; background: var(--c); flex: none; }
+  .cc-l { font-size: 12.5px; line-height: 1.45; color: #C6D5E4; }
+  .cc.is-active .cc-l { color: #fff; font-weight: 600; }
+
+  .cl { flex: 0 0 26px; align-self: center; height: 2px; position: relative; }
+  .cl::before {
+    content: ""; position: absolute; inset: 0;
+    background: rgba(255,255,255,.13); transition: background .4s;
+  }
+  .cl.on::before { background: linear-gradient(90deg, rgba(143,210,240,.12), rgba(143,210,240,.6)); }
+  .cl::after {
+    content: ""; position: absolute; right: -1px; top: -3px;
+    border: 4px solid transparent; border-left-color: rgba(255,255,255,.13);
+    transition: border-left-color .4s;
+  }
+  .cl.on::after { border-left-color: rgba(143,210,240,.65); }
+  .cl i {
+    position: absolute; top: -2.5px; left: 0; width: 7px; height: 7px;
+    border-radius: 50%; background: #8FD2F0;
+    box-shadow: 0 0 10px 2px rgba(143,210,240,.8);
+    opacity: 0;
+  }
+  .cl.flow i { animation: chainTravel .95s cubic-bezier(.5,0,.5,1) infinite; }
+  @keyframes chainTravel {
+    0%   { left: 0; opacity: 0; }
+    25%  { opacity: 1; }
+    75%  { opacity: 1; }
+    100% { left: calc(100% - 7px); opacity: 0; }
+  }
+
+  /* --- 详情舞台 --- */
+  .chain-detail {
+    background: rgba(255,255,255,.045);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 12px; padding: 16px 18px;
+    /* 固定舞台高度：播放时页面不能上下跳，跳了就不像在放片子 */
+    min-height: 196px;
+    display: flex; flex-direction: column; justify-content: center;
+  }
+  .forks { margin: 10px 0 2px; }
+  .forks-cap {
+    font-size: 11.5px; letter-spacing: 1px; color: #9FB4C8;
+    margin-bottom: 6px;
+  }
+  .fork-card {
+    border: 1px dashed rgba(143,210,240,.35); border-radius: 8px;
+    padding: 7px 11px; margin-bottom: 6px; font-size: 12.5px;
+    background: rgba(143,210,240,.06);
+  }
+  .fork-card b { color: #BFE0F2; display: block; margin-bottom: 2px; }
+  .fork-card span { color: #C6D5E4; }
+  .cd-head { display: flex; align-items: center; gap: 9px; margin-bottom: 9px; }
+  .cd-badge {
+    font-size: 10.5px; letter-spacing: .08em;
+    padding: 2px 8px; border-radius: 5px;
+    background: rgba(255,255,255,.08); color: #BFD1E2;
+  }
+  .cd-title { font-size: 15px; font-weight: 600; color: #fff; letter-spacing: -.01em; }
+  .cd-text { margin: 0 0 12px; font-size: 13.5px; line-height: 1.72; color: #A9BACC; }
+  .cd-text:last-child { margin-bottom: 0; }
+
+  /* 改动前后对照 */
+  .delta { display: grid; grid-template-columns: 1fr 26px 1fr; gap: 10px; align-items: stretch; }
+  .delta-col {
+    background: rgba(255,255,255,.03);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 9px; padding: 10px 12px; min-width: 0;
+  }
+  .delta-col.before { border-color: rgba(232,131,107,.32); }
+  .delta-col.after  { border-color: rgba(126,208,168,.34); }
+  .delta-tag { font-size: 10px; letter-spacing: .1em; margin-bottom: 8px; }
+  .delta-col.before .delta-tag { color: #E8836B; }
+  .delta-col.after  .delta-tag { color: #7ED0A8; }
+  .delta-arrow { align-self: center; text-align: center; color: #8FD2F0; font-size: 17px; }
+
+  /* 图示：token 序列 */
+  .dg-cap { font-size: 10.5px; color: #7A8B9D; margin-bottom: 7px; }
+  .dg { display: flex; gap: 4px; flex-wrap: wrap; }
+  .dg-tk {
+    width: 15px; height: 15px; border-radius: 3px;
+    background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.1);
+  }
+  .run .dg-tk {
+    animation: tkLit .34s ease forwards;
+    animation-delay: calc(var(--d) * 1s);
+  }
+  @keyframes tkLit {
+    to { background: #6FB3D9; border-color: #8FD2F0; box-shadow: 0 0 7px rgba(143,210,240,.5); }
+  }
+  /* 改动前用暖色：新旧不只是「快慢」，还要一眼看出是两套东西 */
+  .run .delta-col.before .dg-tk {
+    animation-name: tkLitWarm;
+  }
+  @keyframes tkLitWarm {
+    to { background: #B8763F; border-color: #E8836B; box-shadow: 0 0 7px rgba(232,131,107,.45); }
+  }
+
+  /* 图示：指标条 */
+  .dg-bars { display: flex; flex-direction: column; gap: 7px; }
+  .dg-bar { display: flex; align-items: center; gap: 8px; font-size: 11px; color: #9FB0C2; }
+  .dg-bar > span:first-child { width: 56px; flex: none; text-align: right; }
+  .dg-track {
+    flex: 1; height: 9px; border-radius: 5px;
+    background: rgba(255,255,255,.07); overflow: hidden; min-width: 40px;
+  }
+  .dg-fill {
+    display: block; height: 100%; width: 0; border-radius: 5px;
+    background: linear-gradient(90deg, #3C7FA0, #8FD2F0);
+    transition: width .9s cubic-bezier(.2,.8,.2,1);
+  }
+  .run .dg-fill { width: var(--w); }
+  .dg-val { width: 42px; flex: none; color: #C6D5E4; font-variant-numeric: tabular-nums; }
+
+  /* 图示：模块块 */
+  .dg-blocks { display: flex; gap: 5px; }
+  .dg-bl {
+    flex: 1; min-width: 0; padding: 7px 4px; text-align: center;
+    font-size: 10.5px; line-height: 1.3; border-radius: 6px;
+    background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.09);
+    color: #A9BACC;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+  .dg-bl.hl {
+    background: rgba(111,179,217,.22); border-color: #6FB3D9;
+    color: #fff; font-weight: 600;
+  }
+  /* 改动前的高亮走暖色，和左侧那一栏的边框同色系 */
+  .delta-col.before .dg-bl.hl {
+    background: rgba(232,131,107,.2); border-color: #E8836B;
+  }
+
+  .dg-text { margin: 0; font-size: 12.5px; line-height: 1.65; color: #A9BACC; }
+
+  /* 大数字 */
+  .metric { display: flex; align-items: baseline; gap: 9px; margin: 6px 0 2px; flex-wrap: wrap; }
+  .metric-n {
+    font-size: 40px; font-weight: 700; letter-spacing: -.03em;
+    color: #8FE0B4; font-variant-numeric: tabular-nums; line-height: 1.05;
+  }
+  .metric-u { font-size: 17px; color: #7ED0A8; }
+  .metric-l { font-size: 12px; color: #9FB0C2; }
+
+  /* 分类树（在深色舞台上） */
+  .cd-tax { font-size: 12.5px; }
+  .ct { display: flex; align-items: baseline; gap: 7px; padding: 2px 0; }
+  .ct-dot {
+    width: 5px; height: 5px; border-radius: 1.5px; flex: none;
+    background: #9B9BE0; margin-top: 6px;
+  }
+  .ct[data-d="2"] .ct-dot { background: rgba(255,255,255,.25); width: 4px; height: 4px; }
+  .ct-n { color: #D8E4F0; }
+  .ct[data-d="2"] .ct-n { color: #A9BACC; }
+  .ct-w { color: #7A8B9D; font-size: 11.5px; }
+  .ct-kids { margin-left: 11px; padding-left: 13px; border-left: 1px solid rgba(255,255,255,.1); }
+
+  .cd-ev {
+    margin-top: 11px; display: flex; gap: 8px; align-items: baseline;
+    font-size: 11.5px; color: #7A8B9D;
+  }
+  .cd-ev b { color: #8FD2F0; font-family: var(--mono); font-weight: 500; flex: none; }
+  .cd-ev span { font-style: italic; }
+
+  /* --- 播放条 --- */
+  .chain-bar { display: flex; align-items: center; gap: 10px; margin-top: 16px; }
+  .cb-btn {
+    font-family: inherit; font-size: 12.5px; font-weight: 600;
+    color: #0E141B; background: #8FD2F0; border: 0;
+    border-radius: 8px; padding: 7px 16px; cursor: pointer;
+    transition: background .15s;
+  }
+  .cb-btn:hover { background: #A9DEF5; }
+  .cb-btn.ghost {
+    background: rgba(255,255,255,.08); color: #C6D5E4;
+    font-weight: 500; padding: 7px 11px;
+  }
+  .cb-btn.ghost:hover { background: rgba(255,255,255,.16); color: #fff; }
+  .cb-track {
+    flex: 1; height: 4px; border-radius: 2px; position: relative;
+    background: rgba(255,255,255,.1); cursor: pointer; min-width: 60px;
+  }
+  .cb-fill {
+    position: absolute; left: 0; top: 0; bottom: 0; width: 0;
+    border-radius: 2px;
+    background: linear-gradient(90deg, #3C7FA0, #8FD2F0);
+    transition: width .4s ease;
+  }
+  .cb-count {
+    font-family: var(--mono); font-size: 11.5px; color: #9FB0C2;
+    min-width: 44px; text-align: right;
+  }
+
+  .chain-warn { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .chain-warn span {
+    font-size: 11.5px; color: #E0B479;
+    background: rgba(224,180,121,.1);
+    border: 1px solid rgba(224,180,121,.25);
+    border-radius: 6px; padding: 2px 9px;
+  }
+
+  @media (max-width: 800px) {
+    .chain-card { padding: 18px 16px 14px; }
+    .chain-rail { overflow-x: auto; padding-bottom: 8px; }
+    .cc { min-width: 112px; }
+    .delta { grid-template-columns: 1fr; }
+    .delta-arrow { transform: rotate(90deg); }
+    .metric-n { font-size: 32px; }
+  }
+
+  footer {
+    margin-top: 64px; padding-top: 22px; border-top: 1px solid var(--line);
+    font-size: 12.5px; color: var(--ink3);
+    display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px;
+  }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media print {
+    nav.jump, .chev { display: none; }
+    article.card { break-inside: avoid; border-color: #ccc; }
+    .c-body { display: block !important; }
+    /* v0.7 增强：追问面板与悬浮按钮不进纸面；板块整体不跨页 */
+    .print-fab, .ask-fab, .ask-panel { display: none !important; }
+    section.group { break-inside: avoid; }
+    .chain-stage, .net-svg { break-inside: avoid; }
+    header.top { position: static; box-shadow: none; }
+  }
+
+  /* ---------- 证据：章节 · 段号 · 中英对照 ---------- */
+  /* 从「p.13」升级到「§4.2 · 第 3 段 · p.11」：页码只告诉你在哪一页，
+     段号才告诉你在哪一段。英文原文保留，中文译文放在下面一行。 */
+  .ev-item {
+    display: block;
+    margin-bottom: 14px; padding-left: 12px;
+    border-left: 2px solid var(--line2);
+  }
+  .ev-item:last-child { margin-bottom: 0; }
+  .ev-loc {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+    margin-bottom: 5px;
+  }
+  .ev-loc .chip {
+    font-family: var(--mono); font-size: 11px; color: var(--accent);
+    background: var(--soft); border-radius: 5px; padding: 1px 7px;
+  }
+  .ev-loc .sec {
+    font-size: 11.5px; color: var(--ink3);
+    max-width: 30ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .ev-loc .raw {
+    font-size: 10.5px; color: var(--warn); background: var(--warnSoft);
+    border-radius: 5px; padding: 0 6px; white-space: nowrap;
+  }
+  .ev-src {
+    font-size: 12.5px; line-height: 1.62; color: var(--ink3);
+    font-style: italic; margin-bottom: 3px;
+  }
+  .ev-zh { font-size: 13.5px; line-height: 1.72; color: var(--ink2); }
+  .ev-zh.none { color: var(--ink3); font-size: 12.5px; }
+
+
+  /* ---------- 文献网络 ---------- */
+  /* 径向双叶：中心是本文，左半圆是它引用的（过去），右半圆是引用它的（未来）。
+     节点大小 = 被引影响力，颜色深浅 = 与本文相关度。全部为数据事实。 */
+  .net-wrap {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 14px; padding: 18px 20px 14px;
+  }
+  .net-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .net-title { font-weight: 600; font-size: 14.5px; }
+  .net-stats {
+    margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--ink3);
+  }
+  .net-svg { width: 100%; height: auto; display: block; margin-top: 4px; }
+  .net-edge { stroke: var(--line); stroke-width: 1; fill: none; opacity: .8; }
+  .net-edge.hot { stroke: var(--accent2); stroke-width: 1.8; opacity: 1; }
+  .net-node { cursor: pointer; }
+  .net-node circle {
+    transition: stroke-width .15s;
+    stroke: #fff; stroke-width: 1.5;
+  }
+  .net-node:hover circle { stroke-width: 3; }
+  .net-node text {
+    font-family: var(--mono); font-size: 10px; font-weight: 500;
+    fill: var(--ink2); pointer-events: none;
+  }
+  .net-center text {
+    font-family: var(--sans); font-size: 12.5px; font-weight: 600;
+    fill: var(--ink); text-anchor: middle;
+  }
+  .net-leaf {
+    font-family: var(--mono); font-size: 11px; letter-spacing: .1em;
+    fill: var(--ink2); text-anchor: middle; font-weight: 500;
+  }
+  .net-legend {
+    display: flex; gap: 20px; margin-top: 6px; flex-wrap: wrap;
+    align-items: center; font-size: 11.5px; color: var(--ink3);
+  }
+  .net-dot {
+    display: inline-block; width: 9px; height: 9px; border-radius: 50%;
+    margin-right: 5px; vertical-align: -1px;
+  }
+  .net-detail {
+    margin-top: 10px; border-top: 1px dashed var(--line);
+    padding-top: 12px; display: none;
+  }
+  .net-detail.show { display: block; }
+  .net-d-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .net-d-title { font-weight: 600; font-size: 14px; flex: 1; min-width: 260px; }
+  .net-d-title-zh {
+    font-size: 12px; color: var(--ink2); font-weight: 400;
+  }
+  .net-badge {
+    flex: none; font-size: 10.5px; padding: 2px 9px; border-radius: 999px;
+    border: 1px solid var(--line); color: var(--ink3); font-family: var(--mono);
+  }
+  .net-badge.cited { color: var(--accent); border-color: var(--accent2); background: var(--soft); }
+  .net-badge.citing { color: var(--ok); border-color: var(--ok); background: #EDF5EF; }
+  .net-d-meta {
+    font-family: var(--mono); font-size: 11.5px; color: var(--ink3); margin: 5px 0 9px;
+  }
+  .net-d-meta a { color: var(--accent); }
+  .net-d-score { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .net-d-label { font-size: 11.5px; color: var(--ink3); flex: none; }
+  .net-d-bar {
+    flex: none; width: 220px; height: 6px; background: var(--bg);
+    border-radius: 3px; overflow: hidden;
+  }
+  .net-d-bar i { display: block; height: 100%; border-radius: 3px;
+                 background: linear-gradient(90deg, #9CC3DA, var(--accent)); }
+  .net-d-pct {
+    font-family: var(--mono); font-size: 12.5px; color: var(--accent); font-weight: 600;
+  }
+  .net-d-reasons { font-size: 12.5px; color: var(--ink2); line-height: 1.75; }
+  .net-d-note { font-size: 11px; color: var(--ink3); margin-top: 8px; }
+  .nc-info {
+    border: 1px solid var(--line); border-radius: 10px;
+    padding: 10px 14px 12px; margin: 0 0 14px;
+    background: var(--soft);
+  }
+  .nc-row { margin: 3px 0; font-size: 13.5px; line-height: 2; color: var(--ink); }
+  .nc-label {
+    display: inline-block; width: 86px; flex: none;
+    color: var(--ink2); font-size: 12.5px; letter-spacing: 1px;
+  }
+  .nc-hint { color: var(--ink2); font-size: 12px; margin-left: 8px; }
+  .nc-none { color: var(--ink3); }
+  .kw-chip {
+    display: inline-block; margin: 3px 6px 3px 0; padding: 3px 13px;
+    border: 1px solid rgba(46,111,142,.45); border-radius: 999px;
+    background: var(--card); color: var(--accent);
+    font-size: 13px; font-weight: 500; cursor: pointer; font-family: inherit;
+    transition: background .15s, border-color .15s;
+  }
+  .kw-chip:hover { background: #E2EFF6; border-color: var(--accent); }
+  .kw-chip.all { border-style: dashed; color: var(--ink2); }
+  .net-d-note b { color: var(--ok); font-weight: 600; }
+  .net-empty {
+    color: var(--ink3); font-size: 13px; padding: 22px 0 14px; text-align: center;
+    line-height: 1.8;
+  }
+  .net-empty code {
+    font-family: var(--mono); font-size: 12px; background: var(--bg);
+    border: 1px solid var(--line); border-radius: 5px; padding: 1px 7px;
+  }
+
+
+  .ccf-tag {
+    font-family: var(--mono); font-size: 11px; color: var(--warn);
+    background: var(--warnSoft); border-radius: 5px; padding: 1px 7px;
+  }
+  .net-d-topics { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .topic-tag {
+    font-size: 11.5px; color: var(--ink2); background: var(--soft);
+    border-radius: 999px; padding: 2px 10px;
+  }
+  /* ---------- 追问：悬浮按钮与侧栏 ---------- */
+  .print-fab {
+    position: fixed; right: 26px; bottom: 92px; z-index: 60;
+    width: 52px; height: 52px; border-radius: 50%;
+    border: 1px solid var(--line); background: var(--card);
+    color: var(--ink2); font-size: 20px; cursor: pointer;
+    box-shadow: 0 4px 16px rgba(27,36,48,.14);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .print-fab:hover { color: var(--accent); border-color: var(--accent); }
+  .ask-fab {
+    position: fixed; right: 26px; bottom: 26px; z-index: 60;
+    width: 52px; height: 52px; border-radius: 50%;
+    border: none; cursor: pointer; padding: 0;
+    background: linear-gradient(150deg, #3C87A8, #2E6F8E);
+    color: #fff; display: grid; place-items: center;
+    box-shadow: 0 8px 22px rgba(46,111,142,.34), 0 2px 6px rgba(0,0,0,.10);
+    transition: transform .18s cubic-bezier(.2,.8,.3,1), box-shadow .18s;
+  }
+  .ask-fab:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(46,111,142,.42); }
+  .ask-fab:active { transform: translateY(0) scale(.97); }
+  .ask-fab svg { width: 23px; height: 23px; }
+  .ask-fab .dot {
+    position: absolute; top: 7px; right: 8px; width: 9px; height: 9px;
+    border-radius: 50%; background: #F0B26B; border: 2px solid #FFFDFA;
+    opacity: 0; transition: opacity .2s;
+  }
+  .ask-fab.has-ctx .dot { opacity: 1; }
+  .ask-fab.offline { background: linear-gradient(150deg, #99A2AE, #7E8792); }
+
+  /* ---------- 对照原文 / 图表速览 ---------- */
+  .side-btns { position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
+    z-index: 80; display: none; gap: 8px; }
+  .side-btns.show { display: flex; }
+  .side-btns button {
+    padding: 7px 16px; border-radius: 999px; cursor: pointer;
+    border: 1px solid rgba(255,255,255,.3); background: rgba(20,30,42,.82);
+    color: #E8EEF4; font-size: 12.5px; backdrop-filter: blur(6px);
+    font-family: inherit;
+  }
+  .side-btns button:hover, .side-btns button.on {
+    background: rgba(46,111,142,.92); border-color: transparent;
+  }
+  .side-panel {
+    position: fixed; top: 0; right: 0; bottom: 0; z-index: 85;
+    width: min(52vw, 760px); background: #F4F2EC;
+    border-left: 1px solid var(--line); box-shadow: -18px 0 50px rgba(24,34,44,.18);
+    display: none; flex-direction: column;
+  }
+  .side-panel.open { display: flex; }
+  .side-panel.wide { width: min(88vw, 1120px); }
+  .side-panel.wide .dm-stage { padding: 18px 14px; }
+  .side-panel.wide .dm-narr { font-size: 16px; }
+  .side-panel.wide { width: min(88vw, 1120px); }
+  .side-panel.wide .dm-stage { padding: 18px 14px; }
+  .side-panel.wide .dm-narr { font-size: 16px; }
+  .side-panel .sp-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 16px; border-bottom: 1px solid var(--line);
+    font-size: 13px; color: var(--ink2); background: var(--card);
+  }
+  .side-panel .sp-body {
+    overflow: auto; flex: 1; padding: 14px; text-align: center;
+  }
+  .side-panel .sp-body img {
+    width: 100%; margin-bottom: 10px; border: 1px solid var(--line);
+    background: #fff; border-radius: 4px;
+  }
+  .side-panel .sp-body .pno { font-size: 11px; color: var(--ink3); margin-bottom: 14px; }
+  .side-panel .sp-body figure { margin: 0 0 18px; }
+  .side-panel .sp-body .fig-explain {
+    font-size: 12.5px; color: var(--ink); margin-top: 5px;
+    line-height: 1.55; text-align: left;
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 6px; padding: 8px 10px;
+  }
+  .side-panel .sp-body .fig-group {
+    font-size: 13px; font-weight: 700; color: var(--ink);
+    margin: 6px 0 10px; text-align: left;
+  }
+    .side-panel .sp-body .bar-cap {
+    font-size: 12px; color: var(--ink); text-align: left;
+    margin: 12px 0 6px; font-weight: 600;
+  }
+  .side-panel .sp-body .bar-row {
+    display: flex; align-items: center; gap: 6px; margin-bottom: 5px;
+  }
+  .side-panel .sp-body .bar-label {
+    flex: 0 0 108px; font-size: 11px; color: var(--ink2);
+    text-align: right; overflow: hidden; white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .side-panel .sp-body .bar-track {
+    flex: 1; height: 13px; background: rgba(120,130,140,.10);
+    border-radius: 3px; overflow: hidden;
+  }
+  .side-panel .sp-body .bar-fill {
+    display: block; height: 100%; border-radius: 3px;
+    background: linear-gradient(90deg, #2E6F8E, #4E9AB8);
+    transform-origin: left center;
+    animation: barIn .7s cubic-bezier(.22,.8,.3,1) backwards;
+  }
+  @keyframes barIn { from { transform: scaleX(0); } }
+  .side-panel .sp-body .bar-val {
+    flex: 0 0 64px; font-size: 11px; color: var(--ink2);
+  }
+    .side-panel .sp-body .tdlab {
+    font-size: 11.5px; fill: var(--ink2);
+  }
+  .side-panel .sp-body .tdval {
+    font-size: 11.5px; fill: var(--ink); font-weight: 600;
+  }
+  .side-panel .sp-body .tdax {
+    font-size: 11px; fill: var(--ink3);
+  }
+  .side-panel .sp-body .tdbar {
+    transform-box: fill-box; transform-origin: left center;
+    animation: tdIn .7s cubic-bezier(.22,.8,.3,1) backwards;
+  }
+  .side-panel .sp-body .tdbar:hover { filter: brightness(1.18); }
+  @keyframes tdIn { from { transform: scaleX(0); } }
+  .side-panel .sp-body .td-type {
+    display: inline-block; padding: 3px 10px; margin-right: 6px;
+    font-size: 11.5px; border-radius: 999px;
+    border: 1px solid var(--line); color: var(--ink2);
+    cursor: pointer; background: var(--card);
+  }
+  .side-panel .sp-body .td-type.on {
+    background: #C4622D; border-color: #C4622D; color: #fff;
+  }
+  @keyframes tdDraw { from { stroke-dashoffset: 2000; } }
+    .side-panel .sp-body .td-chips { margin: 4px 0 8px; }
+  .side-panel .sp-body .td-chip {
+    display: inline-block; padding: 3px 10px; margin-right: 6px;
+    font-size: 11.5px; border-radius: 999px;
+    border: 1px solid var(--line); color: var(--ink2);
+    cursor: pointer; background: var(--card);
+  }
+  .side-panel .sp-body .td-chip.on {
+    background: #1E5B7E; border-color: #1E5B7E; color: #fff;
+  }
+  .side-panel .sp-body .bar-note {
+    font-size: 11px; color: var(--ink3); text-align: left; margin: 2px 0 8px;
+  }
+  .side-panel .sp-body .fig-pending {
+    font-size: 12.5px; color: var(--ink2);
+  }
+  .side-panel .sp-body figcaption {
+    font-size: 11.5px; color: var(--ink2); margin-top: 4px;
+  }
+  body.with-side .wrap { margin-right: min(52vw, 760px); }
+
+  /* 工作台模式下顶部显眼返回按钮 */
+  .back-top {
+    position: fixed; top: 14px; left: 14px; z-index: 80;
+    display: none; align-items: center; gap: 6px;
+    padding: 7px 16px; border-radius: 999px;
+    border: 1px solid rgba(255,255,255,.3); background: rgba(20,30,42,.82);
+    color: #E8EEF4; font-size: 12.5px; cursor: pointer;
+    backdrop-filter: blur(6px);
+    text-decoration: none;
+  }
+  .back-top.show { display: flex; }
+  .back-top {
+    background: #1E5B7E; border-color: #1E5B7E;
+    font-size: 13.5px; padding: 9px 18px;
+    box-shadow: 0 3px 14px rgba(20,50,70,.35);
+  }
+  .back-top:hover { background: #2E6F8E; border-color: transparent; }
+
+  /* 工作台模式下的返回按钮：单报告打开时是 null，不显示 */
+  .back-fab {
+    position: fixed; left: 22px; bottom: 22px; z-index: 60; display: none;
+    border: 1px solid var(--line); background: #fff; color: var(--ink2);
+    border-radius: 999px; padding: 8px 15px; font-size: 12.5px; cursor: pointer;
+    box-shadow: 0 3px 12px rgba(27,36,48,.08); transition: all .16s;
+  }
+  .back-fab:hover { color: var(--accent); border-color: var(--accent2); }
+  .back-fab.show { display: inline-flex; align-items: center; gap: 5px; }
+
+  .ask-panel {
+    position: fixed; top: 0; right: 0; bottom: 0; z-index: 70;
+    width: 432px; max-width: 100vw;
+    background: #FFFDFA; border-left: 1px solid var(--line);
+    box-shadow: -20px 0 60px rgba(24,34,44,.14);
+    display: none; flex-direction: column;
+  }
+  /* 显隐用 display 控制，动画只做入场装饰。
+     用 transition 做显隐的写法，一旦过渡没跑完，元素就停在隐藏态——
+     任何「最终状态由动画给出」的写法都不安全。 */
+  .ask-panel.open { display: flex; }
+
+  .ask-head {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 18px 20px 14px; border-bottom: 1px solid var(--line);
+  }
+  .ask-title { font-size: 15px; font-weight: 600; letter-spacing: -.01em; }
+  .ask-sub {
+    font-size: 11.5px; color: var(--ink3); margin-top: 3px;
+    font-family: var(--mono);
+  }
+  .ask-sub b { color: var(--ok); font-weight: 500; }
+  .ask-close {
+    margin-left: auto; flex: none; width: 28px; height: 28px;
+    border: 1px solid var(--line); background: #fff; border-radius: 8px;
+    color: var(--ink3); font-size: 17px; line-height: 1; cursor: pointer;
+    transition: all .16s;
+  }
+  .ask-close:hover { color: var(--ink); border-color: #D8D1C3; }
+
+  .ask-log {
+    flex: 1; overflow-y: auto; padding: 18px 20px 6px;
+    display: flex; flex-direction: column; gap: 14px;
+    scroll-behavior: smooth;
+  }
+  .ask-hint {
+    color: var(--ink3); font-size: 13px; line-height: 1.75;
+    background: var(--bg); border: 1px dashed var(--line);
+    border-radius: 10px; padding: 14px 16px;
+  }
+  .ask-hint b { color: var(--ink2); font-weight: 600; }
+  .ask-eg {
+    display: block; margin-top: 8px; font-size: 12.5px;
+    color: var(--accent); cursor: pointer; text-decoration: none;
+  }
+  .ask-eg:hover { text-decoration: underline; }
+
+  .msg { font-size: 14px; line-height: 1.78; }
+  .msg.user {
+    align-self: flex-end; max-width: 88%;
+    background: var(--soft); color: var(--ink);
+    border-radius: 12px 12px 3px 12px; padding: 9px 14px;
+  }
+  .msg.bot {
+    align-self: flex-start; max-width: 100%;
+    color: var(--ink2);
+  }
+  .msg.bot .who {
+    font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--ink3); font-family: var(--mono); margin-bottom: 5px;
+  }
+  .msg.bot p { margin: 0 0 9px; }
+  .msg.bot p:last-child { margin-bottom: 0; }
+  .msg.err { color: var(--warn); background: var(--warnSoft);
+             border-radius: 10px; padding: 10px 13px; font-size: 13px; }
+  .caret {
+    display: inline-block; width: 7px; height: 15px; margin-left: 2px;
+    background: var(--accent2); vertical-align: -2px;
+    animation: blink 1s steps(2) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .ask-ctx { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 20px; }
+  .ask-ctx:not(:empty) { padding-top: 10px; }
+  .ctx-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11.5px; color: var(--accent);
+    background: var(--soft); border-radius: 999px; padding: 3px 6px 3px 10px;
+    max-width: 100%;
+  }
+  .ctx-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 22ch; }
+  .ctx-chip button {
+    border: none; background: rgba(46,111,142,.12); color: var(--accent);
+    width: 16px; height: 16px; border-radius: 50%; cursor: pointer;
+    font-size: 12px; line-height: 1; padding: 0; flex: none;
+  }
+  .ctx-chip button:hover { background: rgba(46,111,142,.24); }
+
+  .ask-input {
+    display: flex; gap: 8px; align-items: flex-end;
+    padding: 12px 20px 18px; border-top: 1px solid var(--line);
+    margin-top: 10px;
+  }
+  .ask-input textarea {
+    flex: 1; resize: none; border: 1px solid var(--line); border-radius: 10px;
+    padding: 9px 12px; font-family: var(--sans); font-size: 13.5px;
+    line-height: 1.6; color: var(--ink); background: #fff;
+    max-height: 132px; outline: none; transition: border-color .16s;
+  }
+  .ask-input textarea:focus { border-color: var(--accent2); }
+  .ask-input textarea:disabled { background: var(--bg); color: var(--ink3); }
+  .ask-send {
+    flex: none; width: 38px; height: 38px; border-radius: 10px;
+    border: none; cursor: pointer; background: var(--accent); color: #fff;
+    display: grid; place-items: center; transition: background .16s, opacity .16s;
+  }
+  .ask-send:hover:not(:disabled) { background: #255B75; }
+  .ask-send:disabled { opacity: .4; cursor: not-allowed; }
+  .ask-send svg { width: 17px; height: 17px; }
+
+  /* 「追问」小按钮：挂在每个板块与论证链节点上 */
+  .ask-btn {
+    flex: none; border: 1px solid var(--line); background: #fff;
+    color: var(--ink3); font-size: 11.5px; line-height: 1;
+    padding: 4px 9px; border-radius: 999px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 4px;
+    transition: all .16s; white-space: nowrap;
+  }
+  .ask-btn:hover { color: var(--accent); border-color: var(--accent2); background: var(--soft); }
+  .ask-btn svg { width: 11px; height: 11px; }
+  .ask-btn.dark {
+    background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.16);
+    color: rgba(233,239,246,.66);
+  }
+  .ask-btn.dark:hover { background: rgba(111,179,217,.18); border-color: rgba(143,210,240,.5); color: #DCEAF6; }
+  .cd-head .ask-btn { margin-left: auto; }
+
+  /* 论证链里的证据改成竖排：中英要两行，横排放不下 */
+  .cd-ev {
+    margin-top: 11px; display: flex; flex-direction: column; gap: 3px;
+    font-size: 11.5px; color: #7A8B9D;
+    border-left: 2px solid rgba(143,210,240,.22); padding-left: 10px;
+  }
+  .cd-ev b { color: #8FD2F0; font-family: var(--mono); font-weight: 500; }
+  .cd-ev span { font-style: italic; }
+  .cd-ev .zh { font-style: normal; color: #C3D2E0; }
+
+  @media (max-width: 640px) {
+    .ask-panel { width: 100%; }
+    .ask-fab { right: 16px; bottom: 16px; }
+  }
+
+  .mod-figs { margin-top: 12px; display: grid; gap: 14px; }
+  .mod-figs:empty { display: none; }
+  figure.mfig { margin: 0; }
+  figure.mfig img { width: 100%; border: 1px solid var(--line, #E7E2D8);
+    border-radius: 10px; background: #fff; }
+  figure.mfig figcaption { font-size: 12.5px; color: var(--ink2, #56616F);
+    margin-top: 5px; }
+  figure.mfig .fkind { display: inline-block; font-size: 11px; padding: 1px 7px;
+    border-radius: 6px; background: rgba(46,111,142,.1); color: #2E6F8E;
+    margin-right: 5px; }
+  .mod-td { margin-top: 12px; }
+  .dm-wrap { padding: 4px 2px; }
+  .dm-title { font-weight: 600; margin-bottom: 6px; }
+  .dm-cap { font-size: 13px; color: var(--ink2, #56616F); margin: 8px 0 2px; }
+  .dm-stage { background: #fff; border: 1px solid var(--line);
+    border-radius: 12px; padding: 10px 8px; }
+  .dm-svg { width: 100%; display: block; }
+  .dm-narr { margin: 12px 0; font-size: 14.5px; line-height: 1.7;
+    background: #fff; border-left: 3px solid #2E6F8E;
+    padding: 10px 14px; border-radius: 0 10px 10px 0; }
+  .dm-ctl { display: flex; align-items: center; gap: 10px; }
+  .dm-ctl button { min-width: 40px; height: 40px; border-radius: 20px;
+    border: 1px solid var(--line); background: #fff; cursor: pointer;
+    font-size: 16px; }
+  #dmPlay { padding: 0 18px; background: #2E6F8E; color: #fff;
+    border-color: #2E6F8E; font-size: 13.5px; }
+  .dm-dots { display: flex; gap: 6px; flex: 1; justify-content: center; }
+  .dm-dot { width: 8px; height: 8px; border-radius: 50%;
+    background: #D3D1C7; cursor: pointer; }
+  .dm-dot.on { background: #2E6F8E; }
+  [data-ei] { opacity: 0; }
+  [data-ei].dm-on { opacity: 1; transition: opacity .5s ease; }
+  .dm-hl { filter: drop-shadow(0 0 5px rgba(46, 111, 142, .65)); }
+  [data-mv] { transition: transform .9s ease; }
+  [data-mv].dm-pre { transform: translateY(var(--mvdy, 0px)); }
+  .dm-lnk { stroke: #C98A2D; stroke-width: 2.2; fill: none;
+    stroke-dasharray: 220; stroke-dashoffset: 220;
+    animation: dmDraw .9s ease forwards; }
+  .dm-bigarr { stroke: #5F5E5A; stroke-width: 3; fill: none;
+    stroke-linecap: round; }
+  .dm-hd { font-size: 14px; font-weight: 700; fill: #24303B; }
+  .dm-lb2 { font-size: 12px; fill: #24303B; font-weight: 600; }
+  .dm-ct2 { font-size: 10px; fill: #fff; opacity: .85; }
+  .dm-vs { font-size: 13px; font-weight: 700; fill: #5F5E5A; }
+  .dm-pp { animation: dmPipe 3.2s linear infinite; opacity: .8; }
+  @keyframes dmPipe { from { transform: translateX(0); }
+    to { transform: translateX(392px); } }
+  .dm-ticks { display: flex; gap: 8px; justify-content: center; margin: 8px 0 0; }
+  .dm-tick { width: 26px; height: 5px; border-radius: 3px;
+    background: #D8DFE4; cursor: pointer; }
+  .dm-tick.on { background: #C98A2D; }
+  /* ---- v0.17 动效层：转场 / 打字 / 持续运动 / 镜头 ---- */
+  .dm-stage { transition: transform .65s cubic-bezier(.22, .9, .34, 1);
+    background-image: radial-gradient(#E6EBEF 1px, transparent 1px);
+    background-size: 20px 20px; }
+  .dm-stage.dm-zoom { transform: scale(1.035); }
+  .dm-stage .dm-svg { animation: dmSceneIn .6s cubic-bezier(.22, .9, .34, 1) backwards; }
+  @keyframes dmSceneIn { from { opacity: 0; transform: translateY(16px) scale(.982); }
+    to { opacity: 1; transform: none; } }
+  [data-ei] { transform: translateY(9px); transition: opacity .5s ease,
+    transform .6s cubic-bezier(.22, .9, .34, 1); }
+  [data-ei].dm-on { transform: none; }
+  .dm-svg circle { transform-box: fill-box; transform-origin: center;
+    animation: dmPulse 3.4s ease-in-out infinite; }
+  @keyframes dmPulse { 0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.09); } }
+  .dm-bar { transform-box: fill-box; transform-origin: bottom;
+    animation: dmGrow .75s cubic-bezier(.22, .9, .34, 1) backwards; }
+  @keyframes dmGrow { from { transform: scaleY(0); } }
+  .dm-seg { stroke-dasharray: 420; stroke-dashoffset: 420;
+    animation: dmDraw .85s ease forwards; }
+  .dm-narr { border-left: 3px solid #C98A2D; padding-left: 12px;
+    animation: dmSceneIn .5s ease backwards; }
+  /* ---- v0.17 动效层：转场 / 打字 / 持续运动 / 镜头 ---- */
+  .dm-stage { transition: transform .65s cubic-bezier(.22, .9, .34, 1);
+    background-image: radial-gradient(#E6EBEF 1px, transparent 1px);
+    background-size: 20px 20px; }
+  .dm-stage.dm-zoom { transform: scale(1.035); }
+  .dm-stage .dm-svg { animation: dmSceneIn .6s cubic-bezier(.22, .9, .34, 1) backwards; }
+  @keyframes dmSceneIn { from { opacity: 0; transform: translateY(16px) scale(.982); }
+    to { opacity: 1; transform: none; } }
+  [data-ei] { transform: translateY(9px); transition: opacity .5s ease,
+    transform .6s cubic-bezier(.22, .9, .34, 1); }
+  [data-ei].dm-on { transform: none; }
+  .dm-svg circle { transform-box: fill-box; transform-origin: center;
+    animation: dmPulse 3.4s ease-in-out infinite; }
+  @keyframes dmPulse { 0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.09); } }
+  .dm-bar { transform-box: fill-box; transform-origin: bottom;
+    animation: dmGrow .75s cubic-bezier(.22, .9, .34, 1) backwards; }
+  @keyframes dmGrow { from { transform: scaleY(0); } }
+  .dm-seg { stroke-dasharray: 420; stroke-dashoffset: 420;
+    animation: dmDraw .85s ease forwards; }
+  .dm-narr { border-left: 3px solid #C98A2D; padding-left: 12px;
+    animation: dmSceneIn .5s ease backwards; }
+  .dm-num { font-size: 12px; color: var(--ink3, #8A94A2); }
+  .dm-pop { animation: dmPop .5s ease backwards; }
+  @keyframes dmPop { from { opacity: 0; } }
+  .dm-bar { transform-box: fill-box; transform-origin: left center;
+    animation: dmGrow .8s ease backwards; }
+  @keyframes dmGrow { from { transform: scaleX(0); } }
+  .dm-flow { fill: #E9F1F5; stroke: #2E6F8E;
+    animation: dmFade .5s ease backwards; }
+  .dm-arrow { stroke: #5F5E5A; stroke-width: 1.5;
+    animation: dmFade .3s ease backwards; }
+  .dm-line { stroke-dasharray: 600; stroke-dashoffset: 600;
+    animation: dmDraw 1.6s ease forwards; }
+  @keyframes dmDraw { to { stroke-dashoffset: 0; } }
+  @keyframes dmFade { from { opacity: 0; } }
+  .dm-lb { font-size: 11px; fill: #2C2C2A; animation: dmFade .4s ease backwards; }
+  .dm-val { font-size: 11px; fill: #2E6F8E; font-weight: 600;
+    animation: dmFade .4s ease .3s backwards; }
+  .dm-mm-c { fill: #2E6F8E; }
+  .dm-mm-ct { fill: #fff; font-size: 12px; font-weight: 600;
+    animation: dmPop .5s ease backwards; }
+  .dm-mm-line { stroke: #B9C6CF; fill: none; stroke-width: 1.5;
+    stroke-dasharray: 220; stroke-dashoffset: 220;
+    animation: dmDraw 1s ease forwards; }
+  .dm-mm-b { fill: #fff; stroke: #E7E2D8; animation: dmFade .5s ease backwards; }
+  .dm-mm-bt { font-size: 12.5px; font-weight: 700; }
+  .dm-nd { font-size: 12px; fill: #24303B;
+    animation: dmFade .35s ease backwards; }
+  .dm-mm-c { fill: #2E6F8E; }
+  .dm-mm-ct { fill: #fff; font-size: 12px; font-weight: 600;
+    animation: dmPop .5s ease backwards; }
+  .dm-mm-line { stroke: #B9C6CF; fill: none; stroke-width: 1.5;
+    stroke-dasharray: 220; stroke-dashoffset: 220;
+    animation: dmDraw 1s ease forwards; }
+  .dm-mm-b { fill: #fff; stroke: #E7E2D8; animation: dmFade .5s ease backwards; }
+  .dm-mm-bt { font-size: 11.5px; font-weight: 600; fill: #2C2C2A;
+    animation: dmFade .4s ease backwards; }
+  .dm-cmp-l { fill: #FBEDEA; stroke: #C0483B; stroke-width: 1.2; }
+  .dm-cmp-r { fill: #E8F2EF; stroke: #3E8E7E; stroke-width: 1.2; }
+  .dm-tt { font-size: 12px; font-weight: 600; fill: #2C2C2A;
+    animation: dmFade .4s ease backwards; }
+  .dm-vs { font-size: 13px; font-weight: 700; fill: #888780;
+    animation: dmPop .5s ease .5s backwards; }
+  .dm-cmp-l { fill: #FBEDEA; stroke: #C0483B; stroke-width: 1.2; }
+  .dm-cmp-r { fill: #E8F2EF; stroke: #3E8E7E; stroke-width: 1.2; }
+  .dm-tt { font-size: 12px; font-weight: 600; fill: #2C2C2A;
+    animation: dmFade .4s ease backwards; }
+  .dm-vs { font-size: 13px; font-weight: 700; fill: #888780;
+    animation: dmPop .5s ease .5s backwards; }
+</style>
+<script>
+  window.__PA_ERR = "";
+  window.onerror = function (m, s, l) {
+    window.__PA_ERR = m + " (行 " + l + ")";
+    try { window.__PA_ERR_SHOW && window.__PA_ERR_SHOW(); } catch (e) {}
+  };
+  window.addEventListener("unhandledrejection", function (e) {
+    window.__PA_ERR = "未处理的 Promise 错误: " + (e.reason && e.reason.message
+      ? e.reason.message : e.reason);
+    try { window.__PA_ERR_SHOW && window.__PA_ERR_SHOW(); } catch (e2) {}
+  });
+  </script>
+  </head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="kicker">paperatomy · 论文解剖</div>
+    <h1 id="title"></h1>
+    <div class="meta" id="meta"></div>
+  </header>
+
+  <nav class="jump">
+    <div class="jump-links" id="jump"></div>
+    <button class="jump-toggle" id="toggleAll">全部折叠</button>
+  </nav>
+  <main id="main"></main>
+
+  <footer>
+    <span id="stat"></span>
+    <span>由 <a href="https://github.com/1fish4/paperatomy">paperatomy</a> 生成 · 每块内容均附原文页码与摘录</span>
+  </footer>
+</div>
+
+
+<button class="back-fab" id="backFab" type="button">
+  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor"
+       stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M15 6l-6 6 6 6"/></svg>工作台</button>
+
+<button class="print-fab" type="button" title="打印 / 存为 PDF" onclick="window.print()">⎙</button>
+  <button class="ask-fab" id="askFab" type="button" aria-label="追问这篇论文">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+       stroke-linecap="round" stroke-linejoin="round">
+    <path d="M20 14.5a2 2 0 0 1-2 2H8l-4 3.5V6.5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2z"/>
+    <path d="M8.5 9.8h7M8.5 12.8h4.5"/>
+  </svg>
+  <i class="dot"></i>
+</button>
+
+<aside class="ask-panel" id="askPanel" aria-hidden="true">
+  <div class="ask-head">
+    <div>
+      <div class="ask-title">追问这篇论文</div>
+      <div class="ask-sub" id="askSub">正在检查本地服务…</div>
+    </div>
+    <button class="ask-close" id="askClose" type="button" aria-label="关闭">×</button>
+  </div>
+
+  <div class="ask-log" id="askLog"></div>
+
+  <div class="ask-ctx" id="askCtx"></div>
+
+  <div class="ask-input">
+    <textarea id="askText" rows="1" placeholder="问点什么，比如：这个改动为什么能成立？"></textarea>
+    <button class="ask-send" id="askSend" type="button" aria-label="发送" disabled>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+           stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4.5 12h13M11.5 6l6 6-6 6"/>
+      </svg>
+    </button>
+  </div>
+</aside>
+
+<!-- 本地服务会把这一行替换成实际端口；静态打开时保持 null -->
+<script>window.__PA_SERVE__ = null;</script>
+
+<script id="paper-data" type="application/json">{"paper_title":"Carbon-Aware Workflow Scheduling with Fixed Mapping and Deadline Constraint","paper_title_zh":"","template_name":"精读","model":"deepseek-chat","lang":"zh","pages":12,"blocks":12,"groups":[{"name":"概览","blocks":[{"id":"tl_dr","title":"一句话结论","content":"论文针对给定任务映射与顺序、带截止时间约束的工作流调度问题，以最小化总碳排放为目标，将任务（含通信任务）在时间轴上平移以利用绿色能源充足的时段；理论证明单处理器情形多项式时间可解、多处理器情形强NP完全，并提出结合贪心与局部搜索的启发式框架CaWoSched及ILP精确解；实验表明启发式相比ASAP基线碳排放中位数约为其60%，小规模实例上接近ILP最优。","confidence":"high","empty":false,"evidence":[{"page":2,"quote":"we propose a heuristic framework called CaWoSched that combines several greedy approaches with local search. ... Our experimental results show that our heuristics provide significant savings in carbon emissions compared to the baseline.","quote_zh":"我们提出了一个名为CaWoSched的启发式框架，它结合了若干贪心方法与局部搜索。……我们的实验结果表明，与基线相比，我们的启发式方法在碳排放上实现了显著节省。","section":"Abstract","para":1,"verified":true},{"page":8,"quote":"We can see that all algorithms are closely together with a cost ratio median of ≈0.6, meaning that the algorithm needs only 60% of the carbon cost compared to the baseline","quote_zh":"我们可以看到所有算法彼此接近，成本比中位数约为0.6，这意味着该算法所需的碳成本仅为基线的60%。","section":"6 Experimental Evaluation","section_no":"6","para":20,"verified":true}]},{"id":"problem","title":"研究问题","content":"论文要解决的具体问题是：在数据/计算中心使用混合（可再生与非可再生）能源、绿色能源随时间变化且各处理器碳排放异构的平台上，对已给定映射与任务顺序（例如由HEFT产生）的工作流（DAG）进行调度，通过在不违反依赖关系和全局截止时间T的前提下平移任务（含通信任务）的执行时间，使总碳排放CC最小。作者将其形式化为带固定映射与顺序的调度问题，并拆分为：(i) 单处理器情形的复杂度；(ii) 多处理器情形的复杂度；(iii) 通用问题的ILP建模；(iv) 启发式算法设计与评估。实际意义：数据中心能耗与碳排放巨大，调度器设计者与数据中心运营者可利用该结果在满足截止时间的同时降低碳足迹。","confidence":"high","empty":false,"evidence":[{"page":2,"quote":"To reduce the carbon emissions resulting from executing such workflows in centers with a mixed (renewable and non-renewable) energy supply, it is advisable to move task executions to time intervals with sufficient green energy when possible. To this end, we formalize the above problem as a scheduling problem with a given mapping and ordering of the tasks.","quote_zh":"为了减少在混合（可再生与非可再生）能源供应的中心中执行此类工作流所产生的碳排放，宜在可能时将任务执行移至绿色能源充足的时间区间。为此，我们将上述问题形式化为一个具有给定任务映射与顺序的调度问题。","section":"Abstract","para":1,"verified":true},{"page":5,"quote":"The objective is to find an optimal schedule, defined as a schedule whose total carbon cost CC is minimum. To achieve this goal, the scheduler can shift around tasks (including communication tasks) to benefit from greener intervals, while enforcing all dependencies and meeting the deadline T.","quote_zh":"目标是找到一个最优调度，即总碳成本CC最小的调度。为实现这一目标，调度器可以平移任务（包括通信任务）以利用更绿色的区间，同时强制满足所有依赖关系并满足截止时间T。","section":"4 Complexity Results","section_no":"4","para":1,"verified":true},{"page":2,"quote":"Since the combined carbon footprint of all data/computing centers on the globe is even higher than that of air traffic [24], reducing this footprint is of immense importance, both from an ecological, political, and economical perspective.","quote_zh":"由于全球所有数据/计算中心的碳足迹总和甚至高于航空运输[24]，减少这一足迹从生态、政治和经济角度来看都极为重要。","section":"Abstract","para":3,"verified":true}]}]},{"name":"背景","blocks":[{"id":"background","title":"背景与已有工作","content":"论文在 Related Work 中把已有工作归为几条路线。第一，碳感知计算的高层负载视角：如 Mahmud & Iyengar 的碳感知负载均衡、Radovanović 等的全局云负载迁移、Hall 等的两阶段规划、Breukelman 等的 Stackelberg 博弈，这些工作考虑的是抽象负载或互不相关的批处理作业，而非具有依赖关系的工作流。第二，工作流调度的一般方法：论文聚焦 plan-based 算法，指出 HEFT 是影响深远的 list-scheduling 算法，并有大量扩展；partitioning-based 启发式将任务分组到块再分配。第三，节能工作流调度：GreenHEFT、MOHEFT 优化任务放置以省能，TaskFlow 利用工作流 slack 把任务放到更节能的硬件上，但它们都不以碳排放为目标，也不考虑任务何时运行以利用绿色能源。第四，碳减排相关工作：Wen 等用遗传算法做自适应工作流映射，在数据中心间移动任务，但只给出映射、不给开始时间，且实验最大工作流约 1000 个任务；Hanafy 等的 CarbonScaler 对弹性云应用做碳感知扩缩容；Wiesner 等研究单数据中心内把执行时间移到低碳区间的好处。论文还提到固定映射的类似思路见于嵌入式系统的能耗/可靠性感知调度。","confidence":"high","empty":false,"evidence":[{"page":3,"quote":"Most works in this more general line of research retain a high-level workload perspective and thus do not consider the concrete task of workflow scheduling.","quote_zh":"这一更广泛研究方向中的大多数工作保持高层负载视角，因此不考虑工作流调度的具体任务。","section":"2 Related Work","section_no":"2","para":6,"verified":true},{"page":3,"quote":"Two prominent algorithms for energy-efficient workflow scheduling are GreenHEFT [13] and MOHEFT [14]. Both heuristics optimize where tasks are scheduled in order to save energy. Similar to one type of our heuristics, TaskFlow [36] exploits slack in workflows, i. e., it takes advantage of tolerable delays by executing the corresponding tasks on more energy-efficient hardware. Yet, they all do not optimize for carbon emissions and thus do not consider when tasks should run in order to exploit green energy availability.","quote_zh":"两个著名的节能工作流调度算法是 GreenHEFT [13] 和 MOHEFT [14]。这两个启发式都优化任务被调度到哪里以节省能源。与我们某一类启发式类似，TaskFlow [36] 利用工作流中的松弛，即利用可容忍的延迟，把相应任务放到更节能的硬件上执行。然而，它们都不以碳排放为优化目标，因此不考虑任务应在何时运行以利用绿色能源的可用性。","section":"2 Related Work","section_no":"2","para":9,"verified":true},{"page":3,"quote":"Wen et al. [38], for example, propose a genetic algorithm for adaptive workflow mapping whose main rationale is to move tasks between geographically distributed data centers – depending on their energy mix. The approach only provides a mapping of tasks to data centers, but no task starting times.","quote_zh":"例如，Wen 等人 [38] 提出一种用于自适应工作流映射的遗传算法，其主要思路是依据数据中心的能源结构在地理分布的数据中心之间移动任务。该方法只提供任务到数据中心的映射，而不提供任务开始时间。","section":"2 Related Work","section_no":"2","para":10,"verified":true},{"page":3,"quote":"Considering a single data center location, in turn, Wiesner et al. [39] investigate how beneficial shifting of execution times to intervals with lower carbon emissions can be.","quote_zh":"反过来，Wiesner 等人 [39] 考虑单个数据中心位置，研究将执行时间移到碳排放更低的区间能带来多大好处。","verified":false},{"page":3,"quote":"A somewhat similar approach of assuming a fixed mapping can be found in the literature, e. g., for energy- and reliability-aware task scheduling and frequency scaling in embedded systems [28].","quote_zh":"文献中可以找到一种有些类似的假设固定映射的方法，例如用于嵌入式系统中能耗与可靠性感知的任务调度和频率缩放 [28]。","section":"2 Related Work","section_no":"2","para":1,"verified":true}]},{"id":"gap","title":"本文的切入点","content":"论文指出的缺口是：已有碳感知研究大多停留在高层负载视角，不处理具体的工作流调度；已有的工作流调度启发式（GreenHEFT、MOHEFT、TaskFlow）优化的是任务放在哪里以省能，而不是碳排放，也不考虑任务何时运行以利用绿色能源；Wen 等只给映射不给开始时间，且遗传算法耗时；Wiesner 等虽研究时间平移的收益，但未针对单个工作流的调度算法。论文自己的新想法是：在映射与顺序已给定（例如由 HEFT 产生）的前提下，把问题形式化为在截止时间约束下平移任务（含通信任务）以利用随时间变化的绿色能源，从而最小化总碳成本；并给出单处理器多项式时间动态规划、多处理器强 NP 完全性证明、ILP 形式化，以及结合贪心与局部搜索的 CaWoSched 启发式框架。作者声称这是首个聚焦于优化给定工作流映射与顺序的调度以利用时变绿色能源的工作。若没有这篇论文，会少掉：该问题在单处理器/多处理器下的复杂度刻画、一个可对照的 ILP 精确解，以及一套在实验中相对 ASAP 基线显著降低碳成本、并在小实例上接近最优的启发式方法。","confidence":"high","empty":false,"evidence":[{"page":4,"quote":"Altogether, this work is in line with the general trend of minimizing energy consumption and/or carbon emissions. However, to the best of our knowledge, it is the first to focus on optimizing the scheduling of a given workflow mapping and ordering to benefit from time-varying green energy.","quote_zh":"总体而言，本工作与最小化能耗和/或碳排放的总体趋势一致。然而，据我们所知，它是首个专注于优化给定工作流映射与顺序的调度以利用时变绿色能源的工作。","section":"3 Framework","section_no":"3","para":2,"verified":true},{"page":3,"quote":"Yet, this previous line of research has either not focused on scheduling individual workflows or focused on reducing energy consumption [7, 36] rather than carbon emission. As we outline in more detail in Section 2, carbon-aware scheduling algorithms are still in their infancy.","quote_zh":"然而，此前的这条研究路线要么没有聚焦于调度单个工作流，要么聚焦于降低能耗 [7, 36] 而非碳排放。正如我们在第 2 节更详细地概述的那样，碳感知调度算法仍处于起步阶段。","section":"2 Related Work","section_no":"2","para":3,"verified":true},{"page":3,"quote":"The problem becomes combinatorial: while we cannot change the mapping nor the ordering of the tasks on each processor, we can shift the tasks (and the corresponding communication operations) to benefit from lower-carbon intervals, while enforcing the deadline.","quote_zh":"问题变成组合问题：虽然我们不能改变映射，也不能改变每个处理器上任务的顺序，但我们可以平移任务（以及相应的通信操作）以利用低碳区间，同时满足截止时间。","section":"2 Related Work","section_no":"2","para":3,"verified":true},{"page":3,"quote":"On the theory side, we lay the foundations for the problem complexity, with (i) a sophisticated fully-polynomial time dynamic programming algorithm for the single processor case, (ii) a proof of strong NP-completeness for a simplified instance with 2 or more processors, independent tasks, and carbon-homogeneous processors, and (iii) the formulation of the general problem as an integer linear program (ILP).","quote_zh":"在理论方面，我们为问题复杂度奠定基础，包括：(i) 针对单处理器情形的一个精巧的全多项式时间动态规划算法；(ii) 针对具有 2 个或更多处理器、独立任务且碳同构处理器的简化实例的强 NP 完全性证明；(iii) 将一般问题表述为整数线性规划（ILP）。","section":"2 Related Work","section_no":"2","para":4,"verified":true},{"page":3,"quote":"On the practical side, we design efficient algorithms that greatly decrease the total carbon cost compared to a standard carbon-unaware competitor; for small instances, our experimental results indicate that our algorithms achieve a quality that is close to the optimal one derived from the ILP.","quote_zh":"在实践方面，我们设计了高效算法，与标准的碳不感知对照算法相比大幅降低总碳成本；对于小实例，我们的实验结果表明，我们的算法达到的质量接近由 ILP 导出的最优解。","section":"2 Related Work","section_no":"2","para":4,"verified":true}]}]},{"name":"方法","blocks":[{"id":"method_overview","title":"方法 · 整体框架","content":"方法的整体框架如下：输入包括一个工作流 DAG（任务集 V、边集 E、任务运行时间 ω、通信时间 c）、一个给定的任务到处理器的映射以及每个处理器上的任务顺序（例如由 HEFT 产生）、一个由 P 个异构处理器组成的集群平台（每个处理器有 idle 功率和 work 功率）、一个截止时间 T 以及将 [0,T[ 划分为 J 个区间的绿色能源预算 profile（每个区间有恒定的绿色功率预算 G_j）。输出是一个为每个任务（包括通信任务）分配开始时间的调度方案，目标是最小化总碳成本 CC = Σ_t max(P_t - G_j, 0)，同时满足所有依赖关系和截止时间 T。\n\n阶段一：构建通信增强 DAG G_c。将跨处理器的通信边转换为虚构的通信任务，并添加零通信成本的依赖边，得到一个无通信成本、任务数为 N = n + |E'| 的 DAG，映射和顺序均已知。\n\n阶段二：生成初始调度。有两种方式：(a) 基线 ASAP 算法，每个任务在其最早可能开始时间 EST 启动，不考虑碳区间；(b) 贪心算法，为每个任务计算分数（slack 或 pressure，可加权），按分数排序后依次为任务选择开始时间，选择时考虑区间细分和绿色预算。\n\n阶段三（可选）：局部搜索。对贪心调度进行改进，按处理器功耗从高到低、任务从左到右的顺序，在时间窗口内尝试移动任务，若合法且有正收益则应用，直到一轮无收益为止。\n\n最终输出调度方案及其碳成本。","confidence":"high","empty":false,"evidence":[{"page":4,"quote":"We use a suitable time unit (e.g. seconds, minutes, ...) and express all parameters as integer multiples of this unit.","quote_zh":"我们使用合适的时间单位（例如秒、分钟等），并将所有参数表示为该单位的整数倍。","section":"3 Framework","section_no":"3","para":2,"verified":true},{"page":4,"quote":"We assume that the mapping is given, as well as the ordering of the tasks and the communication operations (i.e., data transfer) on each processor.","quote_zh":"我们假设映射是给定的，每个处理器上的任务和通信操作（即数据传输）的顺序也是给定的。","section":"3 Framework","section_no":"3","para":4,"verified":true},{"page":4,"quote":"We obtain a communication-enhanced DAG G_c = (V_c, E_c, ω), where V_c contains both V and all |E'| communication tasks v_{i,j}: V_c = V ∪ {v_{i,j} | (v_i, v_j) ∈ E'},","quote_zh":"我们得到一个通信增强的 DAG G_c = (V_c, E_c, ω)，其中 V_c 包含 V 和所有 |E'| 个通信任务 v_{i,j}：V_c = V ∪ {v_{i,j} | (v_i, v_j) ∈ E'}，","section":"3 Framework","section_no":"3","para":8,"verified":true},{"page":4,"quote":"The carbon cost for t ∈ I_j is assumed to be proportional to the non-green power, and hence we simply write CC_t = max(P_t − G_j, 0). The total carbon cost of the schedule is then CC = Σ_{t=0}^{T−1} CC_t.","quote_zh":"对于 t ∈ I_j，碳成本假设与非绿色功率成正比，因此我们简单地写为 CC_t = max(P_t − G_j, 0)。调度的总碳成本则为 CC = Σ_{t=0}^{T−1} CC_t。","section":"3 Framework","section_no":"3","para":15,"verified":true},{"page":5,"quote":"The objective is to find an optimal schedule, defined as a schedule whose total carbon cost CC is minimum. To achieve this goal, the scheduler can shift around tasks (including communication tasks) to benefit from greener intervals, while enforcing all dependencies and meeting the deadline T.","quote_zh":"目标是找到一个最优调度，即总碳成本 CC 最小的调度。为实现这一目标，调度器可以移动任务（包括通信任务）以利用更绿色的区间，同时强制所有依赖关系并满足截止时间 T。","section":"4 Complexity Results","section_no":"4","para":1,"verified":true},{"page":5,"quote":"In this section, we present CaWoSched, a carbon-aware workflow scheduler for the scheduling problem of minimizing the carbon cost, given a mapping and a deadline. Recall that we work on the communication-enhanced DAG G_c = (V_c, E_c, ω).","quote_zh":"在本节中，我们提出 CaWoSched，一个碳感知的工作流调度器，用于在给定映射和截止时间的情况下最小化碳成本的调度问题。回想一下，我们工作在通信增强的 DAG G_c = (V_c, E_c, ω) 上。","section":"4 Complexity Results","section_no":"4","para":10,"verified":true},{"page":5,"quote":"The ASAP baseline algorithm starts each task at their earliest possible start time (EST).","quote_zh":"ASAP 基线算法在每个任务的最早可能开始时间（EST）启动它。","verified":false},{"page":6,"quote":"The idea is to assign a score to each task, and sort the tasks accordingly. Afterwards, we process the tasks in this order and try to find a good starting time for them.","quote_zh":"思路是为每个任务分配一个分数，并据此对任务排序。之后，我们按此顺序处理任务，并尝试为它们找到好的开始时间。","section":"5 Algorithms","section_no":"5","para":15,"verified":true},{"page":6,"quote":"Once a greedy schedule has been obtained, we propose to refine this schedule by doing a local search, exploiting the flexibility that tasks still provide within the greedy schedule.","quote_zh":"一旦获得贪心调度，我们建议通过局部搜索来改进该调度，利用任务在贪心调度中仍然提供的灵活性。","section":"5 Algorithms","section_no":"5","para":34,"verified":true}]},{"id":"method_steps","title":"方法 · 关键步骤","content":"核心步骤拆解如下（不超过5步）：\n\n步骤1：构建通信增强 DAG G_c。做什么：将跨处理器的通信边 (v_i, v_j) ∈ E' 替换为虚构的通信任务 v_{i,j}，长度为 c(v_i, v_j)，并添加零成本依赖边 (v_i, v_{i,j}) 和 (v_{i,j}, v_j)；同时根据给定的通信顺序添加优先级约束 E''。为什么：这样所有通信都变成任务，调度时只需处理统一的任务模型，且碳成本计算可以按任务活动区间进行。不这么做：通信与计算混合，难以在多项式时间内计算碳成本，且无法统一处理任务开始时间。\n\n步骤2：计算 EST 和 LST。做什么：用类似拓扑排序的方法（队列）计算每个任务的最早开始时间 EST(v) = max_{(u,v)∈E_c} {EST(u) + ω(u)}，以及最晚开始时间 LST(u) = min_{(u,v)∈E_c} {LST(v) − ω(u)}，其中 LST(v) = T − ω(v) 对汇点任务。为什么：EST 和 LST 定义了任务可移动的时间窗口 [EST, LST]，是后续贪心选择和局部搜索合法性的基础。不这么做：无法保证调度满足依赖和截止时间，也无法计算 slack 和 pressure 分数。\n\n步骤3：计算任务分数并排序。做什么：计算 slack s(v) = LST(v) − EST(v) 和 pressure ρ(v) = ω(v) / (s(v) + ω(v))，可选地乘以权重因子 wf(i) = (P_idle^i + P_work^i) / max_j(P_idle^j + P_work^j) 得到加权分数。按分数排序（slack 非递减，pressure 非递增）。为什么：slack 小或 pressure 大的任务灵活性低，应优先调度；加权分数考虑处理器功耗异质性。不这么做：随机顺序可能导致高灵活性任务占用绿色区间，低灵活性任务被迫使用高碳区间。\n\n步骤4：贪心分配开始时间。做什么：按排序依次处理任务，在满足 EST(v) ≤ b_j ≤ LST(v) 的区间中，选择绿色预算 G_j 最高的区间的开始点作为任务开始时间（若多个则选最早）；若没有可行区间则用 EST(v)。然后更新该任务运行区间内的绿色预算（减去 P_idle + P_work），并更新未调度任务的 EST 和 LST。为什么：优先利用绿色预算高的区间以降低碳成本；更新预算和 EST/LST 保证后续决策的可行性和准确性。不这么做：可能选择碳成本高的区间，或导致后续任务无法满足依赖和截止时间。\n\n步骤5：局部搜索改进。做什么：按处理器功耗从高到低排序，对每个处理器上的任务从左到右，在时间窗口 [EST, LST] 内尝试向左/右移动最多 τ 个时间单位（论文中 τ 参数记为 μ，实验设 μ=10），若移动合法且碳成本有正收益则应用并更新成本；一轮无收益则停止。为什么：贪心调度可能不是局部最优，局部搜索可利用剩余灵活性进一步降低碳成本。不这么做：调度质量可能较差，实验表明局部搜索平均可降低约 23%-25% 的成本比（见表2）。\n\n公式位置：DP 递推公式在 page 5 的 Eq.(1)；ILP 目标函数在 page 5 的 Eq.(2)；pressure 定义在 page 6。","confidence":"high","empty":false,"evidence":[{"page":4,"quote":"We obtain a communication-enhanced DAG G_c = (V_c, E_c, ω), where V_c contains both V and all |E'| communication tasks v_{i,j}: V_c = V ∪ {v_{i,j} | (v_i, v_j) ∈ E'},","quote_zh":"我们得到一个通信增强的 DAG G_c = (V_c, E_c, ω)，其中 V_c 包含 V 和所有 |E'| 个通信任务 v_{i,j}：V_c = V ∪ {v_{i,j} | (v_i, v_j) ∈ E'}，","section":"3 Framework","section_no":"3","para":8,"verified":true},{"page":5,"quote":"For all tasks u ∈ V_c with in-degree 0 (guaranteed to exist since G_c is acyclic), we set EST(u) = 0 and decrease by one the in-degree of successor tasks (tasks v such that (u, v) ∈ E_c). A task v obtains an in-degree of 0 once all of its predecessors have been handled, and we can then compute its earliest start time as: EST(v) = max_{(u,v)∈E_c} {EST(u) + ω(u)},","quote_zh":"对于所有入度为 0 的任务 u ∈ V_c（由于 G_c 是无环的，保证存在），我们设 EST(u) = 0 并将后继任务（满足 (u, v) ∈ E_c 的任务 v）的入度减一。一旦所有前驱都被处理，任务 v 的入度变为 0，然后我们可以计算其最早开始时间：EST(v) = max_{(u,v)∈E_c} {EST(u) + ω(u)}，","section":"4 Complexity Results","section_no":"4","para":12,"verified":true},{"page":6,"quote":"LST can be computed similarly to EST, using a queue to handle tasks. We set LST(v) = T − ω(v) if v ∈ V_c and decrease by one the out-degree of predecessor tasks (tasks u such that (u, v) ∈ E_c). A task u obtains an out-degree of 0 once all of its successors have been handled, and we can then compute its latest start time as: LST(u) = min_{(u,v)∈E_c} {LST(v) − ω(u)}.","quote_zh":"LST 可以类似 EST 计算，使用队列处理任务。若 v ∈ V_c，我们设 LST(v) = T − ω(v)，并将前驱任务（满足 (u, v) ∈ E_c 的任务 u）的出度减一。一旦所有后继都被处理，任务 u 的出度变为 0，然后我们可以计算其最晚开始时间：LST(u) = min_{(u,v)∈E_c} {LST(v) − ω(u)}。","section":"5 Algorithms","section_no":"5","para":18,"verified":true},{"page":6,"quote":"The first score is the slack s(v) of task v, which represents the difference between the latest possible starting time of a task v, LST(v), and its earliest start time EST(v).","quote_zh":"第一个分数是任务 v 的 slack s(v)，它表示任务 v 的最晚可能开始时间 LST(v) 与其最早开始时间 EST(v) 之间的差值。","section":"5 Algorithms","section_no":"5","para":17,"verified":true},{"page":6,"quote":"The second score is the pressure of a task v, defined as: ρ(v) = ω(v) / (s(v) + ω(v)).","quote_zh":"第二个分数是任务 v 的 pressure，定义为：ρ(v) = ω(v) / (s(v) + ω(v))。","verified":false},{"page":6,"quote":"Given a score and an interval subdivision, we pick the next task, say v, according to the best score value. The interval set is denoted as {I_1, ..., I_{J'}}, where J' = J if intervals are not refined, and J' ≥ J otherwise. We have I_j = [b_j, e_j[. First, the algorithm computes the subset of the intervals such that EST(v) ≤ b_j ≤ LST(v), i.e., intervals at the beginning of which the task can be started.","quote_zh":"给定一个分数和区间细分，我们根据最佳分数值选择下一个任务，比如 v。区间集记为 {I_1, ..., I_{J'}}，其中若区间未细化则 J' = J，否则 J' ≥ J。我们有 I_j = [b_j, e_j[。首先，算法计算满足 EST(v) ≤ b_j ≤ LST(v) 的区间子集，即任务可以在其开始处启动的区间。","section":"5 Algorithms","section_no":"5","para":30,"verified":true},{"page":6,"quote":"Otherwise, we sort the intervals according to their budget G_j and schedule the task to start at the beginning of the interval with the highest budget. If there are multiple intervals that are possible, we use the interval with the earliest starting point.","quote_zh":"否则，我们根据预算 G_j 对区间排序，并将任务调度到预算最高的区间的开始处。如果有多个可能的区间，我们使用开始点最早的区间。","section":"5 Algorithms","section_no":"5","para":31,"verified":true},{"page":6,"quote":"Then, on each interval where the task runs, we decrease the power budget by P_idle^i + P_work^i, where p_i is the processor on which task v is mapped, to account for the fact that there is now a task running in this interval and consuming some power – hence the green budget is lower.","quote_zh":"然后，在任务运行的每个区间上，我们将功率预算减去 P_idle^i + P_work^i，其中 p_i 是任务 v 映射到的处理器，以计入现在该区间有一个任务运行并消耗一些功率的事实——因此绿色预算降低。","section":"5 Algorithms","section_no":"5","para":32,"verified":true},{"page":6,"quote":"For the local search, we introduce a parameter 0 ≤ μ ≤ T−1. First, we sort the processors by non-increasing power consumption P_work^i, i.e., the more costly processor is considered first.","quote_zh":"对于局部搜索，我们引入参数 0 ≤ μ ≤ T−1。首先，我们按功耗 P_work^i 非递增排序处理器，即更昂贵的处理器先考虑。","section":"5 Algorithms","section_no":"5","para":35,"verified":true},{"page":7,"quote":"For each processor in this order, we then iterate over the tasks of the processors from left to right and look τ time units to the left and right, and check whether moving the task would give us a gain and is valid. This means that we make sure for every possible move that the corresponding start time of a task v stays in the interval [EST(v), LST(v)].","quote_zh":"按此顺序对每个处理器，我们从左到右遍历处理器上的任务，并向左和向右查看 τ 个时间单位，检查移动任务是否会带来收益且合法。这意味着我们确保对于每个可能的移动，任务 v 的相应开始时间保持在区间 [EST(v), LST(v)] 内。","section":"6 Experimental Evaluation","section_no":"6","para":1,"verified":true},{"page":7,"quote":"If we find a legal move with a positive gain, we apply it and update the cost. ... At each round, we record whether we had a positive gain or not. If there was one round through the tasks without gain, we stop the local search.","quote_zh":"如果我们找到一个有正收益的合法移动，我们应用它并更新成本。……在每一轮，我们记录是否有正收益。如果有一轮遍历任务没有收益，我们停止局部搜索。","section":"6 Experimental Evaluation","section_no":"6","para":1,"verified":true}]}]},{"name":"实验","blocks":[{"id":"dataset","title":"数据集","content":"论文使用两类工作流 DAG：真实工作流（atacseq、bacass、eager、methylseq，来自 [6]）和用 WFGen 生成器模拟真实实例放大得到的合成工作流。合成图的顶点数取 200、1000、2000、4000、8000、10000、15000、18000、20000、25000、30000；顶点和边权重服从正态分布，顶点权重一般大于边权重，网络带宽归一化为 1。共 34 个工作流：atacseq 和 methylseq 各 12 个图，bacass 只用真实版本（因缩放问题），eager 有 9 个图（最多 18000 顶点）。每个图生成两个映射（分别对应 small 和 large 集群），映射由作者自己的基础 HEFT 实现生成。平台为 small（72 节点）和 large（144 节点）两个异构集群，各含 6 种处理器类型。功率曲线为每个工作流生成 4 种形状（S1、S2、S3、S4），每种形状配 4 个截止时间（D、1.5D、2D、3D，D 为 ASAP 所需时间），共 16 种功率配置。总计 2×34×16=1088 次模拟/算法。划分方式：论文未说明训练/测试划分（本文为启发式与 ILP 对比，不涉及学习型训练）。数据泄漏风险：论文未提及；由于映射由 HEFT 生成、功率曲线为合成生成，且 ILP 与启发式在同一组实例上比较，论文未讨论同源泄漏问题。","confidence":"high","empty":false,"evidence":[{"page":7,"quote":"We evaluate the presented algorithmic framework on 34 workflows. The corresponding DAGs can be divided into real-world workflows obtained from [6] (atacseq, bacass, eager and methylseq) and workflows obtained by simulating real-world instances using the WFGen generator [11].","quote_zh":"我们在 34 个工作流上评估所提出的算法框架。相应的 DAG 可分为来自 [6] 的真实工作流（atacseq、bacass、eager 和 methylseq）以及使用 WFGen 生成器 [11] 模拟真实实例得到的工作流。","section":"6 Experimental Evaluation","section_no":"6","para":5,"verified":true},{"page":7,"quote":"As number of vertices, we use 200, 1000, 2000, 4000, 8000, 10000, 15000, 18000, 20000, 25000 and 30000.","quote_zh":"顶点数我们使用 200、1000、2000、4000、8000、10000、15000、18000、20000、25000 和 30000。","section":"6 Experimental Evaluation","section_no":"6","para":5,"verified":true},{"page":8,"quote":"For the workflow types atacseq and methylseq, we have 12 graphs per type, for bacass we only use the real-world version due to problems with scaling, and for eager we have 9 graphs with up to 18000 vertices. This results in2×34×16=1088simulations(2platforms,34workflows, 16 power profiles) per algorithm.","quote_zh":"对于 atacseq 和 methylseq 工作流类型，每种类型有 12 个图；对于 bacass，由于缩放问题我们只使用真实版本；对于 eager，我们有 9 个图，最多 18000 个顶点。这导致每个算法有 2×34×16=1088 次模拟（2 个平台、34 个工作流、16 种功率配置）。","section":"6 Experimental Evaluation","section_no":"6","para":13,"verified":true},{"page":7,"quote":"Furthermore, we generate for every graph two mappings, one for cluster small and one for cluster large. The mappings are generated with our own basic HEFT implementation without special techniques for tie-breaking, because that would not change the fact that HEFT is not carbon-aware.","quote_zh":"此外，我们为每个图生成两个映射，一个用于 small 集群，一个用于 large 集群。映射由我们自己的基础 HEFT 实现生成，没有使用特殊的平局打破技术，因为那不会改变 HEFT 不是碳感知的这一事实。","section":"6 Experimental Evaluation","section_no":"6","para":6,"verified":true}]},{"id":"setup","title":"实验设置","content":"评价指标：碳成本 CC（各时间单元非绿色功率 max(P_t − G_j, 0) 之和）；结果以成本比（启发式成本/基线成本，或最优成本/启发式成本）的排名、性能剖面、中位数和箱线图呈现。对比基线：ASAP（每个任务尽早开始，不考虑绿色区间），这是作者设计的简单基线；小实例上还与 ILP（Gurobi 求解）精确解对比。超参数：区间细分块大小 k=3，局部搜索参数 μ=10；局部搜索按处理器功耗降序、任务从左到右、在 [EST, LST] 内左右移动 τ 时间单位，找到正收益即应用，一轮无收益则停止。训练细节：算法用 C++ 实现，g++ 13.2.0 -O3；实验由 simexpal 管理，在 192 GB RAM、2×12 核 Intel Xeon 6126 @3.2GHz、CentOS 8 工作站上运行；ILP 用 Gurobi Python API，在 13 代 Intel Core i7-1355U、16GB RAM、Ubuntu 24.04.1 上运行。基线强度：ASAP 是碳不感知的简单基线，作者明确说它不考虑区间；论文未与 GreenHEFT、MOHEFT、TaskFlow 等碳/能耗感知调度器做实验对比（仅在相关工作讨论），因此基线偏弱，结果可信度受此限制。ILP 仅用于 ≤200 任务的小实例，且作者称 200 任务已需长达一小时，故大规模实例无最优解参照。","confidence":"high","empty":false,"evidence":[{"page":5,"quote":"In this section, we present CaWoSched, a carbon-aware workflow scheduler for the scheduling problem of minimizing the carbon cost, given a mapping and a deadline. Recall that we work on the communication-enhanced DAG Gc = (Vc, Ec, ω). In Section 5.1, we first present the baseline algorithm, ASAP (As Soon As Possible), which schedules each task at its earliest possible start time, without taking the intervals into account.","quote_zh":"本节我们提出 CaWoSched，一个在给定映射和截止时间下最小化碳成本的碳感知工作流调度器。回忆我们在通信增强 DAG Gc = (Vc, Ec, ω) 上工作。在 5.1 节，我们首先给出基线算法 ASAP（As Soon As Possible），它将每个任务安排在其最早可能开始时间，不考虑区间。","section":"4 Complexity Results","section_no":"4","para":10,"verified":true},{"page":8,"quote":"Further, for the simulation results below, we set the tuning parameter for the subdivision to k = 3 and the tuning paramater for the local search to μ = 10.","quote_zh":"此外，对于下面的模拟结果，我们将细分的调优参数设为 k = 3，局部搜索的调优参数设为 μ = 10。","section":"6 Experimental Evaluation","section_no":"6","para":13,"verified":true},{"page":8,"quote":"All algorithms are implemented in C++ and compiled with g++ (v.13.2.0) with compiler flag -O3. The experiments are managed by simexpal [4] and executed on workstations with 192 GB RAM and 2x 12-Core Intel Xeon 6126 @3.2GHz and CentOS 8 as OS. The ILP is implemented using Gurobi’s Python API [16] and for license reasons executed on a machine with a 13th Gen Intel(R) Core(TM) i7-1355U processor with 16GB RAM running Ubuntu 24.04.1 LTS.","quote_zh":"所有算法用 C++ 实现，用 g++（v.13.2.0）加编译选项 -O3 编译。实验由 simexpal [4] 管理，在 192 GB RAM、2×12 核 Intel Xeon 6126 @3.2GHz、CentOS 8 操作系统的工作站上执行。ILP 使用 Gurobi 的 Python API [16] 实现，出于许可证原因在 13 代 Intel(R) Core(TM) i7-1355U 处理器、16GB RAM、Ubuntu 24.04.1 LTS 的机器上运行。","section":"6 Experimental Evaluation","section_no":"6","para":13,"verified":true},{"page":10,"quote":"We restrict to instances with up to 200 tasks, since the solver takes too long on larger instances (already up to one hour for 200 tasks vs only milliseconds for each heuristic).","quote_zh":"我们限制在最多 200 个任务的实例上，因为求解器在更大实例上耗时过长（200 个任务已需长达一小时，而每个启发式只需毫秒级）。","section":"6 Experimental Evaluation","section_no":"6","para":33,"verified":true}]},{"id":"result","title":"主要结果","content":"核心数字：在全部 1088 个实例上，各启发式相对 ASAP 的碳成本比中位数约为 0.6（即只需基线的约 60%，约 1.67 倍改进）；pressWR-LS 中位数最好，为 0.58。在截止时间更宽松时改进更大：slackW 在 3D 截止时间下成本比仅 0.15（约 6.67 倍改进）。排名上，pressWR-LS 最常排第一（34.47%），但领先幅度小；基线 ASAP 在 84.01% 的案例中表现最差。性能剖面显示，在 τ=1.0（达到最优成本的比例）上 pressWR-LS 最高，但在更宽松的 τ 下 slack 类变体反超，提示 slack 平均表现更好；紧截止时间下 pressR 和 pressWR 曲线更高，截止时间放宽后 slack 变体明显反超。箱线图显示多数实例成本比在约 0.25 到 0.9 之间，中位数约 0.6；但论文明确指出部分实例上基线优于所提算法，原因是某些功率曲线在时间窗开始处绿色功率很多，尽早调度可能最优。与 ILP 对比（≤200 任务）：中位成本比仍合理，且有不少实例成本比为 1.0（达到最优），基线比启发式差得多；但论文未给出与 ILP 对比的具体中位数值。运行时间：多数实例秒级，最大 30000 任务的工作流需数分钟；运行时间主要受图规模影响，受时间窗长度 T 影响很小。","confidence":"high","empty":false,"evidence":[{"page":8,"quote":"We can see that all algorithms are closely together with a cost ratio median of ≈0.6, meaning that the algorithm needs only 60% of the carbon cost compared to the baseline (or, vice versa, they are ≈1.67× better). We also see that regarding this cost ratio, the algorithm versions using pressure as base score perform better than the slack variants – pressWR-LS has the best cost ratio median with 0.58.","quote_zh":"我们可以看到所有算法彼此接近，成本比中位数约为 0.6，意味着算法只需基线约 60% 的碳成本（或者说，约好 1.67 倍）。我们还看到，就这一成本比而言，以 pressure 为基础分数的算法版本优于 slack 变体——pressWR-LS 的成本比中位数最好，为 0.58。","section":"6 Experimental Evaluation","section_no":"6","para":20,"verified":true},{"page":9,"quote":"There, we can see that while the gains for a tight deadline are moderate, the algorithm slackW has a cost ratio of only 0.15 compared to the baseline (or, vice versa, ≈6.67× better).","quote_zh":"在那里我们可以看到，虽然紧截止时间下的收益是温和的，但算法 slackW 相对基线的成本比仅为 0.15（或者说，约好 6.67 倍）。","section":"6 Experimental Evaluation","section_no":"6","para":23,"verified":true},{"page":8,"quote":"In particular, we can see that the baseline performed worst in 84.01% of the cases. Another observation is that none of the algorithm variants does significantly outperform the others in terms of ranking. The pressWR-LS variant is ranked first most frequently (34.47%), but with a small margin.","quote_zh":"特别地，我们可以看到基线在 84.01% 的案例中表现最差。另一个观察是，没有任何算法变体在排名上显著优于其他变体。pressWR-LS 变体最常排第一（34.47%），但领先幅度很小。","section":"6 Experimental Evaluation","section_no":"6","para":18,"verified":true},{"page":9,"quote":"We also see that, for some instances, the baseline performs better than the proposed algorithms. One reason for this is that some power profiles provide a lot of green power in the beginning of the horizon[0,T[. Hence, for these profiles, scheduling the tasks as soon as possible might be the best strategy.","quote_zh":"我们还看到，对于某些实例，基线优于所提算法。一个原因是某些功率曲线在时间窗 [0,T[ 开始处提供了大量绿色功率。因此，对于这些曲线，尽早调度任务可能是最佳策略。","section":"6 Experimental Evaluation","section_no":"6","para":24,"verified":true},{"page":10,"quote":"Further, it is interesting to see that there are a significant number of instances where the cost ratio is 1.0, meaning that our heuristic is able to achieve the optimal solution.","quote_zh":"此外，有趣的是，有相当多的实例成本比为 1.0，意味着我们的启发式能够达到最优解。","section":"6 Experimental Evaluation","section_no":"6","para":34,"verified":true},{"page":11,"quote":"For most of the instances, the scheduler is able to compute a schedule within seconds, while larger workflows with up to 30000 tasks can take several minutes.","quote_zh":"对于大多数实例，调度器能在数秒内计算出调度方案，而最多 30000 个任务的较大工作流可能需要数分钟。","verified":false}]},{"id":"ablation","title":"消融与验证","content":"论文做了局部搜索的消融：对 slackR、slackWR、pressR、pressWR 四个变体，在 atacseq 全部变体和 bacass 工作流（每变体 400+ 实验）上比较有/无局部搜索。结果显示成本比范围 0 到 1.0，平均改进：slackR 0.25、slackWR 0.25、pressR 0.25、pressWR 0.23；局部搜索在所有变体上带来相似幅度的显著改进，且不少实例中局部搜索达到 0 碳成本而初始调度仍为正。参数影响：k=3 和 μ=10 为固定调优值，论文称 k>3 会产生大量子区间（未给出 k 的消融数据）；完整参数研究放在 [32, Appendix A.5]，正文未展开。集群规模对性能无显著影响但影响性能剖面；任务数增加时成本比略变差，但作者称影响不显著。论文未对四种评分（slack、pressure、加权、未加权）和两种区间细分（normal、refined）做系统的逐项消融，仅通过排名和性能剖面比较；也未消融通信增强 DAG 构造、功率曲线形状等设计。","confidence":"medium","empty":false,"evidence":[{"page":9,"quote":"We also run four of the heuristics without the local search to assess how much gain, in terms of carbon cost, can be achieved thanks to the local search. Note that we use a subset of the full test set for this approach, namely all variants of the atacseq workflow type and the bacass workflow. However, note that this still results in more than 400 experiments per algorithm variant.","quote_zh":"我们还运行了四个不带局部搜索的启发式，以评估局部搜索在碳成本方面能带来多少收益。注意，我们为此使用完整测试集的子集，即 atacseq 工作流类型的所有变体和 bacass 工作流。然而，注意这仍然导致每个算法变体超过 400 次实验。","section":"6 Experimental Evaluation","section_no":"6","para":26,"verified":true},{"page":9,"quote":"We can see that for every variant the cost ratio ranges from 0 to 1.0. A cost ratio of 0 comes from instances where the algorithm achieves zero carbon cost using local search, but the algorithm variant without local search has positive carbon cost. Note that a cost ratio larger than 1.0 is not possible since the local search approach is designed as a hill climber. In general, we can see that our local search approach significantly improves the solution of the initial schedule.","quote_zh":"我们可以看到，对于每个变体，成本比范围从 0 到 1.0。成本比为 0 来自这样的实例：算法使用局部搜索达到零碳成本，但不带局部搜索的算法变体具有正碳成本。注意成本比大于 1.0 是不可能的，因为局部搜索方法被设计为爬山法。总的来说，我们可以看到我们的局部搜索方法显著改进了初始调度的解。","section":"6 Experimental Evaluation","section_no":"6","para":26,"verified":true},{"page":9,"quote":"Further, we can see that the local search improves all algorithm variants by a similar margin.","quote_zh":"此外，我们可以看到局部搜索以相似的幅度改进了所有算法变体。","section":"6 Experimental Evaluation","section_no":"6","para":26,"verified":true},{"page":6,"quote":"Further refinement could be used by considering larger block sizes k > 3, but we observed in our experiments that k = 3 already creates a lot of subintervals.","quote_zh":"可以通过考虑更大的块大小 k > 3 来进一步细化，但我们在实验中观察到 k = 3 已经产生了很多子区间。","section":"5 Algorithms","section_no":"5","para":27,"verified":true},{"page":9,"quote":"A complete study highlighting the impact of all parameters through detailed results is available in [32, Appendix A.5].","quote_zh":"通过详细结果突出所有参数影响的完整研究见 [32, 附录 A.5]。","section":"6 Experimental Evaluation","section_no":"6","para":27,"verified":true}]}]},{"name":"判断","blocks":[{"id":"limits","title":"局限与未来工作","content":"作者自述的局限：论文在结论部分明确将「设计碳感知的 HEFT 扩展」列为未来工作，即当前工作只优化给定映射下的调度，不改变映射与顺序；作者设想两阶段方法（先映射排序、再优化调度）作为下一步。实验方面，与 ILP 最优解的比较仅限「最多 200 个任务」的小实例，因为求解器在更大实例上耗时过长（200 任务已需约一小时）；作者声明其目的不是探索高效 ILP 形式，故保留按时间单位建模的简单 ILP。参数研究（各参数影响、按 power profile 与集群规模的细分结果）被放在附录 [32] 中，正文只给聚合结果。作者未提及但可看出的风险：(1) 实验平台与功率参数是「受真实机器启发」的合成设定，green power 预算被刻意限制在「至少为所有处理器空闲功率之和、至多为空闲功率之和加 80% 工作功率之和」之间，作者自己说明超出该范围调度决策就无关紧要——这意味着结论只在人为构造的窄区间内成立，真实功率曲线的适用性论文未说明。(2) 所有映射均由作者自己的基础 HEFT 实现生成，未使用其他映射器，映射质量对结论的影响论文未说明。(3) 局部搜索是爬山法，作者承认其不可能使结果变差（cost ratio 不超过 1.0），但未分析局部搜索在更大实例或不同 k、μ 下的收敛行为；k=3、μ=10 的取值依据仅说「k=3 已产生大量子区间」，未给出敏感性分析。(4) 与 ILP 的比较只报告了 cost ratio 的分布图，未给出具体的中位数数值或逐实例统计，最优性差距的量化程度有限。","confidence":"medium","empty":false,"evidence":[{"page":11,"quote":"Future work will be devoted to the next step, namely targeting thedesignofacarbon-awareextensionofHEFT.Mappingand scheduling the workflow at the same time while minimizing carbon emissions may well lead to even better solutions.","quote_zh":"未来工作将致力于下一步，即设计 HEFT 的碳感知扩展。在最小化碳排放的同时对工作流进行映射和调度，很可能会带来更好的解。","section":"7 Conclusions","section_no":"7","para":5,"verified":true},{"page":10,"quote":"We restrict to instances with up to 200 tasks, since the solver takes too long on larger instances (already up to one hour for 200 tasks vs only milliseconds for each heuristic).","quote_zh":"我们限制在最多 200 个任务的实例上，因为求解器在更大实例上耗时过长（200 个任务已需长达一小时，而每个启发式只需毫秒级）。","section":"6 Experimental Evaluation","section_no":"6","para":33,"verified":true},{"page":7,"quote":"We make sure that green power is always at least the sum of the idle power of the processors and at most the sum of idle power and 80% of the sum of the work power. The rationale is as follows: if we do not have enough green power or more green power than required overall, the decisions of the scheduler become irrelevant.","quote_zh":"我们确保绿色功率始终至少为各处理器空闲功率之和，至多为空闲功率之和加上工作功率之和的 80%。理由如下：如果我们没有足够的绿色功率，或者绿色功率超过总体所需，调度器的决策就变得无关紧要。","section":"6 Experimental Evaluation","section_no":"6","para":7,"verified":true},{"page":7,"quote":"The mappings are generated with our own basic HEFT implementation without special techniquesfortie-breaking,becausethatwouldnotchangethe fact that HEFT is not carbon-aware.","quote_zh":"映射由我们自己的基础 HEFT 实现生成，没有使用特殊的打破平局技术，因为那不会改变 HEFT 并非碳感知的这一事实。","section":"6 Experimental Evaluation","section_no":"6","para":6,"verified":true},{"page":9,"quote":"Note that a cost ratio larger than 1.0 is not possible since the local search approach is designed as a hill climber.","quote_zh":"注意，代价比大于 1.0 是不可能的，因为局部搜索方法被设计为爬山法。","section":"6 Experimental Evaluation","section_no":"6","para":26,"verified":true}]},{"id":"questions","title":"值得追问的问题","content":"1. 论文的碳代价模型假设每个时间单位内绿色功率预算 G_j 恒定，且碳代价仅取决于「总功率超出绿色预算的部分」max(P_t − G_j, 0)，不区分棕色电力的具体碳强度，也不考虑储能或跨时间区间的能量转移。若真实场景中绿色电力可存储或碳强度随时间连续变化，这一模型下的最优调度策略是否仍然成立？论文未讨论该简化对结论外部有效性的影响。\n\n2. 实验中的 green power 预算被刻意限制在 [空闲功率总和, 空闲功率总和 + 80% 工作功率总和] 区间内，作者称超出该范围调度决策就无关紧要。那么在该区间之外（例如绿色功率极低或极高）时，CaWoSched 相对 ASAP 的节省是否仍然显著？论文只报告了区间内的结果，未给出边界外的表现，这直接关系到方法在真实数据中心功率曲线下的适用性。\n\n3. 与 ILP 最优解的比较仅覆盖最多 200 个任务的实例，且只以图 7 的 cost ratio 分布呈现，未报告具体中位数或逐实例差距。对于 1000 任务以上的大规模实例（论文实验主体为 200 到 30000 任务），启发式解与最优解的差距完全未知。作者能否给出大规模实例上启发式解的下界或近似比保证？论文未提供任何理论近似保证，也未用其他精确方法在中等规模上验证。","confidence":"medium","empty":false,"evidence":[{"page":4,"quote":"The carbon cost for 𝑡∈𝐼𝑗is assumed to be proportional to the non-green power, and hence we simply write CC𝑡=max(P𝑡−G𝑗, 0).","quote_zh":"对于 𝑡∈𝐼𝑗，碳代价被假定与非绿色功率成正比，因此我们简单地写为 CC𝑡=max(P𝑡−G𝑗, 0)。","section":"3 Framework","section_no":"3","para":15,"verified":true},{"page":7,"quote":"We make sure that green power is always at least the sum of the idle power of the processors and at most the sum of idle power and 80% of the sum of the work power.","quote_zh":"我们确保绿色功率始终至少为各处理器空闲功率之和，至多为空闲功率之和加上工作功率之和的 80%。","section":"6 Experimental Evaluation","section_no":"6","para":7,"verified":true},{"page":10,"quote":"We restrict to instances with up to 200 tasks, since the solver takes too long on larger instances (already up to one hour for 200 tasks vs only milliseconds for each heuristic).","quote_zh":"我们限制在最多 200 个任务的实例上，因为求解器在更大实例上耗时过长（200 个任务已需长达一小时，而每个启发式只需毫秒级）。","section":"6 Experimental Evaluation","section_no":"6","para":33,"verified":true}]}]}],"chain":{"thesis":"在给定任务映射与顺序、带截止期的前提下，把任务执行时间迁移到绿色能源充足的时段，可在多项式时间内求解单处理器情形，多处理器情形用贪心+局部搜索的 CaWoSched 启发式把碳成本降到 ASAP 基线的约 60%。","confidence":"high","note":"主线为「问题→复杂度洞察→启发式改动→机制→效果→代价」。理论贡献（单处理器 DP 多项式、多处理器强 NP-完全、ILP）作为 n2 上的 fork 呈现，不另起并行链。","nodes":[{"id":"n1","type":"problem","label":"碳感知调度尚在起步","detail":"数据中心能耗与碳排放已超过航空业，且供电变为随时间波动的可再生能源混合，同一任务在不同时刻执行的碳成本不同。已有碳感知工作多停留在抽象负载或跨数据中心迁移层面，没有针对带依赖的单个工作流做任务级时间迁移；而传统工作流调度（HEFT 等）只优化 makespan 或能耗，不考虑何时执行以利用绿电。","evidence":[{"page":4,"quote":"However, to the best of our knowledge, it is the first to focus on optimizing the scheduling of a given workflow mapping and ordering to benefit from time-varying green energy.","quote_zh":"然而，据我们所知，这是首个专注于优化给定工作流映射与顺序、以利用随时间变化的绿色能源的调度工作。","section":"3 Framework","section_no":"3","para":2,"verified":true}],"metric":{"value":"0","unit":"篇","label":"固定映射下的碳感知工作流调度先例"}},{"id":"n2","type":"insight","label":"映射固定，只剩时间可挪","detail":"作者假设映射与各处理器上的任务/通信顺序已由 HEFT 等给出，因此 makespan 最小化用 ASAP 线性时间即可完成，剩下的自由度只有「把任务整体平移」。碳成本只取决于每个时间单元的非绿电功率 max(P_t − G_j, 0)，所以把任务挪到绿电预算高的区间就能降碳，同时必须满足依赖与截止期 T。","evidence":[{"page":3,"quote":"In our simplified setting with a given mapping, minimizing the total execution time, or makespan, can easily be achieved in linear time with the ASAP greedy algorithm","quote_zh":"在我们给定映射的简化设定下，最小化总执行时间（即 makespan）用 ASAP 贪心算法即可在线性时间内轻松完成。","section":"2 Related Work","section_no":"2","para":2,"verified":true}],"forks":[{"label":"单处理器多项式 DP","detail":"证明单处理器情形存在最优 E-schedule，可把结束时间限制在 O(n³J) 个候选点上，得到全多项式 DP。"},{"label":"多处理器强 NP-完全","detail":"即使处理器同构、任务独立、无通信，问题仍强 NP-完全（由 3-Partition 归约）。"},{"label":"ILP 精确解","detail":"把一般问题写成以时间单元为变量的 ILP，用于小实例的最优性对照。"}]},{"id":"n3","type":"change","label":"ASAP 改为打分贪心+局部搜索","detail":"基线 ASAP 把每个任务放在最早可能开始时间，完全不看绿电区间。CaWoSched 先按 slack 或 pressure（各带/不带功耗权重）给任务排序，再在 [EST, LST] 内选绿电预算 G_j 最高的区间起点放置任务，并扣减该区间的绿电预算、更新后继任务的 EST/LST；随后按处理器功耗从高到低、在 ±μ 时间窗内做爬山式局部搜索。","evidence":[{"page":5,"quote":"In Section 5.1, we first present the baseline algorithm, ASAP (As Soon As Possible), which schedules each task at its earliest possible start time, without taking the intervals into account.","quote_zh":"在 5.1 节，我们首先给出基线算法 ASAP（尽可能早），它把每个任务安排在其最早可能开始时间，完全不考虑区间。","section":"4 Complexity Results","section_no":"4","para":10,"verified":true}],"before":{"kind":"tokens","n":8,"label":"ASAP：全部任务挤在最早时刻","cadence":1.4},"after":{"kind":"tokens","n":8,"label":"CaWoSched：任务摊到高绿电区间","cadence":0.45}},{"id":"n4","type":"mechanism","label":"按绿电预算选区间起点","detail":"碳成本按时间单元累加 max(P_t − G_j, 0)，因此把任务放进 G_j 高的区间就直接压低该时段的非绿电功率。贪心在候选区间中按预算 G_j 降序选、并列时取最早起点，并在放置后从该区间预算中扣除 P_idle + P_work，使后续任务自然避开已被占满的绿电区间；局部搜索再在 EST/LST 允许范围内做小步平移，只接受正收益的合法移动。","evidence":[{"page":6,"quote":"Otherwise, we sort the intervals according to their budget G𝑗and schedule the task to start at the beginning of the interval with the highest budget.","quote_zh":"否则，我们按预算 G_j 对区间排序，并把任务安排到预算最高的区间的起点开始。","section":"5 Algorithms","section_no":"5","para":31,"verified":true}]},{"id":"n5","type":"effect","label":"碳成本降至基线约 60%","detail":"在 2 个集群 × 34 个工作流 × 16 个功率剖面共 1088 次仿真中，所有变体的碳成本/ASAP 碳成本中位数约为 0.6，即约 1.67× 更优；pressWR-LS 中位数最低为 0.58。截止期放宽到 3D 时 slackW 的比值低至 0.15（约 6.67× 更优）。基线在 84.01% 的实例中排名最差，pressWR-LS 排名第一的频率最高（34.47%）。","evidence":[{"page":8,"quote":"We can see that all algorithms are closely together with a cost ratio median of ≈0.6, meaning that the algorithm needs only 60% of the carbon cost compared to the baseline (or, vice versa, they are ≈1.67× better).","quote_zh":"可以看到所有算法彼此接近，成本比值中位数约为 0.6，意味着算法只需基线 60% 的碳成本（反过来即约 1.67× 更优）。","section":"6 Experimental Evaluation","section_no":"6","para":20,"verified":true}],"metric":{"value":"0.6","unit":"碳成本比值中位数","label":"相对 ASAP"}},{"id":"n6","type":"cost","label":"依赖 HEFT 映射，非全局最优","detail":"方法只在给定映射与顺序下平移任务，映射本身不参与优化，因此无法达到映射+调度联合优化的解；局部搜索是爬山式，只接受正收益移动，不保证跳出局部最优。运行时间随图规模增长，最大 20000–30000 任务的实例需数分钟；ILP 对照仅限 200 任务以内，且 200 任务已需长达一小时。此外当绿电集中在时间窗开头时，ASAP 反而可能更优。","evidence":[{"page":9,"quote":"One reason for this is that some power profiles provide a lot of green power in the beginning of the horizon[0,𝑇[. Hence, for these profiles, scheduling the tasks as soon as possible might be the best strategy.","quote_zh":"原因之一是某些功率剖面在时间范围 [0,T[ 的开头提供了大量绿电。因此对这些剖面而言，尽可能早地调度任务可能才是最佳策略。","section":"6 Experimental Evaluation","section_no":"6","para":24,"verified":true}]},{"id":"n7","type":"question","label":"走向碳感知 HEFT","detail":"作者把下一步定为设计 HEFT 的碳感知扩展，让映射与调度同时优化。鉴于问题难度，设想两遍法：第一遍只做映射与排序、不固定最终调度，第二遍用本文方法优化调度。","evidence":[{"page":11,"quote":"Future work will be devoted to the next step, namely targeting thedesignofacarbon-awareextensionofHEFT.","quote_zh":"未来工作将致力于下一步，即设计 HEFT 的碳感知扩展。","section":"7 Conclusions","section_no":"7","para":5,"verified":true}]}],"evidence":[],"warnings":[],"types":{"problem":{"label":"问题","color":"#E8836B"},"insight":{"label":"洞察","color":"#D9B45E"},"change":{"label":"改动","color":"#6FB3D9"},"mechanism":{"label":"机制","color":"#8FBF9F"},"effect":{"label":"效果","color":"#7ED0A8"},"cost":{"label":"代价","color":"#C58FB0"},"taxonomy":{"label":"框架","color":"#9B9BE0"},"question":{"label":"待解","color":"#93A4B8"}}},"network":{"center":{"title":"Carbon-Aware Workflow Scheduling with Fixed Mapping and Deadline Constraint","year":2025,"doi":"10.1145/3754598.3754673","matched":true,"topics":[{"name":"Energy Efficiency in Computing","score":0.3359000086784363,"field":"Computer Science","subfield":"Hardware and Architecture","field_zh":"计算机科学","subfield_zh":"硬件与体系结构"},{"name":"Cloud Computing and Resource Management","score":0.20239999890327454,"field":"Computer Science","subfield":"Information Systems","field_zh":"计算机科学","subfield_zh":"信息系统"},{"name":"Real-Time Systems Scheduling","score":0.16210000216960907,"field":"Computer Science","subfield":"Hardware and Architecture","field_zh":"计算机科学","subfield_zh":"硬件与体系结构"}],"venue":"Proceedings of the International Conference on Parallel Processing","venue_preprint":false,"ccf":"B","search_terms":["carbon-aware scheduling","workflow scheduling","directed acyclic graphs","deadline constraints","renewable energy","green computing","Tasks","Scheduling"]},"nodes":[{"title":"Carbon-Aware Mapping and Scheduling for Deadline-Constrained Workflows","kind":"citing","origin":"openalex","title_zh":"面向截止时间约束工作流的碳感知映射与调度","year":2026,"cited_by":1,"relevance":0.88,"reasons":["与本文共享关键词：aware、carbon、deadline、mapping、scheduling","2026 年发表，直接引用了本文"],"doi":"10.1007/978-3-032-35251-4_19","venue":"Lecture notes in computer science","openalex_id":"W7162631207"},{"title":"A systematic evaluation of the potential of carbon-aware execution for scientific workflows","kind":"citing","origin":"openalex","title_zh":"碳感知执行对科学工作流潜力的系统性评估","year":2026,"cited_by":2,"relevance":0.67,"reasons":["与本文共享关键词：aware、carbon","2026 年发表，直接引用了本文"],"doi":"10.1016/j.future.2026.108453","venue":"Future Generation Computer Systems","openalex_id":"W7133537642"},{"title":"Hybridized self adaptive memetic optimization for green cloud scheduling using cross domain adaptation","kind":"citing","origin":"openalex","title_zh":"基于跨域自适应的绿色云调度混合自适应模因优化","year":2026,"cited_by":0,"relevance":0.5,"reasons":["与本文共享关键词：scheduling","2026 年发表，直接引用了本文"],"doi":"10.1007/s44564-026-00005-2","venue":"Discover Informatics","openalex_id":"W7203637183"},{"title":"A Distributed Framework for Carbon and Cost Aware Geographical Job Scheduling in a Hybrid Data Center Infrastructure","kind":"cited","origin":"pdf","title_zh":"混合数据中心基础设施中碳与成本感知地理作业调度的分布式框架","year":2016,"cited_by":16,"relevance":0.48,"reasons":["与本文共享关键词：aware、carbon、scheduling","被引 16 次"],"doi":"10.1109/icac.2016.21","venue":"IEEE International Conference on Autonomic Computing (ICAC)","openalex_id":"W2521716335","topics":[{"name":"Cloud Computing and Resource Management","score":0.926800012588501,"field":"Computer Science","subfield":"Information Systems","field_zh":"计算机科学","subfield_zh":"信息系统"},{"name":"Energy Efficiency in Computing","score":0.06689999997615814,"field":"Computer Science","subfield":"Hardware and Architecture","field_zh":"计算机科学","subfield_zh":"硬件与体系结构"},{"name":"Green IT and Sustainability","score":0.004800000227987766,"field":"Engineering","subfield":"Electrical and Electronic Engineering","field_zh":"工程学","subfield_zh":"电子电气工程"}]},{"title":"Carbon-Aware Workflow Scheduling with Fixed Mapping and Deadline Constraint","kind":"cited","origin":"pdf","title_zh":"固定映射与截止时间约束下的碳感知工作流调度","year":2025,"cited_by":3,"relevance":0.48,"reasons":["与本文共享关键词：aware、carbon、constraint、deadline、fixed","被引 3 次"],"doi":"10.1145/3754598.3754673","venue":"Proceedings of the International Conference on Parallel Processing","openalex_id":"W4415104105","topics":[{"name":"Energy Efficiency in Computing","score":0.3359000086784363,"field":"Computer Science","subfield":"Hardware and Architecture","field_zh":"计算机科学","subfield_zh":"硬件与体系结构"},{"name":"Cloud Computing and Resource Management","score":0.20239999890327454,"field":"Computer Science","subfield":"Information Systems","field_zh":"计算机科学","subfield_zh":"信息系统"},{"name":"Real-Time Systems Scheduling","score":0.16210000216960907,"field":"Computer Science","subfield":"Hardware and Architecture","field_zh":"计算机科学","subfield_zh":"硬件与体系结构"}]},{"title":"Carbon-Aware Computing in a Network of Data Centers: A Hierarchical Game-Theoretic Approach","kind":"cited","origin":"pdf","title_zh":"数据中心网络中的碳感知计算：一种层次博弈论方法","year":2024,"cited_by":5,"relevance":0.32,"reasons":["与本文共享关键词：aware、carbon","被引 5 次"],"doi":"10.23919/ecc64448.2024.10591261","venue":"European Control Conference (ECC)","openalex_id":"W4400946179","topics":[{"name":"Cloud Computing and Resource Management","score":0.8198000192642212,"field":"Computer Science","subfield":"Information Systems","field_zh":"计算机科学","subfield_zh":"信息系统"},{"name":"Smart Grid Energy Management","score":0.08070000261068344,"field":"Engineering","subfield":"Electrical and Electronic Engineering","field_zh":"工程学","subfield_zh":"电子电气工程"},{"name":"Energy Efficiency in Computing","score":0.0754999965429306,"field":"Computer Science","subfield":"Hardware and Architecture","field_zh":"计算机科学","subfield_zh":"硬件与体系结构"}]},{"title":"Performance-effective and low-complexity task scheduling for heterogeneous computing","kind":"cited","origin":"pdf","title_zh":"异构计算中高性能高效且低复杂度的任务调度","year":2002,"cited_by":3509,"relevance":0.32,"reasons":["与本文共享关键词：scheduling","被引 3509 次"],"doi":"10.1109/71.993206","venue":"IEEE Transactions on Parallel and Distributed Systems","openalex_id":"W2149294210","topics":[{"name":"Distributed and Parallel Computing Systems","score":0.711899995803833,"field":"Computer Science","subfield":"Computer Networks and Communications","field_zh":"计算机科学","subfield_zh":"计算机网络与通信"},{"name":"Scheduling and Optimization Algorithms","score":0.08829999715089798,"field":"Engineering","subfield":"Industrial and Manufacturing Engineering","field_zh":"工程学","subfield_zh":"工业与制造工程"},{"name":"Parallel Computing and Optimization Techniques","score":0.07349999994039536,"field":"Computer Science","subfield":"Hardware and Architecture","field_zh":"计算机科学","subfield_zh":"硬件与体系结构"}]},{"title":"Task Scheduling for Parallel Systems","kind":"cited","origin":"pdf","title_zh":"并行系统的任务调度","year":2006,"cited_by":377,"relevance":0.27,"reasons":["与本文共享关键词：scheduling","被引 377 次"],"doi":"10.1002/0470121173","venue":"Wiley eBooks","openalex_id":"W616339485","topics":[{"name":"Distributed and Parallel Computing Systems","score":0.9164999723434448,"field":"Computer Science","subfield":"Computer Networks and Communications","field_zh":"计算机科学","subfield_zh":"计算机网络与通信"},{"name":"Parallel Computing and Optimization Techniques","score":0.04349999874830246,"field":"Computer Science","subfield":"Hardware and Architecture","field_zh":"计算机科学","subfield_zh":"硬件与体系结构"},{"name":"Scheduling and Optimization Algorithms","score":0.00860000029206276,"field":"Engineering","subfield":"Industrial and Manufacturing Engineering","field_zh":"工程学","subfield_zh":"工业与制造工程"}]},{"title":"A Survey on Scheduling Strategies for Workflows in Cloud Environment and Emerging Trends","kind":"cited","origin":"pdf","title_zh":"云环境中工作流调度策略及新兴趋势综述","year":2019,"cited_by":153,"relevance":0.25,"reasons":["与本文共享关键词：scheduling","被引 153 次"],"doi":"10.1145/3325097","venue":"ACM Computing Surveys","openalex_id":"W2972304804","topics":[{"name":"Cloud Computing and Resource Management","score":0.9560999870300293,"field":"Computer Science","subfield":"Information Systems","field_zh":"计算机科学","subfield_zh":"信息系统"},{"name":"Distributed and Parallel Computing Systems","score":0.03700000047683716,"field":"Computer Science","subfield":"Computer Networks and Communications","field_zh":"计算机科学","subfield_zh":"计算机网络与通信"},{"name":"IoT and Edge/Fog Computing","score":0.0008999999845400453,"field":"Computer Science","subfield":"Computer Networks and Communications","field_zh":"计算机科学","subfield_zh":"计算机网络与通信"}]},{"title":"A survey of scheduling frameworks in big data systems","kind":"cited","origin":"pdf","title_zh":"大数据系统调度框架综述","year":2018,"cited_by":22,"relevance":0.21,"reasons":["与本文共享关键词：scheduling","被引 22 次"],"doi":"10.1504/ijcc.2018.093765","venue":"International Journal of Cloud Computing","openalex_id":"W2784450659","topics":[{"name":"Cloud Computing and Resource Management","score":0.9965999722480774,"field":"Computer Science","subfield":"Information Systems","field_zh":"计算机科学","subfield_zh":"信息系统"},{"name":"Distributed and Parallel Computing Systems","score":0.0024999999441206455,"field":"Computer Science","subfield":"Computer Networks and Communications","field_zh":"计算机科学","subfield_zh":"计算机网络与通信"},{"name":"Energy Efficiency in Computing","score":9.999999747378752e-05,"field":"Computer Science","subfield":"Hardware and Architecture","field_zh":"计算机科学","subfield_zh":"硬件与体系结构"}]},{"title":"Lotaru: Locally predicting workflow task runtimes for resource management on heterogeneous infrastructures","kind":"cited","origin":"pdf","title_zh":"Lotaru：面向异构基础设施资源管理的工作流任务运行时本地预测","year":2023,"cited_by":18,"relevance":0.2,"reasons":["与本文共享关键词：workflow","被引 18 次"],"doi":"10.1016/j.future.2023.08.022","venue":"Future Generation Computer Systems","openalex_id":"W4386401485","topics":[{"name":"Distributed and Parallel Computing Systems","score":0.8442000150680542,"field":"Computer Science","subfield":"Computer Networks and Communications","field_zh":"计算机科学","subfield_zh":"计算机网络与通信"},{"name":"Cloud Computing and Resource Management","score":0.07150000333786011,"field":"Computer Science","subfield":"Information Systems","field_zh":"计算机科学","subfield_zh":"信息系统"},{"name":"Scientific Computing and Data Management","score":0.03840000182390213,"field":"Decision Sciences","subfield":"Information Systems and Management"}]},{"title":"Computers and Intractability: A Guide to the Theory of NP-Completeness","kind":"cited","origin":"pdf","title_zh":"计算机与难解性：NP完全性理论指南","year":1979,"cited_by":44434,"relevance":0.2,"reasons":["被引 44434 次"],"openalex_id":"W2011039300","topics":[{"name":"Complexity and Algorithms in Graphs","score":0.9726999998092651,"field":"Computer Science","subfield":"Computational Theory and Mathematics","field_zh":"计算机科学","subfield_zh":"计算理论与数学"},{"name":"Advanced Graph Theory Research","score":0.025499999523162842,"field":"Computer Science","subfield":"Computational Theory and Mathematics","field_zh":"计算机科学","subfield_zh":"计算理论与数学"},{"name":"Computability, Logic, AI Algorithms","score":0.0006000000284984708,"field":"Computer Science","subfield":"Computational Theory and Mathematics","field_zh":"计算机科学","subfield_zh":"计算理论与数学"}]},{"title":"Let's Wait Awhile: How Temporal Workload Shifting Can Reduce Carbon Emissions in the Cloud","kind":"cited","origin":"pdf","title_zh":"稍等片刻：时间性工作负载转移如何减少云中碳排放","year":2021,"cited_by":12,"relevance":0.2,"reasons":["与本文共享关键词：carbon","被引 12 次"],"doi":"10.48550/arxiv.2110.13234","venue":"arXiv (Cornell University)","openalex_id":"W3216385322","topics":[{"name":"Cloud Computing and Resource Management","score":0.7753999829292297,"field":"Computer Science","subfield":"Information Systems","field_zh":"计算机科学","subfield_zh":"信息系统"},{"name":"Energy Efficiency in Computing","score":0.18860000371932983,"field":"Computer Science","subfield":"Hardware and Architecture","field_zh":"计算机科学","subfield_zh":"硬件与体系结构"},{"name":"Green IT and Sustainability","score":0.030899999663233757,"field":"Engineering","subfield":"Electrical and Electronic Engineering","field_zh":"工程学","subfield_zh":"电子电气工程"}]},{"title":"Nextflow enables reproducible computational workflows","kind":"cited","origin":"pdf","title_zh":"Nextflow实现可复现的计算工作流","year":2017,"cited_by":4008,"relevance":0.18,"reasons":["被引 4008 次"],"doi":"10.1038/nbt.3820","venue":"Nature Biotechnology","openalex_id":"W2605897695","topics":[{"name":"Scientific Computing and Data Management","score":0.9994999766349792,"field":"Decision Sciences","subfield":"Information Systems and Management"},{"name":"Genomics and Phylogenetic Studies","score":9.999999747378752e-05,"field":"Biochemistry, Genetics and Molecular Biology","subfield":"Molecular Biology","subfield_zh":"分子生物学"},{"name":"Distributed and Parallel Computing Systems","score":0,"field":"Computer Science","subfield":"Computer Networks and Communications","field_zh":"计算机科学","subfield_zh":"计算机网络与通信"}]},{"title":"Symp. on Computer Architecture. 338–347.doi:10.1145/1815961.1816004","kind":"cited","origin":"pdf","title_zh":"计算机体系结构研讨会，338–347。doi:10.1145/1815961.1816004","year":2010,"cited_by":0,"relevance":0.15,"reasons":["仅见于本文参考文献列表（未在 OpenAlex 收录）"]},{"title":"Listschedulingalgorithmfor heterogeneous systems by an optimistic cost table","kind":"cited","origin":"pdf","title_zh":"基于乐观成本表的异构系统列表调度算法","year":2013,"cited_by":0,"relevance":0.15,"reasons":["仅见于本文参考文献列表（未在 OpenAlex 收录）"]},{"title":"Dynamic scheduling of a batch of parallel task jobs on heterogeneous clusters","kind":"cited","origin":"pdf","title_zh":"异构集群上一批并行任务作业的动态调度","year":2011,"cited_by":0,"relevance":0.15,"reasons":["仅见于本文参考文献列表（未在 OpenAlex 收录）"]},{"title":"Toward asystematicsurveyforcarbonneutraldatacenters","kind":"cited","origin":"pdf","title_zh":"迈向碳中性数据中心的系统性综述","year":2022,"cited_by":0,"relevance":0.15,"reasons":["仅见于本文参考文献列表（未在 OpenAlex 收录）"]},{"title":"Future Generation Computer Systems 128 (), 16–27.doi:10.1016/j.future.2021.09.043","kind":"cited","origin":"pdf","title_zh":"未来一代计算机系统 128 ()，16–27。doi:10.1016/j.future.2021.09.043","year":2022,"cited_by":0,"relevance":0.15,"reasons":["仅见于本文参考文献列表（未在 OpenAlex 收录）"]},{"title":"Future Generation Computer Systems 36 (July ), 221–236.doi:10.1016/j.future.2013.07.005","kind":"cited","origin":"pdf","title_zh":"未来一代计算机系统 36（7月），221–236。doi:10.1016/j.future.2013.07.005","year":2014,"cited_by":0,"relevance":0.15,"reasons":["仅见于本文参考文献列表（未在 OpenAlex 收录）"]},{"title":"SimulationModelling Practice and Theory 58 (Nov. ), 95–111.doi:10.1016/j.simpat.2015.07.001","kind":"cited","origin":"pdf","title_zh":"仿真建模实践与理论 58（11月），95–111。doi:10.1016/j.simpat.2015.07.001","year":2015,"cited_by":0,"relevance":0.15,"reasons":["仅见于本文参考文献列表（未在 OpenAlex 收录）"]},{"title":"Gurobi Optimizer Reference Manual","kind":"cited","origin":"pdf","title_zh":"Gurobi优化器参考手册","year":2024,"cited_by":0,"relevance":0.15,"reasons":["仅见于本文参考文献列表（未在 OpenAlex 收录）"]},{"title":"A. Schult, and Pieter","kind":"cited","origin":"pdf","title_zh":"A. Schult与Pieter","year":2008,"cited_by":0,"relevance":0.15,"reasons":["仅见于本文参考文献列表（未在 OpenAlex 收录）"]},{"title":"Carbon Scaler:Leveraging Cloud Workload Elasticityfor Optimizing Carbon-Efficiency","kind":"cited","origin":"pdf","title_zh":"Carbon Scaler：利用云工作负载弹性优化碳效率","year":2023,"cited_by":0,"relevance":0.15,"reasons":["仅见于本文参考文献列表（未在 OpenAlex 收录）"]}],"stats":{"reference_entries":39,"matched":16,"citing_available":3,"nodes":24,"openalex_reachable":true},"unavailable":""},"qa":null}</script>
+<script>
+(function () {
+  var D = JSON.parse(document.getElementById("paper-data").textContent);
+
+  // 每个分组一个色调，卡片左侧色条用它，视觉上能一眼分清「概览 / 框架 / 结论 / 判断」
+  var GROUP_COLORS = ["#2E6F8E", "#4A9BBF", "#7A9E7E", "#B8703F"];
+
+  document.getElementById("title").textContent = D.paper_title || "（未识别标题）";
+  document.title = (D.paper_title || "论文解剖") + " · paperatomy";
+
+  var meta = [];
+  if (D.template_name) { meta.push("<span>模板 <b>" + esc(D.template_name) + "</b></span>"); }
+  if (D.pages)        { meta.push("<span><b>" + D.pages + "</b> 页</span>"); }
+  if (D.blocks)       { meta.push("<span><b>" + D.blocks + "</b> 个板块</span>"); }
+  if (D.model)        { meta.push("<span>模型 <b>" + esc(D.model) + "</b></span>"); }
+  document.getElementById("meta").innerHTML = meta.join("");
+
+  var jump = [];
+  var main = [];
+  // 必须先声明：后面的 chainSection() 会用到，
+  // var 只有声明提升、赋值不提升（上一版踩过：整页空白）
+  var CHAIN = D.chain || null;
+
+  // 「一句话结论」单独抽出来做页首大卡：它是整篇最该被先看到的一句，
+  // 混在卡片堆里会被淹掉。
+  var hero = null;
+  D.groups.forEach(function (g) {
+    g.blocks = g.blocks.filter(function (b) {
+      if (!hero && b.id === "tl_dr") { hero = b; return false; }
+      return true;
+    });
+  });
+  D.groups = D.groups.filter(function (g) { return g.blocks.length; });
+
+  if (hero) {
+    var hh = ['<div class="hero"><div class="label">' + esc(hero.title) + "</div>"];
+    hh.push("<p>" + esc(hero.content || "论文未提及。") + "</p>");
+    if (hero.evidence && hero.evidence.length) {
+      hh.push(evHTML(hero.evidence));
+    }
+    hh.push("</div>");
+    main.push(hh.join(""));
+  }
+
+  // 论证链放在页首大卡之后：它比正文更值得先看，
+  // 但要排在「一句话结论」后面，否则读者没有上下文。
+  if (CHAIN && CHAIN.nodes && CHAIN.nodes.length) {
+    jump.push('<a href="#chain">论证链</a>');
+    main.push(chainSection());
+  }
+
+  // 文献网络跟在论证链后：先看推理线，再看它在领域里的位置。
+  // 无数据时也渲染占位板块（提示如何补跑），功能存在感不能只在文档里。
+  main.push(networkSection());
+  if (D.network && D.network.nodes && D.network.nodes.length) {
+    jump.push('<a href="#network">文献网络</a>');
+  }
+
+  D.groups.forEach(function (g, gi) {
+    var anchor = "g" + gi;
+    jump.push('<a href="#' + anchor + '">' + esc(g.name) + "</a>");
+
+    var gc = GROUP_COLORS[gi % GROUP_COLORS.length];
+    main.push('<section class="group" id="' + anchor + '" style="--gc:' + gc + '">');
+    main.push('<div class="g-head"><h2>' + esc(g.name) + "</h2>");
+    main.push('<span class="count">' + g.blocks.length + " 块</span></div>");
+
+    var single = g.blocks.length === 1;
+    main.push('<div class="cards' + (single ? " single" : "") + '">');
+
+    g.blocks.forEach(function (b, bi) {
+      // 默认全部展开：这是给人读的报告，不是目录。
+      // 折叠是「太长时收起来」的手段，不该是打开时的默认状态。
+      var open = " open";
+      main.push('<article class="card' + open + '">');
+      main.push('<div class="c-head">');
+      main.push('<h3>' + esc(b.title) + "</h3>");
+      if (b.confidence === "low") {
+        main.push('<span class="badge low">低置信</span>');
+      }
+      main.push(askBtn("b:" + b.id));
+      main.push('<svg class="chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" ' +
+                'stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">' +
+                '<path d="M6 4l4 4-4 4"/></svg>');
+      main.push("</div>");
+
+      main.push('<div class="c-body">');
+      if (b.empty) {
+        main.push('<div class="txt"><p class="empty">论文未提及，或材料不足未抽取到内容。</p></div>');
+      } else {
+        main.push('<div class="txt">' + formatText(b.content) + "</div>");
+      }
+      if (b.evidence && b.evidence.length) {
+        main.push(evHTML(b.evidence));
+      }
+      main.push('<div class="mod-figs" data-bid="' + esc(b.id || "") +
+        '"></div>');
+      main.push("</div></article>");
+    });
+
+    main.push("</div></section>");
+  });
+
+    main.push('<section style="margin-top:22px"><details id="figAnnex">' +
+      '<summary style="cursor:pointer;font-weight:600;color:var(--ink2)">' +
+      "附图 · 未归入上述模块的图表</summary>" +
+      '<div id="figAnnexBody" style="margin-top:12px"></div></details></section>');
+  document.getElementById("jump").innerHTML = jump.join("");
+  document.getElementById("main").innerHTML = main.join("");
+  initChain();
+  initNetwork();
+
+  // ---- 图进模块（v0.11.0）：/api/modfigs 分配 → 模块内懒加载 ----
+  var TD = [];
+  var FIG = {file: (window.__PA_SERVE__
+    ? encodeURIComponent(window.__PA_SERVE__.report) : ""), timer: null,
+             tdTimer: null, tdModules: {}};
+
+// ---- 数据动图：表格数据 → 动画条形图 ----
+  function renderBars(tables) {
+    TD = tables;
+    var th = "";
+    tables.forEach(function (tb, ti) {
+      var cands = tdPickCols(tb);
+      if (!cands.length) { return; }
+      var trend = tdIsTrend(tb);
+      th += '<div class="bar-cap">' + esc(tb.cap || ("表 " + (ti + 1))) + '</div>';
+      th += '<div class="td-chips">';
+      if (trend) {
+        th += '<span class="td-type on" data-ti="' + ti +
+          '" data-type="line">折线（看趋势）</span>' +
+          '<span class="td-type" data-ti="' + ti +
+          '" data-type="bar">柱状</span>';
+      }
+      cands.forEach(function (cd, ci) {
+        th += '<span class="td-chip' + (ci === 0 ? ' on' : '') +
+          '" data-ti="' + ti + '" data-c="' + cd.c + '">' +
+          esc(String(tb.columns[cd.c]).slice(0, 14)) + '</span>';
+      });
+      th += '</div>';
+      th += '<div class="td-svg" data-ti="' + ti + '">' +
+        (trend ? tdLine(tb, cands[0].c, ti)
+               : tdSvg(tb, cands[0].c, ti)) + '</div>' +
+        '<div class="bar-note">数据来自论文，点击列名/类型可切换</div>';
+    });
+    return th;
+  }
+  function tdPickCols(tb) {
+    var cols = tb.columns || [], rows = tb.rows || [];
+    var cands = [];
+    for (var c = 1; c < cols.length; c++) {
+      var ok = 0, sum = 0, sq = 0;
+      rows.forEach(function (r) {
+        var v = parseFloat(String(r[c]).replace(/[,%××\s]/g, ""));
+        if (isFinite(v)) { ok++; sum += Math.abs(v); sq += v * v; }
+      });
+      if (ok < Math.ceil(rows.length * 0.6) || sum === 0) { continue; }
+      var mean = sum / ok;
+      cands.push({ c: c, sum: sum, va: sq / ok - mean * mean });
+    }
+    cands.sort(function (a, b) { return b.va - a.va || b.sum - a.sum; });
+    return cands;
+  }
+  function tdIsTrend(tb) {
+    // 首列多数为数值/年份且整体递增 → 趋势型，可画折线
+    var rows = tb.rows || [];
+    if (rows.length < 3) { return false; }
+    var nums = rows.map(function (r) {
+      var s0 = String(r[0]).trim();
+      var v = parseFloat(s0);
+      if (isFinite(v) && /^\d{1,4}([.,]\d+)?$/.test(s0)) { return v; }
+      var m = s0.match(/(?:19|20)\d{2}/);
+      return m ? parseFloat(m[0]) : NaN;
+    });
+    var fin = nums.filter(function (v) { return isFinite(v); });
+    if (fin.length < Math.ceil(rows.length * 0.7)) { return false; }
+    var inc = 0;
+    for (var i = 1; i < nums.length; i++) {
+      if (isFinite(nums[i]) && isFinite(nums[i - 1])
+          && nums[i] >= nums[i - 1]) { inc++; }
+    }
+    return inc >= nums.length - 2;
+  }
+  function tdLine(tb, col, ti) {
+    var rows = tb.rows || [];
+    var pts = [];
+    rows.forEach(function (r, ri) {
+      var s0 = String(r[0]).trim();
+      var x = parseFloat(s0);
+      if (!isFinite(x)) {
+        var m = s0.match(/(?:19|20)\d{2}/);
+        x = m ? parseFloat(m[0]) : ri;
+      }
+      var y = parseFloat(String(r[col]).replace(/[,%××\s]/g, ""));
+      if (isFinite(y)) { pts.push([x, y, r]); }
+    });
+    if (pts.length < 2) { return tdSvg(tb, col, ti); }
+    var L = 150, R = 634, top = 14, H = 300, W = 660, bot = H - 40;
+    var xs = pts.map(function (p) { return p[0]; });
+    var ys = pts.map(function (p) { return p[1]; });
+    var x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs);
+    var y0 = Math.min(0, Math.min.apply(null, ys));
+    var y1 = Math.max.apply(null, ys);
+    if (x1 === x0) { x1 = x0 + 1; }
+    if (y1 === y0) { y1 = y0 + 1; }
+    function px(x) { return L + (x - x0) / (x1 - x0) * (R - L); }
+    function py(y) { return bot - (y - y0) / (y1 - y0) * (bot - top); }
+    var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%">';
+    for (var g = 0; g <= 4; g++) {
+      var gy = top + (bot - top) * g / 4;
+      s += '<line x1="' + L + '" y1="' + gy + '" x2="' + R +
+        '" y2="' + gy + '" stroke="rgba(120,130,140,.16)"/>';
+      s += '<text x="' + (L - 8) + '" y="' + (gy + 4) +
+        '" text-anchor="end" class="tdlab">' +
+        (y1 - (y1 - y0) * g / 4).toFixed(1) + '</text>';
+    }
+    var line = pts.map(function (p, i) {
+      return (i ? "L" : "M") + px(p[0]).toFixed(1) + " " +
+        py(p[1]).toFixed(1);
+    }).join(" ");
+    s += '<path d="' + line + '" fill="none" stroke="#2E6F8E" ' +
+      'stroke-width="2.5" stroke-dasharray="2000" ' +
+      'stroke-dashoffset="0" style="animation: tdDraw 1.8s ease backwards"/>';
+    s += '<polygon points="' + L + "," + bot + " " +
+      pts.map(function (p) {
+        return px(p[0]).toFixed(1) + "," + py(p[1]).toFixed(1);
+      }).join(" ") + " " + R + "," + bot +
+      '" fill="rgba(46,111,142,.10)"/>';
+    pts.forEach(function (p) {
+      s += '<circle cx="' + px(p[0]).toFixed(1) + '" cy="' +
+        py(p[1]).toFixed(1) + '" r="3.5" fill="#2E6F8E"/>';
+    });
+    s += '<text x="' + (L + (R - L) / 2) + '" y="' + (H - 8) +
+      '" text-anchor="middle" class="tdax">' +
+      esc(String(tb.columns[col]).slice(0, 26)) + '（随 ' +
+      esc(String(tb.columns[0]).slice(0, 14)) + ' 变化）</text>';
+    s += '</svg>';
+    return s;
+  }
+  function tdSvg(tb, col, ti) {
+    var rows = tb.rows || [];
+    var vals = rows.map(function (r) {
+      return parseFloat(String(r[col]).replace(/[,%××\s]/g, ""));
+    });
+    var mx = 0;
+    vals.forEach(function (v) {
+      if (isFinite(v) && Math.abs(v) > mx) { mx = Math.abs(v); }
+    });
+    if (!mx) { mx = 1; }
+    var L = 150, R = 634, top = 10, rowH = 34, W = 660;
+    var shown = rows.slice(0, 12);
+    var H = top + shown.length * rowH + 26;
+    var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%">';
+    s += '<defs><linearGradient id="tdg' + ti + '" x1="0" y1="0" x2="1" y2="0">' +
+      '<stop offset="0" stop-color="#2E6F8E"/><stop offset="1" stop-color="#63B3D2"/>' +
+      '</linearGradient></defs>';
+    for (var g = 0; g <= 4; g++) {
+      var gx = L + (R - L) * g / 4;
+      s += '<line x1="' + gx + '" y1="' + (top - 4) + '" x2="' + gx +
+        '" y2="' + (H - 22) + '" stroke="rgba(120,130,140,.16)" stroke-width="1"/>';
+    }
+    shown.forEach(function (r, ri) {
+      var v = vals[ri];
+      var w = isFinite(v) ? Math.max(2, Math.abs(v) / mx * (R - L)) : 2;
+      var y = top + ri * rowH;
+      s += '<text x="' + (L - 8) + '" y="' + (y + 14) +
+        '" text-anchor="end" class="tdlab">' +
+        esc(String(r[0]).slice(0, 16)) + '</text>';
+      s += '<rect class="tdbar" x="' + L + '" y="' + y +
+        '" width="' + w.toFixed(1) + '" height="20" rx="4" fill="url(#tdg' + ti + ')"/>';
+      s += '<text x="' + (L + w + 6) + '" y="' + (y + 14) +
+        '" class="tdval">' + esc(String(r[col])) + '</text>';
+    });
+    s += '<line x1="' + L + '" y1="' + (top - 4) + '" x2="' + L +
+      '" y2="' + (H - 22) + '" stroke="rgba(120,130,140,.45)" stroke-width="1"/>';
+    s += '<text x="' + (L + (R - L) / 2) + '" y="' + (H - 5) +
+      '" text-anchor="middle" class="tdax">' +
+      esc(String(tb.columns[col]).slice(0, 26)) + '</text>';
+    s += '</svg>';
+    return s;
+  }
+
+  
+
+  function mfigCard(f, i) {
+    var cap = f.cap ? esc(f.cap) : ("p." + (f.page || "?") + " · " +
+      (f.w || "?") + "×" + (f.h || "?"));
+    var ex = f.explain
+      ? '<div class="fig-explain"><b>解读</b> ' + esc(f.explain) + "</div>"
+      : "";
+    return '<figure class="mfig">' +
+      '<img loading="lazy" src="/api/figure?file=' + FIG.file +
+      '&idx=' + i + '" alt="p.' + (f.page || "?") + '">' +
+      '<figcaption><span class="fkind">' +
+      (f.kind === "table" ? "原表" : "原图") + "</span> " + cap +
+      "</figcaption>" + ex + "</figure>";
+  }
+
+  function bindTdChips(box, tables) {
+    box.querySelectorAll(".td-chip, .td-type").forEach(
+      function (chip) {
+        chip.addEventListener("click", function () {
+          var ti = Number(chip.getAttribute("data-ti"));
+          var type = chip.getAttribute("data-type");
+          var c = chip.getAttribute("data-c");
+          var host = box.querySelector('.td-svg[data-ti="' + ti + '"]');
+          if (!host || !tables[ti]) { return; }
+          var cur = host.dataset.col !== undefined
+            ? Number(host.dataset.col) : null;
+          var curType = host.dataset.type || "bar";
+          var pick = tdPickCols(tables[ti])[0] || {c: 1};
+          var newC = (c !== null && c !== undefined) ? Number(c)
+            : (cur !== null ? cur : pick.c);
+          var newType = type || curType;
+          host.dataset.col = newC;
+          host.dataset.type = newType;
+          host.innerHTML = (newType === "line")
+            ? tdLine(tables[ti], newC, ti)
+            : tdSvg(tables[ti], newC, ti);
+          box.querySelectorAll('[data-ti="' + ti + '"]').forEach(
+            function (x) {
+              if (x === chip) { x.classList.add("on"); }
+              else if (x.classList.contains("td-chip")
+                       || x.classList.contains("td-type")) {
+                x.classList.remove("on");
+              }
+            });
+        });
+      });
+  }
+
+  function renderModFigs(d) {
+    var figs = d.figures || [];
+    var assigned = {};
+    Object.keys(d.modules || {}).forEach(function (bid) {
+      (d.modules[bid] || []).forEach(function (i) { assigned[i] = true; });
+    });
+    document.querySelectorAll(".mod-figs").forEach(function (host) {
+      var bid = host.getAttribute("data-bid");
+      var list = (d.modules || {})[bid] || [];
+      host.innerHTML = list.map(function (i) {
+        return figs[i] ? mfigCard(figs[i], i) : "";
+      }).join("");
+    });
+    var annex = document.getElementById("figAnnexBody");
+    if (annex) {
+      var un = [];
+      figs.forEach(function (f, i) {
+        if (!assigned[i]) { un.push(mfigCard(f, i)); }
+      });
+      annex.innerHTML = un.length ? un.join("")
+        : "<p class='empty'>全部图表都已归入上面的模块。</p>";
+    }
+  }
+
+  function renderTdModules(d) {
+    var tds = d.td || [];
+    var byMod = d.td_modules || {};
+    document.querySelectorAll(".mod-td").forEach(function (el) { el.remove(); });
+    Object.keys(byMod).forEach(function (bid) {
+      var host = document.querySelector('.mod-figs[data-bid="' + bid + '"]');
+      if (!host) { return; }
+      var sub = (byMod[bid] || []).map(function (ti) {
+        return tds[ti];
+      }).filter(Boolean);
+      if (!sub.length) { return; }
+      var el = document.createElement("div");
+      el.className = "mod-td";
+      el.innerHTML = renderBars(sub);
+      host.appendChild(el);
+      bindTdChips(el, sub);
+    });
+  }
+
+  function loadTdModules() {
+    fetch("/api/tabledata?file=" + FIG.file)
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d.state === "running") {
+          if (!FIG.tdTimer) {
+            FIG.tdTimer = setTimeout(function () {
+              FIG.tdTimer = null;
+              loadTdModules();
+            }, 8000);
+          }
+          return;
+        }
+        if (d.tables && d.tables.length) {
+          renderTdModules({td: d.tables, td_modules: FIG.tdModules});
+        }
+      })
+      .catch(function () { });
+  }
+
+  function initModFigs() {
+    fetch("/api/modfigs?file=" + FIG.file)
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d.ok) { return; }
+        renderModFigs(d);
+        if ((d.explain_state || "") === "running" && !FIG.timer) {
+          FIG.timer = setInterval(function () {
+            fetch("/api/modfigs?file=" + FIG.file)
+              .then(function (r) { return r.json(); })
+              .then(function (d2) {
+                if (!d2.ok) { return; }
+                renderModFigs(d2);
+                if (d2.explain_state !== "running") {
+                  clearInterval(FIG.timer);
+                  FIG.timer = null;
+                }
+              }).catch(function () { });
+          }, 5000);
+        }
+        if ((d.td_state || "") === "done") {
+          renderTdModules(d);
+        } else {
+          FIG.tdModules = d.td_modules || {};
+          loadTdModules();
+        }
+      })
+      .catch(function () { });
+  }
+
+  // ---- 动态讲解（v0.14.0）：分镜播放器 ----
+  var DEMO = {idx: 0, beat: 0, playing: false, timer: null, script: null};
+
+  function demoColor(name) {
+    return {red: "#C0483B", teal: "#2E6F8E", amber: "#C98A2D",
+      gray: "#8FA5B1"}[name] || "#8FA5B1";
+  }
+
+  function demoSvg(sc) {
+    var v = sc.viz || {};
+    var t = v.type || "";
+    function G(ei, inner) {
+      return '<g data-ei="' + ei + '">' + inner + "</g>";
+    }
+    // ---- mindmap：全文导图，分支逐拍出现 ----
+    if (t === "mindmap") {
+      var brs = v.branches || [];
+      var nb = Math.max(brs.length, 1);
+      var head = '<defs><radialGradient id="dmgc" cx="35%" cy="30%">' +
+        '<stop offset="0" stop-color="#4A93BC"/><stop offset="1" stop-color="#2E6F8E"/>' +
+        "</radialGradient>" +
+        '<filter id="dmsh" x="-25%" y="-25%" width="150%" height="150%">' +
+        '<feDropShadow dx="0" dy="2.5" stdDeviation="3.2" flood-color="#24303B" flood-opacity=".14"/>' +
+        "</filter></defs>" +
+        '<circle cx="230" cy="62" r="30" fill="url(#dmgc)" filter="url(#dmsh)"></circle>' +
+        '<text x="230" y="59" text-anchor="middle" class="dm-ct">' +
+        esc((v.center || "").slice(0, 8)) + "</text>" +
+        '<text x="230" y="73" text-anchor="middle" class="dm-ct2">' +
+        esc((v.center || "").slice(8, 16)) + "</text>";
+      var tints = [["#FBEDEA", "#C0483B"], ["#E8F2EF", "#2E6F8E"],
+        ["#FBF1E6", "#C98A2D"], ["#EAF0EA", "#4E9A72"],
+        ["#F0EDE5", "#5F5E5A"]];
+      var o1 = "";
+      brs.forEach(function (b, i) {
+        var cx = (460 / nb) * (i + 0.5);
+        var tint = tints[i % tints.length];
+        var s1 = '<path class="dm-mm-line" d="M230 92 C 230 106, ' + cx +
+          ' 106, ' + cx + ' 120"></path>' +
+          '<rect x="' + (cx - 46) + '" y="120" width="92" height="116" rx="12" fill="' +
+          tint[0] + '" stroke="' + tint[1] + '" stroke-width="1.4" filter="url(#dmsh)"></rect>' +
+          '<rect x="' + (cx - 46) + '" y="120" width="92" height="5" rx="2.5" fill="' +
+          tint[1] + '"></rect>' +
+          '<text x="' + cx + '" y="141" text-anchor="middle" class="dm-mm-bt" fill="' +
+          tint[1] + '">' + esc((b.label || "").slice(0, 6)) + "</text>";
+        (b.nodes || []).slice(0, 4).forEach(function (nd, k) {
+          s1 += '<text x="' + cx + '" y="' + (163 + k * 18) +
+            '" text-anchor="middle" class="dm-nd">' +
+            esc(String(nd).slice(0, 7)) + "</text>";
+        });
+        o1 += G(i, s1);
+      });
+      return '<svg viewBox="0 0 460 248" class="dm-svg">' + head + o1 + "</svg>";
+    }
+    // ---- tokens：元素堆；move 拍时目标组的点从来源组滑过来 ----
+    if (t === "tokens") {
+      var o2 = "", yy = 46;
+      var mvs = {};
+      (sc.beats || []).forEach(function (b, bi) {
+        var a = b.act || {};
+        if (a.kind === "move" && isFinite(a.from) && isFinite(a.to) &&
+            a.from !== a.to) {
+          mvs[a.to | 0] = {dy: ((a.from | 0) - (a.to | 0)) * 34,
+            bi: bi, n: Math.min(a.n | 0 || 3, 9)};
+        }
+      });
+      (v.groups || []).forEach(function (g, gi) {
+        var s2 = "";
+        for (var i = 0; i < (g.count || 1); i++) {
+          var mv = mvs[gi];
+          var attr = "";
+          if (mv && i < mv.n) {
+            attr = ' data-mv="' + mv.bi + '" style="--mvdy:' + mv.dy + 'px"';
+          }
+          s2 += '<circle' + attr + ' cx="' + (34 + i * 26) + '" cy="' + yy +
+            '" r="9" fill="' + demoColor(g.color) + '" opacity=".85"></circle>';
+        }
+        s2 += '<text class="dm-lb" x="' + (34 + (g.count || 1) * 26 + 12) +
+          '" y="' + (yy + 4) + '">' + esc(g.label) + "</text>";
+        o2 += G(gi, s2);
+        yy += 34;
+      });
+      return '<svg viewBox="0 0 460 ' + (yy + 6) + '" class="dm-svg">' + o2 + "</svg>";
+    }
+    // ---- flow：流程逐步点亮 ----
+    if (t === "flow") {
+      var steps = v.steps || [];
+      var nn = Math.max(steps.length, 1);
+      var gap = 12, m2 = 14;
+      var bw = (460 - m2 * 2 - gap * (nn - 1)) / nn;
+      var h2 = "";
+      steps.forEach(function (st, i) {
+        var x = m2 + i * (bw + gap);
+        var lines = [];
+        for (var pp = 0; pp < st.length && lines.length < 3; pp += 6) {
+          lines.push(st.slice(pp, pp + 6));
+        }
+        var y0 = 74 - (lines.length - 1) * 13;
+        var s3 = "";
+        if (i > 0) {
+          s3 += '<path class="dm-arr" d="M' + (x - gap + 1) + ' 72 L' +
+            (x - 2) + ' 72"></path>';
+        }
+        s3 += '<rect class="dm-flow" x="' + x.toFixed(1) + '" y="36" width="' +
+          bw.toFixed(1) + '" height="72" rx="10"></rect>';
+        lines.forEach(function (ln, li) {
+          s3 += '<text class="dm-lb" x="' + (x + bw / 2).toFixed(1) +
+            '" y="' + (y0 + li * 26) + '" text-anchor="middle">' +
+            esc(ln) + "</text>";
+        });
+        h2 += G(i, s3);
+      });
+      return '<svg viewBox="0 0 460 150" class="dm-svg">' + h2 + "</svg>";
+    }
+    // ---- bars：柱状生长 ----
+    if (t === "bars") {
+      var its = v.items || [];
+      var mx = 0;
+      its.forEach(function (it) {
+        if (Math.abs(Number(it.value)) > mx) { mx = Math.abs(Number(it.value)); }
+      });
+      if (!mx) { mx = 1; }
+      var o4 = '<line x1="30" y1="216" x2="440" y2="216" stroke="#C9CFCF" stroke-width="1.5"></line>' +
+        (v.unit ? '<text x="440" y="24" text-anchor="end" class="dm-lb2">单位:' +
+          esc(v.unit) + "</text>" : "");
+      its.forEach(function (it, i) {
+        var bw2 = 380 / its.length - 16;
+        var x = 40 + i * (380 / its.length);
+        var hh = Math.max(8, (Math.abs(Number(it.value)) / mx) * 150);
+        var col = it.tag === "before" ? "#C0483B" :
+          (it.tag === "after" ? "#4E9A72" : "#8FA5B1");
+        var gid = "dmgb" + i;
+        o4 += '<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="0" y2="1">' +
+          '<stop offset="0" stop-color="' + col + '"/><stop offset="1" stop-color="' +
+          col + '" stop-opacity=".72"/></linearGradient></defs>';
+        o4 += G(i, '<rect class="dm-bar" x="' + x.toFixed(1) + '" y="' + (216 - hh).toFixed(1) +
+          '" width="' + bw2.toFixed(1) + '" height="' + hh.toFixed(1) +
+          '" rx="7" fill="url(#' + gid + ')" filter="url(#dmsh)"></rect>' +
+          '<text x="' + (x + bw2 / 2).toFixed(1) + '" y="' + (206 - hh).toFixed(1) +
+          '" text-anchor="middle" class="dm-lb2">' + it.value + "</text>" +
+          '<text x="' + (x + bw2 / 2).toFixed(1) + '" y="234" text-anchor="middle" class="dm-lb">' +
+          esc(String(it.label).slice(0, 8)) + "</text>");
+      });
+      return '<svg viewBox="0 0 460 246" class="dm-svg">' + o4 + "</svg>";
+    }
+    // ---- line：趋势折线，逐点画入 ----
+    if (t === "line") {
+      var xs = v.x || [], ys = v.y || [];
+      var mx2 = 0, mn2 = Infinity;
+      ys.forEach(function (yv) {
+        if (yv > mx2) { mx2 = yv; }
+        if (yv < mn2) { mn2 = yv; }
+      });
+      if (!isFinite(mn2)) { mn2 = 0; }
+      var span = (mx2 - mn2) || 1;
+      function px(i) { return 40 + i * (400 / Math.max(xs.length - 1, 1)); }
+      function py(yv) { return 200 - ((yv - mn2) / span) * 150; }
+      var o5 = '<line x1="30" y1="216" x2="440" y2="216" stroke="#C9CFCF"></line>';
+      xs.forEach(function (xl, i) {
+        var s5 = "";
+        if (i > 0) {
+          s5 += '<line class="dm-seg" x1="' + px(i - 1).toFixed(1) + '" y1="' +
+            py(ys[i - 1]).toFixed(1) + '" x2="' + px(i).toFixed(1) + '" y2="' +
+            py(ys[i]).toFixed(1) + '" stroke="#2E6F8E" stroke-width="2.4"></line>';
+        }
+        s5 += '<circle cx="' + px(i).toFixed(1) + '" cy="' + py(ys[i]).toFixed(1) +
+          '" r="4.5" fill="#2E6F8E"></circle>';
+        if (i === 0 || i === xs.length - 1 || i === Math.floor(xs.length / 2)) {
+          s5 += '<text x="' + px(i).toFixed(1) + '" y="' +
+            (py(ys[i]) - 12).toFixed(1) + '" text-anchor="middle" class="dm-lb2">' +
+            ys[i] + "</text>";
+        }
+        s5 += '<text x="' + px(i).toFixed(1) + '" y="234" text-anchor="middle" class="dm-lb">' +
+          esc(String(xl).slice(0, 6)) + "</text>";
+        o5 += G(i, s5);
+      });
+      return '<svg viewBox="0 0 460 246" class="dm-svg">' + o5 + "</svg>";
+    }
+    // ---- compare：左右对比卡 ----
+    if (t === "compare") {
+      function card(d, x, tint, ei) {
+        var s6 = '<rect x="' + x + '" y="30" width="200" height="176" rx="12" fill="' +
+          tint[0] + '" stroke="' + tint[1] + '" stroke-width="1.4" filter="url(#dmsh)"></rect>' +
+          '<text x="' + (x + 100) + '" y="56" text-anchor="middle" class="dm-hd" fill="' +
+          tint[1] + '">' + esc((d.title || "").slice(0, 8)) + "</text>";
+        (d.items || []).slice(0, 3).forEach(function (it, k) {
+          s6 += '<text x="' + (x + 14) + '" y="' + (90 + k * 38) +
+            '" class="dm-lb2">' + esc(String(it).slice(0, 11)) + "</text>";
+        });
+        return G(ei, s6);
+      }
+      return '<svg viewBox="0 0 460 220" class="dm-svg">' +
+        card(v.left || {}, 16, ["#FBEDEA", "#C0483B"], 0) +
+        card(v.right || {}, 244, ["#E8F2EF", "#2E6F8E"], 1) +
+        '<circle cx="230" cy="118" r="20" fill="#fff" stroke="#C9CFCF"></circle>' +
+        '<text x="230" y="124" text-anchor="middle" class="dm-vs">VS</text></svg>';
+    }
+    // ---- mapping：映射连线，逐条画入 ----
+    if (t === "mapping") {
+      var L = v.left || [], R = v.right || [], LK = v.links || [];
+      var o6 = "", ly = [], ry = [];
+      L.forEach(function (lb, i) {
+        var y = 36 + i * 44;
+        ly.push(y);
+        o6 += G(0, '<rect x="30" y="' + y + '" width="120" height="32" rx="8" fill="#E8F2EF" stroke="#2E6F8E" stroke-width="1.2"></rect>' +
+          '<text x="90" y="' + (y + 21) + '" text-anchor="middle" class="dm-lb2">' +
+          esc(String(lb).slice(0, 10)) + "</text>");
+      });
+      R.forEach(function (rb, i) {
+        var y = 36 + i * 44;
+        ry.push(y);
+        o6 += G(1, '<rect x="310" y="' + y + '" width="120" height="32" rx="8" fill="#EAF0EA" stroke="#4E9A72" stroke-width="1.2"></rect>' +
+          '<text x="370" y="' + (y + 21) + '" text-anchor="middle" class="dm-lb2">' +
+          esc(String(rb).slice(0, 10)) + "</text>");
+      });
+      LK.forEach(function (lk, k) {
+        var a = lk[0] | 0, b2 = lk[1] | 0;
+        if (a >= ly.length || b2 >= ry.length) { return; }
+        o6 += G(2 + k, '<path class="dm-lnk" d="M150 ' + (ly[a] + 16) +
+          ' C 225 ' + (ly[a] + 16) + ', 235 ' + (ry[b2] + 16) + ', 310 ' +
+          (ry[b2] + 16) + '"></path>');
+      });
+      return '<svg viewBox="0 0 460 ' +
+        (Math.max(ly.length, ry.length) * 44 + 44) +
+        '" class="dm-svg">' + o6 + "</svg>";
+    }
+    // ---- transform：结构替换（前 → 箭头 → 后） ----
+    if (t === "transform") {
+      var bf = (v.before || {}).blocks || [];
+      var af = (v.after || {}).blocks || [];
+      var o7 = '<text x="230" y="26" text-anchor="middle" class="dm-lb">改动前</text>';
+      bf.forEach(function (bk, i) {
+        var w = 380 / Math.max(bf.length, 1) - 12;
+        var x = 40 + i * (380 / Math.max(bf.length, 1));
+        o7 += G(0, '<rect x="' + x.toFixed(1) + '" y="36" width="' + w.toFixed(1) +
+          '" height="56" rx="9" fill="#FBEDEA" stroke="#C0483B" stroke-width="1.3" filter="url(#dmsh)"></rect>' +
+          '<text x="' + (x + w / 2).toFixed(1) + '" y="70" text-anchor="middle" class="dm-lb2">' +
+          esc(String(bk).slice(0, 12)) + "</text>");
+      });
+      o7 += G(1, '<path class="dm-bigarr" d="M230 100 L230 130 M221 122 L230 132 L239 122"></path>');
+      o7 += '<text x="230" y="164" text-anchor="middle" class="dm-lb">改动后</text>';
+      af.forEach(function (bk, i) {
+        var w = 380 / Math.max(af.length, 1) - 12;
+        var x = 40 + i * (380 / Math.max(af.length, 1));
+        o7 += G(2, '<rect x="' + x.toFixed(1) + '" y="172" width="' + w.toFixed(1) +
+          '" height="56" rx="9" fill="#E8F2EF" stroke="#2E6F8E" stroke-width="1.3" filter="url(#dmsh)"></rect>' +
+          '<text x="' + (x + w / 2).toFixed(1) + '" y="206" text-anchor="middle" class="dm-lb2">' +
+          esc(String(bk).slice(0, 12)) + "</text>");
+      });
+      var nt = v.note ? '<text x="230" y="252" text-anchor="middle" class="dm-lb">' +
+        esc(String(v.note).slice(0, 16)) + "</text>" : "";
+      return '<svg viewBox="0 0 460 260" class="dm-svg">' + o7 + nt + "</svg>";
+    }
+    // ---- pipeline：端到端流水线，粒子流动 ----
+    if (t === "pipeline") {
+      var st = v.stages || [];
+      var n9 = Math.max(st.length, 1);
+      var w9 = 420 / n9 - 12;
+      var o9 = '<line x1="20" y1="122" x2="440" y2="122" stroke="#C9CFCF" stroke-width="3" stroke-linecap="round"></line>';
+      for (var pi = 0; pi < 3; pi++) {
+        o9 += '<g class="dm-pp" style="animation-delay:' + (pi * 1.1) +
+          's"><circle r="5" fill="#2E6F8E" cy="122" cx="24"></circle></g>';
+      }
+      st.forEach(function (sg, i) {
+        var x = 20 + i * (420 / n9);
+        var last = i === st.length - 1;
+        o9 += G(i, '<rect x="' + x.toFixed(1) + '" y="90" width="' + w9.toFixed(1) +
+          '" height="64" rx="10" fill="' + (last ? "#EAF0EA" : "#E8F2EF") +
+          '" stroke="' + (last ? "#4E9A72" : "#2E6F8E") +
+          '" stroke-width="1.3"></rect>' +
+          '<text x="' + (x + w9 / 2).toFixed(1) + '" y="118" text-anchor="middle" class="dm-hd">' +
+          esc(String(sg.name || "").slice(0, 6)) + "</text>" +
+          '<text x="' + (x + w9 / 2).toFixed(1) + '" y="140" text-anchor="middle" class="dm-lb">' +
+          esc(String(sg.note || "").slice(0, 9)) + "</text>");
+      });
+      return '<svg viewBox="0 0 460 180" class="dm-svg">' + o9 + "</svg>";
+    }
+    return '<svg viewBox="0 0 460 120" class="dm-svg"></svg>';
+  }
+
+  function dmBeats(sc) {
+    return (sc.beats && sc.beats.length) ? sc.beats : null;
+  }
+
+  function applyBeat() {
+    var sc = DEMO.script.scenes[DEMO.idx];
+    var beats = dmBeats(sc);
+    var els = document.querySelectorAll("#spBody [data-ei]");
+    if (!beats) {
+      els.forEach(function (el) {
+        el.classList.add("dm-on");
+        el.classList.remove("dm-hl", "dm-pre");
+      });
+      return;
+    }
+    DEMO.beat = Math.max(0, Math.min(DEMO.beat, beats.length - 1));
+    var shown = [], hl = -1;
+    for (var i = 0; i <= DEMO.beat; i++) {
+      var a = (beats[i].act || {});
+      if (a.kind === "highlight") { hl = a.target | 0; }
+      else if (a.kind === "reveal") { shown.push(a.target | 0); }
+    }
+    els.forEach(function (el) {
+      var ei = Number(el.getAttribute("data-ei"));
+      var on = shown.indexOf(ei) >= 0;
+      el.classList.toggle("dm-on", on);
+      el.classList.toggle("dm-hl", ei === hl && on);
+    });
+    document.querySelectorAll("#spBody [data-mv]").forEach(function (d) {
+      d.classList.toggle("dm-pre",
+        DEMO.beat < Number(d.getAttribute("data-mv")));
+    });
+    var stage2 = document.querySelector("#spBody .dm-stage");
+    if (stage2) { stage2.classList.toggle("dm-zoom", hl >= 0); }
+    typeNarr(beats[DEMO.beat].say);
+    document.querySelectorAll(".dm-tick").forEach(function (tk, i) {
+      tk.classList.toggle("on", i <= DEMO.beat);
+    });
+  }
+
+  function dmBeatMs(sc, i) {
+    var beats = dmBeats(sc);
+    if (!beats) { return 4600; }
+    var say = beats[i].say || "";
+    return Math.max(3200, Math.min(8600, 2400 + say.length * 95));
+  }
+
+  function typeNarr(text) {
+    var narr = document.getElementById("dmNarr");
+    if (!narr) { return; }
+    if (DEMO.twTimer) { clearInterval(DEMO.twTimer); DEMO.twTimer = null; }
+    narr.textContent = "";
+    var i = 0;
+    DEMO.twTimer = setInterval(function () {
+      i += 1;
+      narr.textContent = text.slice(0, i);
+      if (i >= text.length && DEMO.twTimer) {
+        clearInterval(DEMO.twTimer);
+        DEMO.twTimer = null;
+      }
+    }, 52);
+  }
+
+  function demoAuto() {
+    if (DEMO.timer) { clearTimeout(DEMO.timer); DEMO.timer = null; }
+    if (!DEMO.playing || !DEMO.script) { return; }
+    var step = function () {
+      var sc = DEMO.script.scenes[DEMO.idx];
+      var beats = dmBeats(sc);
+      if (beats && DEMO.beat < beats.length - 1) {
+        DEMO.beat++;
+        applyBeat();
+        DEMO.timer = setTimeout(step, dmBeatMs(sc, DEMO.beat));
+      } else {
+        DEMO.idx = (DEMO.idx + 1) % DEMO.script.scenes.length;
+        DEMO.beat = 0;
+        renderDemoScene();
+      }
+    };
+    DEMO.timer = setTimeout(step,
+      dmBeatMs(DEMO.script.scenes[DEMO.idx], DEMO.beat));
+  }
+
+  function renderDemoScene() {
+    if (DEMO.twTimer) { clearInterval(DEMO.twTimer); DEMO.twTimer = null; }
+    var sc = DEMO.script.scenes[DEMO.idx];
+    var v = sc.viz || {};
+    var beats = dmBeats(sc);
+    var narr0 = beats ? beats[0].say : sc.narration;
+    var cap = v.caption ? '<div class="dm-cap">' + esc(v.caption) + "</div>"
+      : "";
+    var ticks = "";
+    if (beats) {
+      ticks = '<div class="dm-ticks">' + beats.map(function (_, i) {
+        return '<span class="dm-tick' + (i === 0 ? " on" : "") +
+          '" data-ti="' + i + '"></span>';
+      }).join("") + "</div>";
+    }
+    document.getElementById("spBody").innerHTML =
+      '<div class="dm-wrap"><div class="dm-title">' +
+      esc(DEMO.script.title) + "</div>" + cap +
+      '<div class="dm-stage">' + demoSvg(sc) + "</div>" +
+      '<div class="dm-narr" id="dmNarr"></div>' + ticks +
+      '<div class="dm-ctl">' +
+      '<button id="dmPrev" title="上一镜">‹</button>' +
+      '<button id="dmPlay">' + (DEMO.playing ? "暂停" : "播放") + "</button>" +
+      '<button id="dmNext" title="下一镜">›</button>' +
+      '<span class="dm-dots">' +
+      DEMO.script.scenes.map(function (_, i) {
+        return '<span class="dm-dot' + (i === DEMO.idx ? " on" : "") +
+          '" data-di="' + i + '"></span>';
+      }).join("") + "</span>" +
+      '<span class="dm-num">' + (DEMO.idx + 1) + "/" +
+      DEMO.script.scenes.length + "</span></div></div>";
+    document.getElementById("dmPrev").addEventListener("click", function () {
+      DEMO.idx = (DEMO.idx - 1 + DEMO.script.scenes.length) %
+        DEMO.script.scenes.length;
+      DEMO.beat = 0;
+      renderDemoScene();
+    });
+    document.getElementById("dmNext").addEventListener("click", function () {
+      DEMO.idx = (DEMO.idx + 1) % DEMO.script.scenes.length;
+      DEMO.beat = 0;
+      renderDemoScene();
+    });
+    document.getElementById("dmPlay").addEventListener("click", function () {
+      DEMO.playing = !DEMO.playing;
+      demoAuto();
+      renderDemoScene();
+    });
+    document.querySelectorAll("#spBody .dm-dot").forEach(function (d3) {
+      d3.addEventListener("click", function () {
+        DEMO.idx = Number(d3.getAttribute("data-di"));
+        DEMO.beat = 0;
+        renderDemoScene();
+      });
+    });
+    document.querySelectorAll("#spBody .dm-tick").forEach(function (tk) {
+      tk.addEventListener("click", function () {
+        DEMO.beat = Number(tk.getAttribute("data-ti"));
+        applyBeat();
+      });
+    });
+    typeNarr(narr0);
+    typeNarr(narr0);
+    applyBeat();
+    demoAuto();
+  }
+
+  function initDemo(body) {
+    body.innerHTML = '<p class="empty">正在准备动态讲解…</p>';
+    fetch("/api/demo?file=" + encodeURIComponent(__PA_SERVE__.report))
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d.script && d.script.scenes && d.script.scenes.length) {
+          DEMO.script = d.script;
+          DEMO.idx = 0;
+          DEMO.beat = 0;
+          DEMO.playing = true;
+          renderDemoScene();
+          return;
+        }
+        if (d.state === "running" || d.state === "none") {
+          body.innerHTML = '<p class="empty">模型正在为这篇论文生成分镜脚本…' +
+            "<br>约半分钟，生成后自动播放。</p>";
+          if (d.state === "none") {
+            fetch("/api/demo?file=" +
+                  encodeURIComponent(__PA_SERVE__.report),
+                  {method: "POST"});
+          }
+          setTimeout(function () { initDemo(body); }, 5000);
+          return;
+        }
+        body.innerHTML = '<p class="empty" style="cursor:pointer">' +
+          "生成失败：" + esc(d.error || "未知错误") + "<br>点击重试。</p>";
+        body.firstChild.addEventListener("click", function () {
+          initDemo(body);
+        });
+      })
+      .catch(function (e) { body.textContent = "加载失败：" + e; });
+  }
+
+  if (window.__PA_SERVE__) { initModFigs(); }
+
+  document.getElementById("stat").textContent =
+    (D.blocks || 0) + " 个板块 · 全部内容均来自原文抽取";
+
+  // 折叠交互
+  document.getElementById("main").addEventListener("click", function (e) {
+    var head = e.target.closest(".c-head");
+    if (!head) { return; }
+    head.parentElement.classList.toggle("open");
+  });
+
+  // 一键全部折叠 / 展开
+  document.getElementById("toggleAll").addEventListener("click", function () {
+    var cards = document.querySelectorAll("article.card");
+    var anyOpen = Array.prototype.some.call(cards, function (c) {
+      return c.classList.contains("open");
+    });
+    Array.prototype.forEach.call(cards, function (c) {
+      c.classList.toggle("open", !anyOpen);
+    });
+    this.textContent = anyOpen ? "全部展开" : "全部折叠";
+  });
+
+  // 把带缩进的纯文本转成层级列表，让「分类框架」这类内容能看出结构
+  // 行内 Markdown：**加粗** 与 `行内码`。在 esc 之后做替换，
+    // 不会引入注入面（** 与 ` 本身已被转义规则保留为普通字符）。
+  function inlineMd(s) {
+    return s
+      .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
+      .replace(/`([^`]+)`/g, '<code style="font-family:var(--mono);font-size:.92em">$1</code>');
+  }
+  function formatText(text) {
+    if (!text) { return ""; }
+    var lines = text.split(/\n/);
+    var hasList = lines.some(function (l) { return /^\s*(\d+[.)]|[-*•])\s+/.test(l); });
+    if (!hasList) {
+      return text.split(/\n{2,}/).map(function (p) {
+        return "<p>" + inlineMd(esc(p.trim())).replace(/\n/g, "<br>") + "</p>";
+      }).join("");
+    }
+
+    var html = [];
+    var stack = [];   // 每层的缩进宽度
+    lines.forEach(function (raw) {
+      if (!raw.trim()) { return; }
+      var m = raw.match(/^(\s*)(\d+[.)]|[-*•])\s+(.*)$/);
+      if (!m) {
+        if (html.length && stack.length) {
+          html[html.length - 1] = html[html.length - 1].replace(/<\/li>$/, " " + esc(raw.trim()) + "</li>");
+        } else {
+          html.push("<p>" + esc(raw.trim()) + "</p>");
+        }
+        return;
+      }
+      var indent = m[1].replace(/\t/g, "    ").length;
+      var body = esc(m[3]);
+      if (m[2].match(/^\d/)) { body = "<b>" + body + "</b>"; }
+
+      while (stack.length && indent < stack[stack.length - 1]) {
+        html.push("</li></ul>"); stack.pop();
+      }
+      if (!stack.length || indent > stack[stack.length - 1]) {
+        html.push("<ul>"); stack.push(indent);
+      } else {
+        html.push("</li>");
+      }
+      html.push("<li>" + body);
+    });
+    while (stack.length) { html.push("</li></ul>"); stack.pop(); }
+    return html.join("");
+  }
+
+  /* ==================== 论证链 ====================
+     固定的是这个渲染引擎：怎么排版、怎么动、怎么标注差异。
+     不固定的是链条本身——节点几个、什么类型、顺序如何，全由论文决定。
+  */
+  function chainSection() {
+    var nodes = CHAIN.nodes;
+    var h = ['<section class="group" id="chain">'];
+    h.push('<div class="g-head"><h2>论证链</h2>');
+    h.push('<span class="count">' + nodes.length + ' 个环节 · 可播放</span></div>');
+    h.push('<article class="chain-card">');
+
+    if (CHAIN.thesis) {
+      h.push('<p class="chain-thesis"><b>主张</b>' + esc(CHAIN.thesis) + "</p>");
+    }
+
+    h.push('<div class="chain-rail" data-rail>' + railHTML(nodes) + "</div>");
+    h.push('<div class="chain-detail" data-detail></div>');
+
+    h.push('<div class="chain-bar">');
+    h.push('<button class="cb-btn" data-act="play">▶ 播放</button>');
+    h.push('<button class="cb-btn ghost" data-act="prev" aria-label="上一步">←</button>');
+    h.push('<button class="cb-btn ghost" data-act="next" aria-label="下一步">→</button>');
+    h.push('<div class="cb-track" data-track><div class="cb-fill" data-fill></div></div>');
+    h.push('<span class="cb-count" data-count></span>');
+    h.push("</div>");
+
+    if (CHAIN.warnings && CHAIN.warnings.length) {
+      h.push('<div class="chain-warn">');
+      CHAIN.warnings.forEach(function (w) {
+        h.push("<span>" + esc(w) + "</span>");
+      });
+      h.push("</div>");
+    }
+
+    h.push("</article></section>");
+    return h.join("");
+  }
+
+  function railHTML(nodes) {
+    var h = [];
+    nodes.forEach(function (n, i) {
+      h.push('<div class="cc" data-i="' + i + '" style="--c:' + typeColor(n.type) + '">');
+      h.push('<div class="cc-t"><i></i>' + esc(typeLabel(n.type)) + "</div>");
+      h.push('<div class="cc-l">' + esc(n.label) + "</div>");
+      h.push("</div>");
+      if (i < nodes.length - 1) {
+        h.push('<div class="cl" data-link="' + i + '"><i></i></div>');
+      }
+    });
+    return h.join("");
+  }
+
+  function typeLabel(t) {
+    var meta = (CHAIN.types || {})[t];
+    return meta ? meta.label : t;
+  }
+
+  function typeColor(t) {
+    var meta = (CHAIN.types || {})[t];
+    return meta ? meta.color : "#8FD2F0";
+  }
+
+  function detailHTML(n) {
+    var h = ['<div class="cd-head">'];
+    h.push('<span class="cd-badge" style="color:' + typeColor(n.type) + '">' +
+           esc(typeLabel(n.type)) + "</span>");
+    h.push('<span class="cd-title">' + esc(n.label) + "</span>");
+    h.push(askBtn("n:" + n.id, true) + "</div>");
+
+    if (n.detail) { h.push('<p class="cd-text">' + esc(n.detail) + "</p>"); }
+
+    if (n.type === "change" && n.before && n.after) {
+      h.push('<div class="delta">');
+      h.push('<div class="delta-col before"><div class="delta-tag">改动前</div>' +
+             diagramHTML(n.before) + "</div>");
+      h.push('<div class="delta-arrow">→</div>');
+      h.push('<div class="delta-col after"><div class="delta-tag">改动后</div>' +
+             diagramHTML(n.after) + "</div>");
+      h.push("</div>");
+    } else if (n.type === "taxonomy" && n.root) {
+      h.push(taxHTML(n.root));
+    } else if (n.metric) {
+      h.push(metricHTML(n.metric));
+      if (n.before) { h.push(diagramHTML(n.before)); }
+    } else if (n.before) {
+      h.push(diagramHTML(n.before));
+    }
+
+    if (n.forks && n.forks.length) {
+      // 分叉：这个节点分出的并行方向——独立贡献各自成卡，不再压成一条线
+      h.push('<div class="forks"><div class="forks-cap">并行分支 ×' +
+        n.forks.length + "</div>");
+      n.forks.forEach(function (f) {
+        h.push('<div class="fork-card"><b>' + esc(f.label) + "</b>");
+        if (f.detail) { h.push('<span>' + esc(f.detail) + "</span>"); }
+        h.push("</div>");
+      });
+      h.push("</div>");
+    }
+
+    if (n.evidence && n.evidence.length) {
+      var ev = n.evidence[0];
+      h.push('<div class="cd-ev"><b>' + esc(locatorOf(ev)) + "</b>");
+      h.push("<span>" + esc(trunc(ev.quote, 170)) + "</span>");
+      if (ev.quote_zh && ev.quote_zh !== ev.quote) {
+        h.push('<span class="zh">' + esc(trunc(ev.quote_zh, 170)) + "</span>");
+      }
+      h.push("</div>");
+    }
+    return h.join("");
+  }
+
+  function diagramHTML(spec) {
+    if (!spec) { return ""; }
+    var cap = spec.label ? '<div class="dg-cap">' + esc(spec.label) + "</div>" : "";
+
+    if (spec.kind === "tokens") {
+      var n = Math.max(1, Math.min(12, Number(spec.n) || 4));
+      var cadence = Number(spec.cadence);
+      if (!isFinite(cadence) || cadence <= 0) { cadence = 1; }
+      var h = ['<div class="dg">'];
+      for (var i = 0; i < n; i++) {
+        // 用间隔象征节奏：cadence 越大，点亮越慢。速度差异因此「看得见」。
+        var delay = (i * cadence * 0.13).toFixed(2);
+        h.push('<span class="dg-tk" style="--d:' + delay + '"></span>');
+      }
+      h.push("</div>");
+      return cap + h.join("");
+    }
+
+    if (spec.kind === "bars") {
+      var items = spec.items || [];
+      var max = 0;
+      items.forEach(function (it) {
+        max = Math.max(max, Math.abs(Number(it.value) || 0));
+      });
+      max = max || 1;
+      var hb = ["<div class=\"dg-bars\">"];
+      items.forEach(function (it) {
+        var v = Number(it.value) || 0;
+        var pct = Math.round((Math.abs(v) / max) * 100);
+        hb.push('<div class="dg-bar"><span>' + esc(it.label || "") + "</span>");
+        hb.push('<span class="dg-track"><span class="dg-fill" style="--w:' +
+                pct + '%"></span></span>');
+        hb.push('<span class="dg-val">' + esc(String(it.value)) + "</span></div>");
+      });
+      hb.push("</div>");
+      return cap + hb.join("");
+    }
+
+    if (spec.kind === "blocks") {
+      var list = spec.items || [];
+      var hl = typeof spec.highlight === "number" ? spec.highlight : -1;
+      var hbl = ['<div class="dg-blocks">'];
+      list.forEach(function (it, k) {
+        hbl.push('<div class="dg-bl' + (k === hl ? " hl" : "") + '">' +
+                 esc(it) + "</div>");
+      });
+      hbl.push("</div>");
+      return cap + hbl.join("");
+    }
+
+    return cap + '<p class="dg-text">' + esc(spec.text || "") + "</p>";
+  }
+
+  function metricHTML(m) {
+    var raw = String(m.value == null ? "" : m.value);
+    var num = parseFloat(raw.replace(/[^0-9.\-]/g, ""));
+    var h = ['<div class="metric">'];
+    h.push('<span class="metric-n" data-to="' + (isFinite(num) ? num : "") +
+           '">' + esc(raw) + "</span>");
+    if (m.unit) { h.push('<span class="metric-u">' + esc(m.unit) + "</span>"); }
+    if (m.label) { h.push('<span class="metric-l">' + esc(m.label) + "</span>"); }
+    h.push("</div>");
+    return h.join("");
+  }
+
+  function taxHTML(root) {
+    var h = ['<div class="cd-tax">'];
+    (function walk(node, d) {
+      if (!node || !node.name) { return; }
+      h.push('<div class="ct" data-d="' + d + '"><span class="ct-dot"></span>');
+      h.push('<span class="ct-n">' + esc(node.name) + "</span>");
+      if (node.what) { h.push('<span class="ct-w">' + esc(node.what) + "</span>"); }
+      h.push("</div>");
+      var kids = node.children || [];
+      if (kids.length) {
+        h.push('<div class="ct-kids">');
+        kids.forEach(function (c) { walk(c, d + 1); });
+        h.push("</div>");
+      }
+    })(root, 0);
+    h.push("</div>");
+    return h.join("");
+  }
+
+  // 数字滚动：只有能解析成数字的才动，否则原样显示
+  function animateNumber(el) {
+    var finalText = el.textContent;
+    var target = parseFloat(el.getAttribute("data-to"));
+    if (!isFinite(target)) { return; }
+    // 先落盘正确值：万一 rAF 被节流（后台标签页、无头截图），
+    // 界面上也不能留一个错了的数字
+    el.textContent = finalText;
+    var dot = finalText.indexOf(".");
+    var decimals = dot >= 0 ? (finalText.length - dot - 1) : 0;
+    var t0 = null;
+    function frame(t) {
+      if (t0 === null) { t0 = t; }
+      var p = Math.min(1, (t - t0) / 700);
+      var eased = 1 - Math.pow(1 - p, 3);
+      el.textContent = (target * eased).toFixed(decimals);
+      if (p < 1) { requestAnimationFrame(frame); }
+    }
+    requestAnimationFrame(frame);
+    // 兜底：动画停摆也必须回到正确值
+    setTimeout(function () { el.textContent = finalText; }, 820);
+  }
+
+  function initChain() {
+    if (!CHAIN || !CHAIN.nodes || !CHAIN.nodes.length) { return; }
+    var card = document.querySelector(".chain-card");
+    if (!card) { return; }
+
+    var rail = card.querySelector("[data-rail]");
+    var detail = card.querySelector("[data-detail]");
+    var fill = card.querySelector("[data-fill]");
+    var count = card.querySelector("[data-count]");
+    var playBtn = card.querySelector('[data-act="play"]');
+    var track = card.querySelector("[data-track]");
+    var total = CHAIN.nodes.length;
+    var st = { i: 0, timer: null, auto: false };
+
+    function dwellFor(node) {
+      if (node.type === "change") { return 3200; }
+      if (node.type === "effect") { return 2400; }
+      if (node.type === "taxonomy") { return 2600; }
+      return 1800;
+    }
+
+    function paint(run) {
+      var idx = st.i;
+      Array.prototype.forEach.call(rail.querySelectorAll(".cc"), function (el) {
+        var k = Number(el.getAttribute("data-i"));
+        el.classList.toggle("is-active", k === idx);
+        el.classList.toggle("is-done", k < idx);
+      });
+      Array.prototype.forEach.call(rail.querySelectorAll(".cl"), function (el) {
+        var k = Number(el.getAttribute("data-link"));
+        el.classList.toggle("on", k < idx);
+        el.classList.toggle("flow", k === idx);
+      });
+
+      detail.innerHTML = detailHTML(CHAIN.nodes[idx]);
+      if (run) {
+        // 重跑 CSS 动画必须先把类摘掉并强制重排，否则浏览器认为没变化
+        detail.classList.remove("run");
+        void detail.offsetWidth;
+        detail.classList.add("run");
+      }
+
+      var num = detail.querySelector(".metric-n");
+      if (num) { animateNumber(num); }
+
+      fill.style.width = ((idx + 1) / total * 100) + "%";
+      count.textContent = (idx + 1) + " / " + total;
+      playBtn.textContent = st.timer
+        ? "⏸ 暂停"
+        : (idx >= total - 1 ? "↻ 重播" : "▶ 播放");
+    }
+
+    function stop() {
+      if (st.timer) { clearTimeout(st.timer); st.timer = null; }
+    }
+
+    function schedule() {
+      st.timer = setTimeout(function () {
+        if (st.i < total - 1) {
+          st.i += 1;
+          paint(true);
+          schedule();
+        } else {
+          stop();
+          paint(false);
+        }
+      }, dwellFor(CHAIN.nodes[st.i]));
+    }
+
+    function play() {
+      if (st.timer) { stop(); paint(false); return; }
+      if (st.i >= total - 1) { st.i = 0; }
+      paint(true);
+      schedule();
+    }
+
+    function go(n) {
+      stop();
+      st.i = Math.max(0, Math.min(total - 1, n));
+      paint(true);
+    }
+
+    card.addEventListener("click", function (e) {
+      var btn = e.target.closest("[data-act]");
+      if (btn) {
+        var act = btn.getAttribute("data-act");
+        if (act === "play") { play(); }
+        else if (act === "next") { go(st.i + 1); }
+        else if (act === "prev") { go(st.i - 1); }
+        return;
+      }
+      if (track && track.contains(e.target)) {
+        var rect = track.getBoundingClientRect();
+        var ratio = (e.clientX - rect.left) / Math.max(rect.width, 1);
+        go(Math.round(ratio * (total - 1)));
+        return;
+      }
+      var cc = e.target.closest(".cc");
+      if (cc) { go(Number(cc.getAttribute("data-i"))); }
+    });
+
+    paint(false);
+
+    // 第一次滚到这里时自动播一遍：动起来比一个静止的流程图有说服力得多。
+    // 只自动播一次，之后完全交给用户。
+    if (typeof IntersectionObserver === "function") {
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          if (en.isIntersecting && !st.auto) {
+            st.auto = true;
+            io.disconnect();
+            // 留一点时间让人先读到「主张」，再开始动
+            setTimeout(play, 900);
+          }
+        });
+      }, { threshold: 0.55 });
+      io.observe(card);
+    }
+  }
+
+  function esc(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  // 证据摘录在卡片里放不下全句，截断但要留出省略号，别让人以为是原文结尾
+  function trunc(s, n) {
+    s = String(s || "");
+    return s.length > n ? s.slice(0, n) + "…" : s;
+  }
+
+
+
+  // ======================= 文献网络 =======================
+  // 径向双叶图：中心=本文；左叶=它引用的（过去），右叶=引用它的（未来）。
+  // 不变式在数据层已守住：节点全部来自 PDF 参考文献与 OpenAlex，
+  // 相关度是计算值并带依据。这里只做呈现，不做任何"判断"。
+
+  function networkSection() {
+    var h = ['<section class="group" id="network" style="--gc:#4A9BBF">'];
+    h.push('<div class="g-head"><h2>文献网络</h2><span class="count">引用关系 · OpenAlex 实录</span></div>');
+    h.push('<div class="net-wrap">');
+
+    var N = D.network;
+    if (!N || !N.nodes || !N.nodes.length) {
+      var why = (N && N.unavailable) ? esc(N.unavailable)
+        : "还没有为这份报告生成文献网络。";
+      h.push('<div class="net-empty">' + why + "<br>" +
+        "生成或补跑：<code>paperatomy network " +
+        esc("out/" + (D.source ? String(D.source).split(/[\\\\/]/).pop().replace(/\\.pdf$/i, "") + ".json" : "报告.json")) +
+        "</code>（不调用模型；需联网访问 OpenAlex）</div>");
+      h.push("</div></section>");
+      return h.join("");
+    }
+
+    var st = N.stats || {};
+    h.push('<div class="net-head">');
+    h.push('<span class="net-title">' + esc(N.center && N.center.title || "本文") + "</span>");
+    h.push('<span class="net-stats">' +
+      (st.reference_entries || 0) + " 条参考文献 · " +
+      (st.matched || 0) + " 条命中 OpenAlex · 展示 " +
+      (N.nodes.length) + " 个节点</span>");
+    h.push("</div>");
+    var C = N.center || {};
+    if (C.venue || C.ccf || (C.topics && C.topics.length) ||
+        (C.search_terms && C.search_terms.length)) {
+      h.push('<div class="nc-info">');
+      var zh = D.paper_title_zh || "";
+      if (zh) {
+        h.push('<div class="nc-row"><span class="nc-label">标题</span>'
+          + esc(zh) + '<span class="nc-hint">原文：' +
+          esc(N.center && N.center.title || D.paper_title || "") + "</span></div>");
+      }
+      h.push('<div class="nc-row"><span class="nc-label">发表年份</span>');
+      h.push(C.year ? C.year : '<span class="nc-none">未收录</span>');
+      h.push("</div>");
+      h.push('<div class="nc-row"><span class="nc-label">发表场所</span>');
+      if (C.venue) {
+        h.push(esc(C.venue));
+        if (C.venue_preprint) {
+          h.push('<span class="nc-hint">（预印本 · OpenAlex 未见正式发表版本记录）</span>');
+        }
+      }
+      if (C.ccf) { h.push(' <span class="ccf-tag">CCF-' + esc(C.ccf) + "</span>"); }
+      if (!C.venue && !C.ccf) {
+        h.push('<span class="nc-none">数据库未收录（新论文常见，无法查证）</span>');
+      }
+      h.push("</div>");
+      if (C.topics && C.topics.length) {
+        h.push('<div class="nc-row"><span class="nc-label">研究领域</span>');
+        C.topics.forEach(function (tp) {
+          var parts = [tp.field_zh || tp.field,
+                       tp.subfield_zh || tp.subfield, tp.name];
+          h.push('<span class="topic-tag">' +
+                 esc(parts.filter(Boolean).join(" · ")) + "</span>");
+        });
+        h.push("</div>");
+      }
+      if (C.search_terms && C.search_terms.length) {
+        h.push('<div class="nc-row"><span class="nc-label">检索关键词</span>' +
+          '<span class="nc-hint">点一下即复制——找同方向工作，拿它去学术搜索最准</span></div>');
+        h.push('<div class="nc-kws" id="ncKws">');
+        C.search_terms.forEach(function (k) {
+          h.push('<button class="kw-chip" type="button" data-kw="' +
+                 esc(k) + '">' + esc(k) + "</button>");
+        });
+        h.push('<button class="kw-chip all" type="button" id="ncKwAll">复制全部</button>');
+        h.push("</div>");
+      }
+      h.push("</div>");
+    }
+    h.push('<div id="netViz"></div>');
+    h.push('<div class="net-legend">');
+    h.push('<span><i class="net-dot" style="background:#2E6F8E"></i>相关度高</span>');
+    h.push('<span><i class="net-dot" style="background:#C9D4DC"></i>相关度低</span>');
+    h.push("<span>节点大小 = 被引影响力</span>");
+    h.push("<span>右叶来自 OpenAlex 被引索引（谁引用了本文）</span>");
+    h.push("<span>点击节点查看领域、出处与 DOI</span>");
+    h.push("</div>");
+    h.push('<div class="net-detail" id="netDetail"></div>');
+    h.push("</div></section>");
+    return h.join("");
+  }
+
+  function initNetwork() {
+    var N = D.network;
+    var box = document.getElementById("netViz");
+    if (!box || !N || !N.nodes || !N.nodes.length) { return; }
+
+    var W = 940, H = 560, cx = W / 2, cy = H / 2;
+    var cited = N.nodes.filter(function (n) { return n.kind === "cited"; });
+    var citing = N.nodes.filter(function (n) { return n.kind === "citing"; });
+    // 右叶是时间线：早的靠近底部（过去侧），新的越靠上
+    citing.sort(function (x, y) { return (x.year || 0) - (y.year || 0); });
+    var maxC = 1;
+    N.nodes.forEach(function (n) { if (n.cited_by > maxC) { maxC = n.cited_by; } });
+
+    // 半径：相关度越高越靠近中心（92–240）
+    function ringR(n) { return 92 + 148 * (1 - Math.min(n.relevance, 1)); }
+    // 节点大小：被引数的对数缩放（4.5–15）
+    function dotR(n) {
+      return 4.5 + 10.5 * Math.log10(n.cited_by + 1) / Math.log10(maxC + 1);
+    }
+    // 颜色：相关度 0 → 浅灰蓝，1 → 深青
+    function color(rel) {
+      rel = Math.max(0, Math.min(rel, 1));
+      return "hsl(203," + Math.round(22 + 40 * rel) + "%," +
+             Math.round(78 - 40 * rel) + "%)";
+    }
+
+    function place(nodes, start, end) {
+      var n = nodes.length;
+      nodes.forEach(function (n2, i) {
+        var a = (n === 1) ? (start + end) / 2 : start + (end - start) * i / (n - 1);
+        var rad = a * Math.PI / 180;
+        n2._x = cx + ringR(n2) * Math.cos(rad);
+        n2._y = cy - ringR(n2) * Math.sin(rad);
+      });
+    }
+    place(cited, 105, 255);     // 左半圆（过去）；两端各留 10° 缝隙，
+    place(citing, -75, 75);     // 右半圆（未来）——否则高相关节点挤在中心正上/下
+
+    var s = ['<svg class="net-svg" viewBox="0 0 ' + W + " " + H + '">'];
+
+    s.push('<text class="net-leaf" x="' + (cx - 265) + '" y="' + (cy - 218) + '">\u2190 \u5b83\u5f15\u7528\u7684 \u00b7 \u8fc7\u53bb</text>');
+    s.push('<text class="net-leaf" x="' + (cx + 265) + '" y="' + (cy - 218) + '">\u5f15\u7528\u5b83\u7684 \u00b7 \u672a\u6765 \u2192</text>');
+
+    s.push('<g class="net-center">');
+    s.push('<circle cx="' + cx + '" cy="' + cy + '" r="34" fill="#2E6F8E" opacity=".12"/>');
+    s.push('<circle cx="' + cx + '" cy="' + cy + '" r="5" fill="#2E6F8E"/>');
+    var ct = esc(trunc((N.center && N.center.title) || "本文", 26));
+    s.push('<text x="' + cx + '" y="' + (cy + 52) + '">' + ct + "</text>");
+    s.push("</g>");
+
+    N.nodes.forEach(function (n, i) {
+      var mx = (cx + n._x) / 2, my = (cy + n._y) / 2;
+      var dx = n._x - cx, dy = n._y - cy, len = Math.sqrt(dx * dx + dy * dy) || 1;
+      var bow = 26;
+      var qx = mx - dy / len * bow, qy = my + dx / len * bow;
+      s.push('<path id="ne' + i + '" class="net-edge" d="M' + cx + " " + cy +
+             " Q" + qx + " " + qy + " " + n._x + " " + n._y + '"/>');
+    });
+
+    N.nodes.forEach(function (n, i) {
+      var r = dotR(n);
+      s.push('<g class="net-node" data-ni="' + i + '">');
+      s.push('<circle cx="' + n._x.toFixed(1) + '" cy="' + n._y.toFixed(1) +
+             '" r="' + r.toFixed(1) + '" fill="' + color(n.relevance) + '"/>');
+      var label = String(n.year || "");
+      if (label) {
+        // 年份放在节点**外侧**（沿半径外推），不压在圆上、不与邻点重叠
+        var wdx = n._x - cx, wdy = n._y - cy;
+        var wlen = Math.sqrt(wdx * wdx + wdy * wdy) || 1;
+        var tx = n._x + wdx / wlen * (r + 12);
+        var ty = n._y + wdy / wlen * (r + 12) + 3;
+        s.push("<text x=\"" + tx.toFixed(1) + "\" y=\"" + ty.toFixed(1) +
+               '" text-anchor="middle">' + esc(label) + "</text>");
+      }
+      s.push("<title>" + esc(trunc(n.title, 90)) + " · 相关度 " +
+             Math.round(n.relevance * 100) + "% · 被引 " + n.cited_by + "</title>");
+      s.push("</g>");
+    });
+
+    s.push("</svg>");
+    box.innerHTML = s.join("");
+
+    function show(n) {
+      var d = document.getElementById("netDetail");
+      var src = n.origin === "openalex" ? "OpenAlex" : "本文参考文献列表（PDF）";
+      var doi = n.doi
+        ? ' · <a href="https://doi.org/' + esc(n.doi) + '" target="_blank" rel="noopener">DOI: ' +
+          esc(n.doi) + "</a>"
+        : "";
+      var pct = Math.round(n.relevance * 100);
+      var h = ['<div class="net-d-top">'];
+      if (n.title_zh) {
+        // 中文是机翻（呈现层），节点身份与元数据仍全部来自数据库
+        h.push('<span class="net-d-title">' + esc(n.title_zh) + "</span>");
+        h.push('<span class="net-d-title-zh">' + esc(n.title) + "</span>");
+      } else {
+        h.push('<span class="net-d-title">' + esc(n.title) + "</span>");
+      }
+      h.push('<span class="net-badge ' + n.kind + '">' +
+             (n.kind === "cited" ? "本文引用" : "引用本文") + "</span>");
+      h.push("</div>");
+      h.push('<div class="net-d-meta">' +
+        [n.year || null, esc(n.venue || ""), "被引 " + n.cited_by + " 次", doi]
+          .filter(Boolean).join(" · ") + "</div>");
+
+      if (n.topics && n.topics.length) {
+        h.push('<div class="net-d-topics">');
+        n.topics.forEach(function (tp) {
+          var parts = [tp.field_zh || tp.field,
+                       tp.subfield_zh || tp.subfield, tp.name];
+          var label = parts.filter(Boolean).join(" · ");
+          h.push('<span class="topic-tag">' + esc(label) + "</span>");
+        });
+        h.push("</div>");
+      }
+
+      h.push('<div class="net-d-score"><span class="net-d-label">与本文相关度</span>' +
+        '<span class="net-d-bar"><i style="width:' + pct + '%"></i></span>' +
+        '<span class="net-d-pct">' + pct + "%</span></div>");
+      h.push('<div class="net-d-reasons">' + n.reasons.map(function (r) {
+        return "· " + esc(r);
+      }).join("<br>") + "</div>");
+      h.push('<div class="net-d-note"><b>✓ 数据来源：' + esc(src) +
+        '。</b>节点与被引数为数据库实录，非模型生成；' +
+        "相关度为基于共引与关键词的计算值，依据如上。</div>");
+      d.innerHTML = h.join("");
+      d.classList.add("show");
+    }
+
+    var svg = box.querySelector("svg");
+    svg.addEventListener("click", function (e) {
+      var g = e.target.closest(".net-node");
+      if (!g) { return; }
+      var i = Number(g.getAttribute("data-ni"));
+      show(N.nodes[i]);
+      Array.prototype.forEach.call(svg.querySelectorAll(".net-edge.hot"),
+        function (el) { el.classList.remove("hot"); });
+      var edge = svg.querySelector("#ne" + i);
+      if (edge) { edge.classList.add("hot"); }
+    });
+
+    // 检索关键词：点击复制。clipboard API 在 file:// 下可能受限，留 execCommand 兜底。
+    var kwBox = document.getElementById("ncKws");
+    if (kwBox) {
+      function fallbackCopy(txt) {
+        var ta = document.createElement("textarea");
+        ta.value = txt; document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand("copy"); } catch (e2) {}
+        document.body.removeChild(ta);
+      }
+      function copyText(txt, el) {
+        var done = function () {
+          var old = el.textContent;
+          el.textContent = "已复制 ✓";
+          setTimeout(function () { el.textContent = old; }, 1400);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(txt).then(done,
+            function () { fallbackCopy(txt); done(); });
+        } else { fallbackCopy(txt); done(); }
+      }
+      kwBox.addEventListener("click", function (e) {
+        var b = e.target.closest(".kw-chip");
+        if (!b) { return; }
+        if (b.id === "ncKwAll") {
+          var all = Array.prototype.map.call(
+            kwBox.querySelectorAll(".kw-chip:not(.all)"),
+            function (x) { return x.getAttribute("data-kw"); }
+          ).join(", ");
+          copyText(all, b);
+        } else {
+          copyText(b.getAttribute("data-kw") || "", b);
+        }
+      });
+    }
+  }
+
+  // ======================= 追问这篇论文 =======================
+  // 静态打开时 window.__PA_SERVE__ 是 null，按钮会显示「未连接」并给出命令；
+  // 由 paperatomy serve 提供页面时，服务端会把它替换成实际端口。
+  var ASK_CFG = window.__PA_SERVE__ || null;
+  var ASK = { ctx: [], history: [], busy: false, live: false };
+
+  var askPanel = document.getElementById("askPanel");
+  var askLog = document.getElementById("askLog");
+  var askText = document.getElementById("askText");
+  var askSend = document.getElementById("askSend");
+  var askSub = document.getElementById("askSub");
+  var askCtx = document.getElementById("askCtx");
+  var askFab = document.getElementById("askFab");
+
+  // 出处坐标：和 Markdown、命令行完全一致（这里必须是同一套规则，
+  // 否则同一份报告换个地方看就对不上了）
+  function locatorOf(e) {
+    var parts = [];
+    if (e.section_no) { parts.push("§" + e.section_no); }
+    if (e.para) { parts.push("第 " + e.para + " 段"); }
+    if (e.page) { parts.push("p." + e.page); }
+    return parts.join(" · ") || "出处未标注";
+  }
+
+  function evHTML(list) {
+    var ok = list.filter(function (e) { return e.verified !== false; });
+    var bad = list.filter(function (e) { return e.verified === false; });
+    var h = ['<div class="ev"><div class="ev-title">原文依据</div>'];
+    ok.forEach(function (e) {
+      h.push('<div class="ev-item"><div class="ev-loc">');
+      h.push('<span class="chip">' + esc(locatorOf(e)) + "</span>");
+      if (e.section) {
+        // 章节标题去掉编号前缀，否则和左边的 §4 重复
+        h.push('<span class="sec">' +
+          esc(e.section.replace(/^\s*\d{1,2}(?:\.\d{1,2}){0,2}[\s.]+/, "")) +
+          "</span>");
+      }
+      h.push("</div>");
+      h.push('<div class="ev-src">' + esc(e.quote) + "</div>");
+      if (e.quote_zh && e.quote_zh !== e.quote) {
+        h.push('<div class="ev-zh">' + esc(e.quote_zh) + "</div>");
+      }
+      h.push("</div>");
+    });
+    if (bad.length) {
+      // 定位失败的条目不是原文——如实降级为「模型转述」，
+      // 不再显示 §坐标（那本来就是模型自报、程序无法背书的）
+      h.push('<div class="ev-title" style="color:var(--warn)">'
+        + '⚠ 以下 ' + bad.length + ' 条未能定位到原文原话——是模型转述，不是原文，不可作为引用</div>');
+      bad.forEach(function (e) {
+        h.push('<div class="ev-item"><div class="ev-loc">'
+          + '<span class="raw">模型转述 · 未经原文核实</span></div>');
+        h.push('<div class="ev-src" style="opacity:.75">' + esc(e.quote) + "</div>");
+        if (e.quote_zh && e.quote_zh !== e.quote) {
+          h.push('<div class="ev-zh" style="opacity:.75">' + esc(e.quote_zh) + "</div>");
+        }
+        h.push("</div>");
+      });
+    }
+    h.push("</div>");
+    return h.join("");
+  }
+
+  function askBtn(key, dark) {
+    return '<button class="ask-btn' + (dark ? " dark" : "") + '" type="button" data-ask="' +
+      esc(key) + '" title="把这块内容加入追问"><svg viewBox="0 0 24 24" fill="none" ' +
+      'stroke="currentColor" stroke-width="2.4" stroke-linecap="round">' +
+      '<path d="M12 5v14M5 12h14"/></svg>追问</button>';
+  }
+
+  // 把一块内容压成纯文本交给模型。带上是哪一段、原文怎么说的，
+  // 模型才知道「这个」指什么。
+  function askPayload(key) {
+    if (key.indexOf("b:") === 0) {
+      var bid = key.slice(2);
+      var found = null;
+      D.groups.forEach(function (g) {
+        g.blocks.forEach(function (b) { if (b.id === bid) { found = b; } });
+      });
+      if (!found && hero && hero.id === bid) { found = hero; }
+      if (!found) { return null; }
+      var text = found.content || "";
+      (found.evidence || []).forEach(function (e) {
+        text += "\n依据［" + locatorOf(e) + "］" + e.quote +
+                (e.quote_zh && e.quote_zh !== e.quote ? "\n译文：" + e.quote_zh : "");
+      });
+      return { key: key, title: found.title, text: text };
+    }
+    if (key.indexOf("n:") === 0 && CHAIN) {
+      var nid = key.slice(2);
+      var node = null;
+      (CHAIN.nodes || []).forEach(function (n) { if (n.id === nid) { node = n; } });
+      if (!node) { return null; }
+      var t = "［" + typeLabel(node.type) + "］" + node.label;
+      if (node.detail) { t += "\n" + node.detail; }
+      if (node.metric) {
+        t += "\n指标：" + node.metric.value + (node.metric.unit || "") +
+             "（" + (node.metric.label || "") + "）";
+      }
+      (node.evidence || []).forEach(function (e) {
+        t += "\n依据［" + locatorOf(e) + "］" + e.quote +
+             (e.quote_zh && e.quote_zh !== e.quote ? "\n译文：" + e.quote_zh : "");
+      });
+      return { key: key, title: node.label, text: t };
+    }
+    return null;
+  }
+
+  function renderChips() {
+    askCtx.innerHTML = ASK.ctx.map(function (c, i) {
+      return '<span class="ctx-chip"><span>' + esc(c.title) + "</span>" +
+        '<button type="button" data-drop="' + i + '" aria-label="移除">×</button></span>';
+    }).join("");
+    askFab.classList.toggle("has-ctx", ASK.ctx.length > 0);
+  }
+
+  function openAsk() {
+    askPanel.classList.add("open");
+    askPanel.setAttribute("aria-hidden", "false");
+    if (ASK.live) { setTimeout(function () { askText.focus(); }, 120); }
+  }
+  function closeAsk() {
+    askPanel.classList.remove("open");
+    askPanel.setAttribute("aria-hidden", "true");
+  }
+
+  function addContext(key) {
+    var item = askPayload(key);
+    if (!item) { openAsk(); return; }
+    var dup = false;
+    ASK.ctx.forEach(function (c) { if (c.key === key) { dup = true; } });
+    if (!dup) { ASK.ctx.push(item); }
+    renderChips();
+    openAsk();
+  }
+
+  function hideHint() {
+    var h = askLog.querySelector(".ask-hint");
+    if (h) { h.remove(); }
+  }
+
+  function pushMsg(role, text) {
+    var node = document.createElement("div");
+    node.className = "msg " + (role === "user" ? "user" : "bot");
+    if (role === "user") {
+      node.textContent = text;
+    } else {
+      node.innerHTML = '<div class="who">paperatomy</div><div class="body"></div>';
+      node.querySelector(".body").innerHTML = formatText(text);
+    }
+    askLog.appendChild(node);
+    askLog.scrollTop = askLog.scrollHeight;
+    return node;
+  }
+
+  function showError(msg) {
+    var node = document.createElement("div");
+    node.className = "msg err";
+    node.textContent = msg;
+    askLog.appendChild(node);
+    askLog.scrollTop = askLog.scrollHeight;
+  }
+
+  function send(question) {
+    if (ASK.busy || !ASK.live) { return; }
+    var q = (question || askText.value || "").trim();
+    if (!q) { return; }
+
+    askText.value = "";
+    askText.style.height = "auto";
+    hideHint();
+
+    pushMsg("user", q);
+    ASK.history.push({ role: "user", content: q });
+
+    var ctx = ASK.ctx.map(function (c) { return { title: c.title, text: c.text }; });
+    ASK.ctx = [];
+    renderChips();
+
+    var bubble = pushMsg("bot", "").querySelector(".body");
+    var caret = document.createElement("span");
+    caret.className = "caret";
+    bubble.appendChild(caret);
+
+    ASK.busy = true;
+    askSend.disabled = true;
+
+    var answer = "";
+    var painted = Date.now();
+
+    fetch("/api/ask", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        question: q,
+        context: ctx,
+        history: ASK.history.slice(-8, -1)
+      })
+    }).then(function (res) {
+      if (!res.ok || !res.body) { throw new Error("HTTP " + res.status); }
+      var reader = res.body.getReader();
+      var decoder = new TextDecoder();
+      var buffer = "";
+
+      // 增量是逐 token 来的，每来一个就重排会卡。
+      // 攒到 70ms 才画一次，结束时无论如何再画一遍——
+      // 「最终值必须由确定的一步给出」，这条上一版在数字滚动上踩过。
+      function pump() {
+        return reader.read().then(function (chunk) {
+          if (chunk.done) { return; }
+          buffer += decoder.decode(chunk.value, { stream: true });
+          var blocks = buffer.split("\n\n");
+          buffer = blocks.pop();
+          blocks.forEach(function (raw) {
+            raw.split("\n").forEach(function (line) {
+              if (line.indexOf("data:") !== 0) { return; }
+              var obj;
+              try { obj = JSON.parse(line.slice(5).trim()); } catch (err) { return; }
+              if (obj.delta) {
+                answer += obj.delta;
+                if (Date.now() - painted > 70) {
+                  painted = Date.now();
+                  bubble.innerHTML = formatText(answer);
+                }
+              }
+              if (obj.error) { showError(obj.error); }
+            });
+          });
+          return pump();
+        });
+      }
+      return pump();
+    }).catch(function (err) {
+      showError("连不上本地服务：" + (err && err.message ? err.message : err));
+    }).then(function () {
+      if (caret.parentNode) { caret.remove(); }
+      if (answer) {
+        bubble.innerHTML = formatText(answer);
+        ASK.history.push({ role: "assistant", content: answer });
+      }
+      ASK.busy = false;
+      askSend.disabled = false;
+      askLog.scrollTop = askLog.scrollHeight;
+    });
+  }
+
+  function initAsk() {
+    if (!ASK_CFG) {
+      askFab.classList.add("offline");
+      askSub.textContent = "未连接本地服务";
+      askText.disabled = true;
+      askSend.disabled = true;
+      askText.placeholder = "需要在本地运行 paperatomy serve";
+      // offline 先渲染历史（若有），再补「怎么连服务」的提示——
+      // 历史是报告里的数据，静态打开也该能看到
+      if (renderQaHistory()) {
+        var off = document.createElement("div");
+        off.className = "ask-hint";
+        off.innerHTML = "<br><b>继续追问需要本地服务。</b><br>" +
+          "在终端里跑 paperatomy serve out/报告.json 后刷新本页。";
+        askLog.appendChild(off);
+        return;
+      }
+      askLog.innerHTML =
+        '<div class="ask-hint"><b>提问需要本地服务。</b><br>' +
+        "这份报告是静态文件：它没有模型凭据，也不会替你花钱。在终端里跑——" +
+        '<div style="font-family:var(--mono);font-size:12px;background:#fff;' +
+        'border:1px solid var(--line);border-radius:6px;padding:7px 10px;margin-top:9px">' +
+        "paperatomy serve out/报告.json" + "</div>" +
+        "然后打开它给出的地址，这个按钮就能用了。报告里的证据定位、中英对照不用服务也能看。</div>";
+      return;
+    }
+    ASK.live = true;
+    askSub.innerHTML = "<b>●</b> 已连接 · 只依据这篇论文";
+    askText.disabled = false;
+    askSend.disabled = false;
+    askLog.scrollTop = askLog.scrollHeight;
+  }
+
+  // 历史问答回放：数据在报告 JSON 里，serve 保存，重开不丢。
+  // 只读展示，不依赖服务——静态打开也能看。
+  function renderQaHistory() {
+    if (!D.qa || !D.qa.length) { return false; }
+    askLog.innerHTML =
+      '<div class="ask-hint">以下是之前的 ' + D.qa.length +
+      " 条问答（存在报告里，换次打开还在）：</div>";
+    D.qa.forEach(function (m) {
+      pushMsg("user", m.question);
+      var b = pushMsg("bot", "");
+      b.querySelector(".body").innerHTML = formatText(m.answer || "");
+    });
+    var tip = document.createElement("div");
+    tip.className = "ask-hint";
+    tip.innerHTML = "<br><b>报告先回答了「一般读者会问什么」。</b><br>" +
+      "剩下的疑问在这里问。答案只从这篇论文的材料里来，找不到它会说找不到。" +
+      '<a class="ask-eg" data-q="这篇论文最核心的贡献是什么？用三句话说清。">' +
+      "试试：核心贡献是什么</a>";
+    askLog.appendChild(tip);
+    return true;
+  }
+  renderQaHistory();
+
+  askFab.addEventListener("click", function () {
+    if (askPanel.classList.contains("open")) { closeAsk(); } else { openAsk(); }
+  });
+  askClose.addEventListener("click", closeAsk);
+  askSend.addEventListener("click", function () { send(); });
+
+  askText.addEventListener("keydown", function (e) {
+    // Enter 发送、Shift+Enter 换行——聊天框的通用约定
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      send();
+    }
+  });
+  askText.addEventListener("input", function () {
+    askText.style.height = "auto";
+    askText.style.height = Math.min(askText.scrollHeight, 132) + "px";
+  });
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && askPanel.classList.contains("open")) { closeAsk(); }
+  });
+
+  // 全部走委托：卡片是 innerHTML 生成的，逐个绑定会漏
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest("[data-ask]");
+    if (btn) {
+      e.preventDefault();
+      e.stopPropagation();   // 否则会触发卡片折叠
+      addContext(btn.getAttribute("data-ask"));
+      return;
+    }
+    var drop = e.target.closest("[data-drop]");
+    if (drop) {
+      e.stopPropagation();
+      ASK.ctx.splice(Number(drop.getAttribute("data-drop")), 1);
+      renderChips();
+      return;
+    }
+    var eg = e.target.closest("[data-q]");
+    if (eg) {
+      e.preventDefault();
+      send(eg.getAttribute("data-q"));
+    }
+  });
+
+  initAsk();
+
+  // 工作台打开的报告：顶部显眼返回 + 左下角备用入口
+  if (window.__PA_SERVE__ && window.__PA_SERVE__.mode === "workbench") {
+    var backFab = document.getElementById("backFab");
+    backFab.classList.add("show");
+    backFab.addEventListener("click", function () {
+      location.href = "/";
+    });
+    var backTop = document.createElement("a");
+    backTop.className = "back-top";
+    backTop.href = "/";
+    backTop.textContent = "← 返回工作台";
+    backTop.classList.add("show");
+    document.body.appendChild(backTop);
+
+    // 对照原文 / 图表速览：报告对应 PDF 存在时才提供
+    var PDF = window.__PA_SERVE__ ? window.__PA_SERVE__.pdf : null;
+    if (PDF) {
+      var btns = document.createElement("div");
+      btns.className = "side-btns";
+      btns.innerHTML = '<button id="btnOrig">对照原文</button>' +
+        '<button id="btnDemo">动态讲解</button>';
+      document.body.appendChild(btns);
+      btns.classList.add("show");
+
+      var panel = document.createElement("div");
+      panel.className = "side-panel";
+      panel.innerHTML = '<div class="sp-head"><span id="spCap"></span>' +
+        '<button id="spClose" style="border:none;background:none;cursor:pointer;' +
+        'font-size:16px;color:inherit">×</button></div>' +
+        '<div class="sp-body" id="spBody"></div>';
+      document.body.appendChild(panel);
+      // 按钮绑定（v0.9.6 图表 v3 拼接时被误删，导致面板点不开——回归测试已锁）
+      document.getElementById("btnOrig").addEventListener("click",
+        function () { toggle("orig"); });
+      document.getElementById("btnDemo").addEventListener("click",
+        function () { toggle("demo"); });
+      document.getElementById("spClose").addEventListener("click",
+        function () { closePanel(); });
+      panel.dataset.bound = "3";   // 诊断用：3 个按钮绑定完成
+
+      var cur = "";
+      // 深链：#orig 直达对照原文；#td/#figs 落到附图区（v0.11.0）
+      if (location.hash === "#td" || location.hash === "#figs") {
+        // v0.11.0 图已进模块，老深链落到文末附图区
+        setTimeout(function () {
+          var a = document.getElementById("figAnnex");
+          if (a) { a.open = true; a.scrollIntoView({behavior: "smooth"}); }
+        }, 1500);
+      }
+      if (location.hash === "#demo") {
+        setTimeout(function () {
+          var b = document.getElementById("btnDemo");
+          if (b) { b.click(); }
+        }, 300);
+      }
+      if (location.hash === "#orig") {
+        setTimeout(function () {
+          var b = document.getElementById("btnOrig");
+          if (b) { b.click(); }
+        }, 300);
+      }
+      function closePanel() {
+        panel.classList.remove("open");
+        panel.classList.remove("wide");
+        panel.classList.remove("wide");
+        document.body.classList.remove("with-side");
+        document.getElementById("btnOrig").classList.remove("on");
+        document.getElementById("btnDemo").classList.remove("on");
+        DEMO.playing = false;
+        if (DEMO.timer) { clearInterval(DEMO.timer); DEMO.timer = null; }
+        cur = "";
+      }
+      function toggle(which) {  // orig | demo
+        if (which !== "orig" && which !== "demo") { return; }
+        panel.classList.toggle("wide", which === "demo");
+        panel.classList.toggle("wide", which === "demo");
+        if (cur === which) { closePanel(); return; }
+        cur = which;
+        panel.classList.add("open");
+        document.body.classList.add("with-side");
+        document.getElementById("btnOrig").classList.toggle("on",
+          which === "orig");
+        document.getElementById("btnDemo").classList.toggle("on",
+          which === "demo");
+        var body = document.getElementById("spBody");
+        var cap = document.getElementById("spCap");
+        if (which === "orig") {
+          cap.textContent = "论文原文（渲染自 PDF）";
+          fetch("/api/pdfinfo?file=" + encodeURIComponent(__PA_SERVE__.report))
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+              if (!d.available) { body.textContent = "找不到对应 PDF。"; return; }
+              var h = [];
+              for (var i = 1; i <= d.pages; i++) {
+                h.push('<img loading="lazy" src="/pageimg/' +
+                  encodeURIComponent(PDF.replace(/\.pdf$/, "")) + "/" + i +
+                  '.png" alt="第 ' + i + ' 页">');
+                h.push('<div class="pno">第 ' + i + " 页 / 共 " + d.pages + " 页</div>");
+              }
+              body.innerHTML = h.join("");
+            })
+            .catch(function (e) { body.textContent = "加载失败：" + e; });
+        } else {
+          cap.textContent = "动态讲解（模型生成分镜）";
+          initDemo(body);
+        }
+      }
+    }
+  }
+
+  // 打开 http://127.0.0.1:8770/#ask 直接展开面板，省一次点击
+  if (location.hash === "#ask" && ASK.live) { openAsk(); }
+
+})();
+</script>
+<script>
+  window.__PA_ERR_SHOW = function () {
+    var b = document.getElementById("pa-err-badge");
+    if (!b) {
+      b = document.createElement("div");
+      b.id = "pa-err-badge";
+      b.style.cssText = "position:fixed;left:10px;bottom:64px;z-index:999;" +
+        "max-width:420px;background:#B4432A;color:#fff;font-size:12px;" +
+        "padding:8px 12px;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.3)";
+      document.body.appendChild(b);
+    }
+    b.textContent = "⚠ 页面脚本出错：" + window.__PA_ERR +
+      "（可截图反馈，或点工作台「诊断与修复」）";
+  };
+  if (window.__PA_ERR) { window.__PA_ERR_SHOW(); }
+  </script>
+  </body>
+</html>

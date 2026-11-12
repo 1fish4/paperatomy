@@ -1,0 +1,3186 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>paperatomy · 论文解剖</title>
+<style>
+  :root {
+    --bg:       #FAF8F4;
+    --card:     #FFFFFF;
+    --ink:      #1B2430;
+    --ink2:     #56616F;
+    --ink3:     #8A94A2;
+    --line:     #E7E2D8;
+    --line2:    #F1EDE5;
+    --accent:   #2E6F8E;
+    --accent2:  #4A9BBF;
+    --soft:     #E7F1F6;
+    --warn:     #B8703F;
+    --warnSoft: #FBF1E6;
+    --ok:       #4E9A72;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+            "Hiragino Sans GB", "Microsoft YaHei", "Source Han Sans SC", sans-serif;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Consolas,
+            "Liberation Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: var(--sans); font-size: 15px; line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 32px 96px; }
+
+  header.top { padding: 56px 0 28px; border-bottom: 1px solid var(--line); }
+  .kicker {
+    font-family: var(--mono); font-size: 12px; letter-spacing: .12em;
+    color: var(--accent); text-transform: uppercase; margin-bottom: 14px;
+  }
+  h1 {
+    margin: 0 0 14px; font-size: 30px; line-height: 1.3;
+    letter-spacing: -.015em; font-weight: 600; max-width: 40ch;
+  }
+  .meta { font-size: 13px; color: var(--ink3); display: flex; flex-wrap: wrap; gap: 6px 14px; }
+  .meta span { display: inline-flex; align-items: center; gap: 5px; }
+  .meta b { font-weight: 600; color: var(--ink2); }
+
+  nav.jump {
+    position: sticky; top: 0; z-index: 20;
+    background: rgba(250,248,244,.92); backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 0; margin-bottom: 34px;
+  }
+  .jump-links { display: flex; gap: 4px; overflow-x: auto; flex: 1; min-width: 0; }
+  nav.jump a {
+    font-size: 13px; color: var(--ink2); text-decoration: none;
+    padding: 5px 12px; border-radius: 7px; white-space: nowrap;
+    transition: background .15s, color .15s;
+  }
+  nav.jump a:hover { background: var(--line2); color: var(--ink); }
+  .jump-toggle {
+    flex: none; font-size: 12px; font-family: inherit;
+    color: var(--ink2); background: var(--card);
+    border: 1px solid var(--line); border-radius: 7px;
+    padding: 5px 12px; cursor: pointer;
+    transition: border-color .15s, color .15s;
+  }
+  .jump-toggle:hover { border-color: var(--accent2); color: var(--accent); }
+
+  .hero {
+    background: var(--card); border: 1px solid var(--line);
+    border-left: 4px solid var(--accent);
+    border-radius: 14px; padding: 30px 34px; margin-bottom: 42px;
+    box-shadow: 0 1px 2px rgba(27,36,48,.03), 0 8px 28px rgba(27,36,48,.045);
+  }
+  .hero .label {
+    font-size: 11.5px; font-weight: 700; letter-spacing: .1em;
+    color: var(--accent); text-transform: uppercase; margin-bottom: 12px;
+  }
+  .hero p { margin: 0; font-size: 20px; line-height: 1.72; letter-spacing: -.01em; }
+
+  section.group { margin-bottom: 52px; scroll-margin-top: 68px; }
+  .g-head {
+    display: flex; align-items: baseline; gap: 12px;
+    margin-bottom: 18px; padding-bottom: 10px; border-bottom: 1px solid var(--line);
+  }
+  .g-head h2 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -.01em; }
+  .g-head .count { font-size: 12px; color: var(--ink3); font-family: var(--mono); }
+
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 16px; align-items: start;
+  }
+
+  article.card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--gc, var(--line));
+    border-radius: 12px; padding: 0; overflow: hidden;
+    transition: border-color .18s, box-shadow .18s;
+  }
+  article.card:hover { border-color: #D8D1C3; box-shadow: 0 4px 18px rgba(27,36,48,.05); }
+  .c-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 16px 20px; cursor: pointer; user-select: none;
+  }
+  .c-head h3 { margin: 0; font-size: 14.5px; font-weight: 600; flex: 1; }
+  .badge {
+    font-size: 11px; padding: 1px 8px; border-radius: 999px;
+    border: 1px solid var(--line); color: var(--ink3); white-space: nowrap;
+  }
+  .badge.low { color: var(--warn); border-color: var(--warn); background: var(--warnSoft); }
+  .chev {
+    width: 16px; height: 16px; flex: none; color: var(--ink3);
+    transition: transform .2s;
+  }
+  article.open .chev { transform: rotate(90deg); }
+
+  .c-body { display: none; padding: 0 20px 18px; }
+  article.open .c-body { display: block; }
+  .c-body .txt { font-size: 14.5px; line-height: 1.8; color: var(--ink2); }
+  .c-body .txt p { margin: 0 0 12px; }
+  .c-body .txt p:last-child { margin-bottom: 0; }
+
+  .txt ul { margin: 0 0 12px; padding-left: 20px; }
+  .txt li { margin-bottom: 5px; }
+  .txt ul ul { margin-top: 5px; margin-bottom: 0; }
+  .txt li::marker { color: var(--accent2); }
+
+  .ev { margin-top: 16px; border-top: 1px dashed var(--line); padding-top: 14px; }
+  .ev-title {
+    font-size: 11.5px; font-weight: 700; letter-spacing: .08em;
+    color: var(--ink3); text-transform: uppercase; margin-bottom: 9px;
+  }
+  .ev-item { display: flex; gap: 10px; margin-bottom: 9px; font-size: 13px; line-height: 1.65; }
+  .ev-item:last-child { margin-bottom: 0; }
+  .ev-page {
+    flex: none; font-family: var(--mono); font-size: 11px;
+    color: var(--accent); background: var(--soft);
+    border-radius: 5px; padding: 1px 7px; height: fit-content;
+    min-width: 40px; text-align: center;
+  }
+  .ev-quote { color: var(--ink3); font-style: italic; }
+
+  .empty { color: var(--ink3); font-style: italic; }
+
+  /* ---------- 论证链（深色舞台） ---------- */
+  /* 深色内嵌舞台是刻意的：它把这块和正文区分开，读起来像「一段视频」而不是「又一段文字」 */
+  .chain-card {
+    position: relative;
+    border-radius: 16px;
+    padding: 24px 26px 18px;
+    background: radial-gradient(115% 130% at 12% 0%, #22303F 0%, #141D27 45%, #0E141B 100%);
+    box-shadow: 0 20px 50px rgba(16, 24, 34, .28);
+    overflow: hidden;
+    color: #E9EFF6;
+  }
+  .chain-card::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background-image:
+      linear-gradient(rgba(255,255,255,.028) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.028) 1px, transparent 1px);
+    background-size: 26px 26px;
+    -webkit-mask-image: radial-gradient(85% 80% at 50% 25%, #000 35%, transparent 100%);
+    mask-image: radial-gradient(85% 80% at 50% 25%, #000 35%, transparent 100%);
+  }
+  .chain-card > * { position: relative; }
+
+  .chain-thesis {
+    margin: 0 0 20px; padding-left: 13px;
+    border-left: 2px solid rgba(111,179,217,.6);
+    font-size: 15px; line-height: 1.72; color: #D8E4F0;
+  }
+  .chain-thesis b {
+    color: #8FD2F0; font-weight: 600; letter-spacing: .08em;
+    margin-right: 9px; font-size: 11.5px; text-transform: uppercase;
+  }
+
+  /* --- 链条横排 --- */
+  .chain-rail { display: flex; align-items: stretch; margin-bottom: 20px; }
+  .cc {
+    flex: 1 1 0; min-width: 92px; max-width: 172px; position: relative;
+    padding: 11px 10px 12px; border-radius: 11px;
+    border: 1px solid rgba(255,255,255,.13);
+    background: rgba(255,255,255,.035);
+    cursor: pointer; opacity: .4;
+    transition: opacity .45s ease, transform .45s cubic-bezier(.34,1.4,.64,1),
+                border-color .45s, background .45s, box-shadow .45s;
+  }
+  .cc:hover { opacity: .72; }
+  .cc.is-done {
+    opacity: .82; border-color: rgba(255,255,255,.2);
+    background: rgba(255,255,255,.06);
+  }
+  .cc.is-active {
+    opacity: 1; transform: translateY(-5px);
+    background: rgba(255,255,255,.1);
+    border-color: var(--c);
+    box-shadow: 0 0 0 1px var(--c), 0 16px 36px -10px var(--c);
+  }
+  .cc-t {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 10px; letter-spacing: .1em; color: #9FB0C2; margin-bottom: 5px;
+  }
+  .cc-t i { display: block; width: 6px; height: 6px; border-radius: 2px; background: var(--c); flex: none; }
+  .cc-l { font-size: 12.5px; line-height: 1.45; color: #C6D5E4; }
+  .cc.is-active .cc-l { color: #fff; font-weight: 600; }
+
+  .cl { flex: 0 0 26px; align-self: center; height: 2px; position: relative; }
+  .cl::before {
+    content: ""; position: absolute; inset: 0;
+    background: rgba(255,255,255,.13); transition: background .4s;
+  }
+  .cl.on::before { background: linear-gradient(90deg, rgba(143,210,240,.12), rgba(143,210,240,.6)); }
+  .cl::after {
+    content: ""; position: absolute; right: -1px; top: -3px;
+    border: 4px solid transparent; border-left-color: rgba(255,255,255,.13);
+    transition: border-left-color .4s;
+  }
+  .cl.on::after { border-left-color: rgba(143,210,240,.65); }
+  .cl i {
+    position: absolute; top: -2.5px; left: 0; width: 7px; height: 7px;
+    border-radius: 50%; background: #8FD2F0;
+    box-shadow: 0 0 10px 2px rgba(143,210,240,.8);
+    opacity: 0;
+  }
+  .cl.flow i { animation: chainTravel .95s cubic-bezier(.5,0,.5,1) infinite; }
+  @keyframes chainTravel {
+    0%   { left: 0; opacity: 0; }
+    25%  { opacity: 1; }
+    75%  { opacity: 1; }
+    100% { left: calc(100% - 7px); opacity: 0; }
+  }
+
+  /* --- 详情舞台 --- */
+  .chain-detail {
+    background: rgba(255,255,255,.045);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 12px; padding: 16px 18px;
+    /* 固定舞台高度：播放时页面不能上下跳，跳了就不像在放片子 */
+    min-height: 196px;
+    display: flex; flex-direction: column; justify-content: center;
+  }
+  .forks { margin: 10px 0 2px; }
+  .forks-cap {
+    font-size: 11.5px; letter-spacing: 1px; color: #9FB4C8;
+    margin-bottom: 6px;
+  }
+  .fork-card {
+    border: 1px dashed rgba(143,210,240,.35); border-radius: 8px;
+    padding: 7px 11px; margin-bottom: 6px; font-size: 12.5px;
+    background: rgba(143,210,240,.06);
+  }
+  .fork-card b { color: #BFE0F2; display: block; margin-bottom: 2px; }
+  .fork-card span { color: #C6D5E4; }
+  .cd-head { display: flex; align-items: center; gap: 9px; margin-bottom: 9px; }
+  .cd-badge {
+    font-size: 10.5px; letter-spacing: .08em;
+    padding: 2px 8px; border-radius: 5px;
+    background: rgba(255,255,255,.08); color: #BFD1E2;
+  }
+  .cd-title { font-size: 15px; font-weight: 600; color: #fff; letter-spacing: -.01em; }
+  .cd-text { margin: 0 0 12px; font-size: 13.5px; line-height: 1.72; color: #A9BACC; }
+  .cd-text:last-child { margin-bottom: 0; }
+
+  /* 改动前后对照 */
+  .delta { display: grid; grid-template-columns: 1fr 26px 1fr; gap: 10px; align-items: stretch; }
+  .delta-col {
+    background: rgba(255,255,255,.03);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 9px; padding: 10px 12px; min-width: 0;
+  }
+  .delta-col.before { border-color: rgba(232,131,107,.32); }
+  .delta-col.after  { border-color: rgba(126,208,168,.34); }
+  .delta-tag { font-size: 10px; letter-spacing: .1em; margin-bottom: 8px; }
+  .delta-col.before .delta-tag { color: #E8836B; }
+  .delta-col.after  .delta-tag { color: #7ED0A8; }
+  .delta-arrow { align-self: center; text-align: center; color: #8FD2F0; font-size: 17px; }
+
+  /* 图示：token 序列 */
+  .dg-cap { font-size: 10.5px; color: #7A8B9D; margin-bottom: 7px; }
+  .dg { display: flex; gap: 4px; flex-wrap: wrap; }
+  .dg-tk {
+    width: 15px; height: 15px; border-radius: 3px;
+    background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.1);
+  }
+  .run .dg-tk {
+    animation: tkLit .34s ease forwards;
+    animation-delay: calc(var(--d) * 1s);
+  }
+  @keyframes tkLit {
+    to { background: #6FB3D9; border-color: #8FD2F0; box-shadow: 0 0 7px rgba(143,210,240,.5); }
+  }
+  /* 改动前用暖色：新旧不只是「快慢」，还要一眼看出是两套东西 */
+  .run .delta-col.before .dg-tk {
+    animation-name: tkLitWarm;
+  }
+  @keyframes tkLitWarm {
+    to { background: #B8763F; border-color: #E8836B; box-shadow: 0 0 7px rgba(232,131,107,.45); }
+  }
+
+  /* 图示：指标条 */
+  .dg-bars { display: flex; flex-direction: column; gap: 7px; }
+  .dg-bar { display: flex; align-items: center; gap: 8px; font-size: 11px; color: #9FB0C2; }
+  .dg-bar > span:first-child { width: 56px; flex: none; text-align: right; }
+  .dg-track {
+    flex: 1; height: 9px; border-radius: 5px;
+    background: rgba(255,255,255,.07); overflow: hidden; min-width: 40px;
+  }
+  .dg-fill {
+    display: block; height: 100%; width: 0; border-radius: 5px;
+    background: linear-gradient(90deg, #3C7FA0, #8FD2F0);
+    transition: width .9s cubic-bezier(.2,.8,.2,1);
+  }
+  .run .dg-fill { width: var(--w); }
+  .dg-val { width: 42px; flex: none; color: #C6D5E4; font-variant-numeric: tabular-nums; }
+
+  /* 图示：模块块 */
+  .dg-blocks { display: flex; gap: 5px; }
+  .dg-bl {
+    flex: 1; min-width: 0; padding: 7px 4px; text-align: center;
+    font-size: 10.5px; line-height: 1.3; border-radius: 6px;
+    background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.09);
+    color: #A9BACC;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+  .dg-bl.hl {
+    background: rgba(111,179,217,.22); border-color: #6FB3D9;
+    color: #fff; font-weight: 600;
+  }
+  /* 改动前的高亮走暖色，和左侧那一栏的边框同色系 */
+  .delta-col.before .dg-bl.hl {
+    background: rgba(232,131,107,.2); border-color: #E8836B;
+  }
+
+  .dg-text { margin: 0; font-size: 12.5px; line-height: 1.65; color: #A9BACC; }
+
+  /* 大数字 */
+  .metric { display: flex; align-items: baseline; gap: 9px; margin: 6px 0 2px; flex-wrap: wrap; }
+  .metric-n {
+    font-size: 40px; font-weight: 700; letter-spacing: -.03em;
+    color: #8FE0B4; font-variant-numeric: tabular-nums; line-height: 1.05;
+  }
+  .metric-u { font-size: 17px; color: #7ED0A8; }
+  .metric-l { font-size: 12px; color: #9FB0C2; }
+
+  /* 分类树（在深色舞台上） */
+  .cd-tax { font-size: 12.5px; }
+  .ct { display: flex; align-items: baseline; gap: 7px; padding: 2px 0; }
+  .ct-dot {
+    width: 5px; height: 5px; border-radius: 1.5px; flex: none;
+    background: #9B9BE0; margin-top: 6px;
+  }
+  .ct[data-d="2"] .ct-dot { background: rgba(255,255,255,.25); width: 4px; height: 4px; }
+  .ct-n { color: #D8E4F0; }
+  .ct[data-d="2"] .ct-n { color: #A9BACC; }
+  .ct-w { color: #7A8B9D; font-size: 11.5px; }
+  .ct-kids { margin-left: 11px; padding-left: 13px; border-left: 1px solid rgba(255,255,255,.1); }
+
+  .cd-ev {
+    margin-top: 11px; display: flex; gap: 8px; align-items: baseline;
+    font-size: 11.5px; color: #7A8B9D;
+  }
+  .cd-ev b { color: #8FD2F0; font-family: var(--mono); font-weight: 500; flex: none; }
+  .cd-ev span { font-style: italic; }
+
+  /* --- 播放条 --- */
+  .chain-bar { display: flex; align-items: center; gap: 10px; margin-top: 16px; }
+  .cb-btn {
+    font-family: inherit; font-size: 12.5px; font-weight: 600;
+    color: #0E141B; background: #8FD2F0; border: 0;
+    border-radius: 8px; padding: 7px 16px; cursor: pointer;
+    transition: background .15s;
+  }
+  .cb-btn:hover { background: #A9DEF5; }
+  .cb-btn.ghost {
+    background: rgba(255,255,255,.08); color: #C6D5E4;
+    font-weight: 500; padding: 7px 11px;
+  }
+  .cb-btn.ghost:hover { background: rgba(255,255,255,.16); color: #fff; }
+  .cb-track {
+    flex: 1; height: 4px; border-radius: 2px; position: relative;
+    background: rgba(255,255,255,.1); cursor: pointer; min-width: 60px;
+  }
+  .cb-fill {
+    position: absolute; left: 0; top: 0; bottom: 0; width: 0;
+    border-radius: 2px;
+    background: linear-gradient(90deg, #3C7FA0, #8FD2F0);
+    transition: width .4s ease;
+  }
+  .cb-count {
+    font-family: var(--mono); font-size: 11.5px; color: #9FB0C2;
+    min-width: 44px; text-align: right;
+  }
+
+  .chain-warn { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .chain-warn span {
+    font-size: 11.5px; color: #E0B479;
+    background: rgba(224,180,121,.1);
+    border: 1px solid rgba(224,180,121,.25);
+    border-radius: 6px; padding: 2px 9px;
+  }
+
+  @media (max-width: 800px) {
+    .chain-card { padding: 18px 16px 14px; }
+    .chain-rail { overflow-x: auto; padding-bottom: 8px; }
+    .cc { min-width: 112px; }
+    .delta { grid-template-columns: 1fr; }
+    .delta-arrow { transform: rotate(90deg); }
+    .metric-n { font-size: 32px; }
+  }
+
+  footer {
+    margin-top: 64px; padding-top: 22px; border-top: 1px solid var(--line);
+    font-size: 12.5px; color: var(--ink3);
+    display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px;
+  }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media print {
+    nav.jump, .chev { display: none; }
+    article.card { break-inside: avoid; border-color: #ccc; }
+    .c-body { display: block !important; }
+    /* v0.7 增强：追问面板与悬浮按钮不进纸面；板块整体不跨页 */
+    .print-fab, .ask-fab, .ask-panel { display: none !important; }
+    section.group { break-inside: avoid; }
+    .chain-stage, .net-svg { break-inside: avoid; }
+    header.top { position: static; box-shadow: none; }
+  }
+
+  /* ---------- 证据：章节 · 段号 · 中英对照 ---------- */
+  /* 从「p.13」升级到「§4.2 · 第 3 段 · p.11」：页码只告诉你在哪一页，
+     段号才告诉你在哪一段。英文原文保留，中文译文放在下面一行。 */
+  .ev-item {
+    display: block;
+    margin-bottom: 14px; padding-left: 12px;
+    border-left: 2px solid var(--line2);
+  }
+  .ev-item:last-child { margin-bottom: 0; }
+  .ev-loc {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+    margin-bottom: 5px;
+  }
+  .ev-loc .chip {
+    font-family: var(--mono); font-size: 11px; color: var(--accent);
+    background: var(--soft); border-radius: 5px; padding: 1px 7px;
+  }
+  .ev-loc .sec {
+    font-size: 11.5px; color: var(--ink3);
+    max-width: 30ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .ev-loc .raw {
+    font-size: 10.5px; color: var(--warn); background: var(--warnSoft);
+    border-radius: 5px; padding: 0 6px; white-space: nowrap;
+  }
+  .ev-src {
+    font-size: 12.5px; line-height: 1.62; color: var(--ink3);
+    font-style: italic; margin-bottom: 3px;
+  }
+  .ev-zh { font-size: 13.5px; line-height: 1.72; color: var(--ink2); }
+  .ev-zh.none { color: var(--ink3); font-size: 12.5px; }
+
+
+  /* ---------- 文献网络 ---------- */
+  /* 径向双叶：中心是本文，左半圆是它引用的（过去），右半圆是引用它的（未来）。
+     节点大小 = 被引影响力，颜色深浅 = 与本文相关度。全部为数据事实。 */
+  .net-wrap {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 14px; padding: 18px 20px 14px;
+  }
+  .net-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .net-title { font-weight: 600; font-size: 14.5px; }
+  .net-stats {
+    margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--ink3);
+  }
+  .net-svg { width: 100%; height: auto; display: block; margin-top: 4px; }
+  .net-edge { stroke: var(--line); stroke-width: 1; fill: none; opacity: .8; }
+  .net-edge.hot { stroke: var(--accent2); stroke-width: 1.8; opacity: 1; }
+  .net-node { cursor: pointer; }
+  .net-node circle {
+    transition: stroke-width .15s;
+    stroke: #fff; stroke-width: 1.5;
+  }
+  .net-node:hover circle { stroke-width: 3; }
+  .net-node text {
+    font-family: var(--mono); font-size: 10px; font-weight: 500;
+    fill: var(--ink2); pointer-events: none;
+  }
+  .net-center text {
+    font-family: var(--sans); font-size: 12.5px; font-weight: 600;
+    fill: var(--ink); text-anchor: middle;
+  }
+  .net-leaf {
+    font-family: var(--mono); font-size: 11px; letter-spacing: .1em;
+    fill: var(--ink2); text-anchor: middle; font-weight: 500;
+  }
+  .net-legend {
+    display: flex; gap: 20px; margin-top: 6px; flex-wrap: wrap;
+    align-items: center; font-size: 11.5px; color: var(--ink3);
+  }
+  .net-dot {
+    display: inline-block; width: 9px; height: 9px; border-radius: 50%;
+    margin-right: 5px; vertical-align: -1px;
+  }
+  .net-detail {
+    margin-top: 10px; border-top: 1px dashed var(--line);
+    padding-top: 12px; display: none;
+  }
+  .net-detail.show { display: block; }
+  .net-d-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .net-d-title { font-weight: 600; font-size: 14px; flex: 1; min-width: 260px; }
+  .net-d-title-zh {
+    font-size: 12px; color: var(--ink2); font-weight: 400;
+  }
+  .net-badge {
+    flex: none; font-size: 10.5px; padding: 2px 9px; border-radius: 999px;
+    border: 1px solid var(--line); color: var(--ink3); font-family: var(--mono);
+  }
+  .net-badge.cited { color: var(--accent); border-color: var(--accent2); background: var(--soft); }
+  .net-badge.citing { color: var(--ok); border-color: var(--ok); background: #EDF5EF; }
+  .net-d-meta {
+    font-family: var(--mono); font-size: 11.5px; color: var(--ink3); margin: 5px 0 9px;
+  }
+  .net-d-meta a { color: var(--accent); }
+  .net-d-score { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .net-d-label { font-size: 11.5px; color: var(--ink3); flex: none; }
+  .net-d-bar {
+    flex: none; width: 220px; height: 6px; background: var(--bg);
+    border-radius: 3px; overflow: hidden;
+  }
+  .net-d-bar i { display: block; height: 100%; border-radius: 3px;
+                 background: linear-gradient(90deg, #9CC3DA, var(--accent)); }
+  .net-d-pct {
+    font-family: var(--mono); font-size: 12.5px; color: var(--accent); font-weight: 600;
+  }
+  .net-d-reasons { font-size: 12.5px; color: var(--ink2); line-height: 1.75; }
+  .net-d-note { font-size: 11px; color: var(--ink3); margin-top: 8px; }
+  .nc-info {
+    border: 1px solid var(--line); border-radius: 10px;
+    padding: 10px 14px 12px; margin: 0 0 14px;
+    background: var(--soft);
+  }
+  .nc-row { margin: 3px 0; font-size: 13.5px; line-height: 2; color: var(--ink); }
+  .nc-label {
+    display: inline-block; width: 86px; flex: none;
+    color: var(--ink2); font-size: 12.5px; letter-spacing: 1px;
+  }
+  .nc-hint { color: var(--ink2); font-size: 12px; margin-left: 8px; }
+  .nc-none { color: var(--ink3); }
+  .kw-chip {
+    display: inline-block; margin: 3px 6px 3px 0; padding: 3px 13px;
+    border: 1px solid rgba(46,111,142,.45); border-radius: 999px;
+    background: var(--card); color: var(--accent);
+    font-size: 13px; font-weight: 500; cursor: pointer; font-family: inherit;
+    transition: background .15s, border-color .15s;
+  }
+  .kw-chip:hover { background: #E2EFF6; border-color: var(--accent); }
+  .kw-chip.all { border-style: dashed; color: var(--ink2); }
+  .net-d-note b { color: var(--ok); font-weight: 600; }
+  .net-empty {
+    color: var(--ink3); font-size: 13px; padding: 22px 0 14px; text-align: center;
+    line-height: 1.8;
+  }
+  .net-empty code {
+    font-family: var(--mono); font-size: 12px; background: var(--bg);
+    border: 1px solid var(--line); border-radius: 5px; padding: 1px 7px;
+  }
+
+
+  .ccf-tag {
+    font-family: var(--mono); font-size: 11px; color: var(--warn);
+    background: var(--warnSoft); border-radius: 5px; padding: 1px 7px;
+  }
+  .net-d-topics { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .topic-tag {
+    font-size: 11.5px; color: var(--ink2); background: var(--soft);
+    border-radius: 999px; padding: 2px 10px;
+  }
+  /* ---------- 追问：悬浮按钮与侧栏 ---------- */
+  .print-fab {
+    position: fixed; right: 26px; bottom: 92px; z-index: 60;
+    width: 52px; height: 52px; border-radius: 50%;
+    border: 1px solid var(--line); background: var(--card);
+    color: var(--ink2); font-size: 20px; cursor: pointer;
+    box-shadow: 0 4px 16px rgba(27,36,48,.14);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .print-fab:hover { color: var(--accent); border-color: var(--accent); }
+  .ask-fab {
+    position: fixed; right: 26px; bottom: 26px; z-index: 60;
+    width: 52px; height: 52px; border-radius: 50%;
+    border: none; cursor: pointer; padding: 0;
+    background: linear-gradient(150deg, #3C87A8, #2E6F8E);
+    color: #fff; display: grid; place-items: center;
+    box-shadow: 0 8px 22px rgba(46,111,142,.34), 0 2px 6px rgba(0,0,0,.10);
+    transition: transform .18s cubic-bezier(.2,.8,.3,1), box-shadow .18s;
+  }
+  .ask-fab:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(46,111,142,.42); }
+  .ask-fab:active { transform: translateY(0) scale(.97); }
+  .ask-fab svg { width: 23px; height: 23px; }
+  .ask-fab .dot {
+    position: absolute; top: 7px; right: 8px; width: 9px; height: 9px;
+    border-radius: 50%; background: #F0B26B; border: 2px solid #FFFDFA;
+    opacity: 0; transition: opacity .2s;
+  }
+  .ask-fab.has-ctx .dot { opacity: 1; }
+  .ask-fab.offline { background: linear-gradient(150deg, #99A2AE, #7E8792); }
+
+  /* ---------- 对照原文 / 图表速览 ---------- */
+  .side-btns { position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
+    z-index: 80; display: none; gap: 8px; }
+  .side-btns.show { display: flex; }
+  .side-btns button {
+    padding: 7px 16px; border-radius: 999px; cursor: pointer;
+    border: 1px solid rgba(255,255,255,.3); background: rgba(20,30,42,.82);
+    color: #E8EEF4; font-size: 12.5px; backdrop-filter: blur(6px);
+    font-family: inherit;
+  }
+  .side-btns button:hover, .side-btns button.on {
+    background: rgba(46,111,142,.92); border-color: transparent;
+  }
+  .side-panel {
+    position: fixed; top: 0; right: 0; bottom: 0; z-index: 85;
+    width: min(52vw, 760px); background: #F4F2EC;
+    border-left: 1px solid var(--line); box-shadow: -18px 0 50px rgba(24,34,44,.18);
+    display: none; flex-direction: column;
+  }
+  .side-panel.open { display: flex; }
+  .side-panel.wide { width: min(88vw, 1120px); }
+  .side-panel.wide .dm-stage { padding: 18px 14px; }
+  .side-panel.wide .dm-narr { font-size: 16px; }
+  .side-panel.wide { width: min(88vw, 1120px); }
+  .side-panel.wide .dm-stage { padding: 18px 14px; }
+  .side-panel.wide .dm-narr { font-size: 16px; }
+  .side-panel .sp-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 16px; border-bottom: 1px solid var(--line);
+    font-size: 13px; color: var(--ink2); background: var(--card);
+  }
+  .side-panel .sp-body {
+    overflow: auto; flex: 1; padding: 14px; text-align: center;
+  }
+  .side-panel .sp-body img {
+    width: 100%; margin-bottom: 10px; border: 1px solid var(--line);
+    background: #fff; border-radius: 4px;
+  }
+  .side-panel .sp-body .pno { font-size: 11px; color: var(--ink3); margin-bottom: 14px; }
+  .side-panel .sp-body figure { margin: 0 0 18px; }
+  .side-panel .sp-body .fig-explain {
+    font-size: 12.5px; color: var(--ink); margin-top: 5px;
+    line-height: 1.55; text-align: left;
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 6px; padding: 8px 10px;
+  }
+  .side-panel .sp-body .fig-group {
+    font-size: 13px; font-weight: 700; color: var(--ink);
+    margin: 6px 0 10px; text-align: left;
+  }
+    .side-panel .sp-body .bar-cap {
+    font-size: 12px; color: var(--ink); text-align: left;
+    margin: 12px 0 6px; font-weight: 600;
+  }
+  .side-panel .sp-body .bar-row {
+    display: flex; align-items: center; gap: 6px; margin-bottom: 5px;
+  }
+  .side-panel .sp-body .bar-label {
+    flex: 0 0 108px; font-size: 11px; color: var(--ink2);
+    text-align: right; overflow: hidden; white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .side-panel .sp-body .bar-track {
+    flex: 1; height: 13px; background: rgba(120,130,140,.10);
+    border-radius: 3px; overflow: hidden;
+  }
+  .side-panel .sp-body .bar-fill {
+    display: block; height: 100%; border-radius: 3px;
+    background: linear-gradient(90deg, #2E6F8E, #4E9AB8);
+    transform-origin: left center;
+    animation: barIn .7s cubic-bezier(.22,.8,.3,1) backwards;
+  }
+  @keyframes barIn { from { transform: scaleX(0); } }
+  .side-panel .sp-body .bar-val {
+    flex: 0 0 64px; font-size: 11px; color: var(--ink2);
+  }
+    .side-panel .sp-body .tdlab {
+    font-size: 11.5px; fill: var(--ink2);
+  }
+  .side-panel .sp-body .tdval {
+    font-size: 11.5px; fill: var(--ink); font-weight: 600;
+  }
+  .side-panel .sp-body .tdax {
+    font-size: 11px; fill: var(--ink3);
+  }
+  .side-panel .sp-body .tdbar {
+    transform-box: fill-box; transform-origin: left center;
+    animation: tdIn .7s cubic-bezier(.22,.8,.3,1) backwards;
+  }
+  .side-panel .sp-body .tdbar:hover { filter: brightness(1.18); }
+  @keyframes tdIn { from { transform: scaleX(0); } }
+  .side-panel .sp-body .td-type {
+    display: inline-block; padding: 3px 10px; margin-right: 6px;
+    font-size: 11.5px; border-radius: 999px;
+    border: 1px solid var(--line); color: var(--ink2);
+    cursor: pointer; background: var(--card);
+  }
+  .side-panel .sp-body .td-type.on {
+    background: #C4622D; border-color: #C4622D; color: #fff;
+  }
+  @keyframes tdDraw { from { stroke-dashoffset: 2000; } }
+    .side-panel .sp-body .td-chips { margin: 4px 0 8px; }
+  .side-panel .sp-body .td-chip {
+    display: inline-block; padding: 3px 10px; margin-right: 6px;
+    font-size: 11.5px; border-radius: 999px;
+    border: 1px solid var(--line); color: var(--ink2);
+    cursor: pointer; background: var(--card);
+  }
+  .side-panel .sp-body .td-chip.on {
+    background: #1E5B7E; border-color: #1E5B7E; color: #fff;
+  }
+  .side-panel .sp-body .bar-note {
+    font-size: 11px; color: var(--ink3); text-align: left; margin: 2px 0 8px;
+  }
+  .side-panel .sp-body .fig-pending {
+    font-size: 12.5px; color: var(--ink2);
+  }
+  .side-panel .sp-body figcaption {
+    font-size: 11.5px; color: var(--ink2); margin-top: 4px;
+  }
+  body.with-side .wrap { margin-right: min(52vw, 760px); }
+
+  /* 工作台模式下顶部显眼返回按钮 */
+  .back-top {
+    position: fixed; top: 14px; left: 14px; z-index: 80;
+    display: none; align-items: center; gap: 6px;
+    padding: 7px 16px; border-radius: 999px;
+    border: 1px solid rgba(255,255,255,.3); background: rgba(20,30,42,.82);
+    color: #E8EEF4; font-size: 12.5px; cursor: pointer;
+    backdrop-filter: blur(6px);
+    text-decoration: none;
+  }
+  .back-top.show { display: flex; }
+  .back-top {
+    background: #1E5B7E; border-color: #1E5B7E;
+    font-size: 13.5px; padding: 9px 18px;
+    box-shadow: 0 3px 14px rgba(20,50,70,.35);
+  }
+  .back-top:hover { background: #2E6F8E; border-color: transparent; }
+
+  /* 工作台模式下的返回按钮：单报告打开时是 null，不显示 */
+  .back-fab {
+    position: fixed; left: 22px; bottom: 22px; z-index: 60; display: none;
+    border: 1px solid var(--line); background: #fff; color: var(--ink2);
+    border-radius: 999px; padding: 8px 15px; font-size: 12.5px; cursor: pointer;
+    box-shadow: 0 3px 12px rgba(27,36,48,.08); transition: all .16s;
+  }
+  .back-fab:hover { color: var(--accent); border-color: var(--accent2); }
+  .back-fab.show { display: inline-flex; align-items: center; gap: 5px; }
+
+  .ask-panel {
+    position: fixed; top: 0; right: 0; bottom: 0; z-index: 70;
+    width: 432px; max-width: 100vw;
+    background: #FFFDFA; border-left: 1px solid var(--line);
+    box-shadow: -20px 0 60px rgba(24,34,44,.14);
+    display: none; flex-direction: column;
+  }
+  /* 显隐用 display 控制，动画只做入场装饰。
+     用 transition 做显隐的写法，一旦过渡没跑完，元素就停在隐藏态——
+     任何「最终状态由动画给出」的写法都不安全。 */
+  .ask-panel.open { display: flex; }
+
+  .ask-head {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 18px 20px 14px; border-bottom: 1px solid var(--line);
+  }
+  .ask-title { font-size: 15px; font-weight: 600; letter-spacing: -.01em; }
+  .ask-sub {
+    font-size: 11.5px; color: var(--ink3); margin-top: 3px;
+    font-family: var(--mono);
+  }
+  .ask-sub b { color: var(--ok); font-weight: 500; }
+  .ask-close {
+    margin-left: auto; flex: none; width: 28px; height: 28px;
+    border: 1px solid var(--line); background: #fff; border-radius: 8px;
+    color: var(--ink3); font-size: 17px; line-height: 1; cursor: pointer;
+    transition: all .16s;
+  }
+  .ask-close:hover { color: var(--ink); border-color: #D8D1C3; }
+
+  .ask-log {
+    flex: 1; overflow-y: auto; padding: 18px 20px 6px;
+    display: flex; flex-direction: column; gap: 14px;
+    scroll-behavior: smooth;
+  }
+  .ask-hint {
+    color: var(--ink3); font-size: 13px; line-height: 1.75;
+    background: var(--bg); border: 1px dashed var(--line);
+    border-radius: 10px; padding: 14px 16px;
+  }
+  .ask-hint b { color: var(--ink2); font-weight: 600; }
+  .ask-eg {
+    display: block; margin-top: 8px; font-size: 12.5px;
+    color: var(--accent); cursor: pointer; text-decoration: none;
+  }
+  .ask-eg:hover { text-decoration: underline; }
+
+  .msg { font-size: 14px; line-height: 1.78; }
+  .msg.user {
+    align-self: flex-end; max-width: 88%;
+    background: var(--soft); color: var(--ink);
+    border-radius: 12px 12px 3px 12px; padding: 9px 14px;
+  }
+  .msg.bot {
+    align-self: flex-start; max-width: 100%;
+    color: var(--ink2);
+  }
+  .msg.bot .who {
+    font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--ink3); font-family: var(--mono); margin-bottom: 5px;
+  }
+  .msg.bot p { margin: 0 0 9px; }
+  .msg.bot p:last-child { margin-bottom: 0; }
+  .msg.err { color: var(--warn); background: var(--warnSoft);
+             border-radius: 10px; padding: 10px 13px; font-size: 13px; }
+  .caret {
+    display: inline-block; width: 7px; height: 15px; margin-left: 2px;
+    background: var(--accent2); vertical-align: -2px;
+    animation: blink 1s steps(2) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .ask-ctx { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 20px; }
+  .ask-ctx:not(:empty) { padding-top: 10px; }
+  .ctx-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11.5px; color: var(--accent);
+    background: var(--soft); border-radius: 999px; padding: 3px 6px 3px 10px;
+    max-width: 100%;
+  }
+  .ctx-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 22ch; }
+  .ctx-chip button {
+    border: none; background: rgba(46,111,142,.12); color: var(--accent);
+    width: 16px; height: 16px; border-radius: 50%; cursor: pointer;
+    font-size: 12px; line-height: 1; padding: 0; flex: none;
+  }
+  .ctx-chip button:hover { background: rgba(46,111,142,.24); }
+
+  .ask-input {
+    display: flex; gap: 8px; align-items: flex-end;
+    padding: 12px 20px 18px; border-top: 1px solid var(--line);
+    margin-top: 10px;
+  }
+  .ask-input textarea {
+    flex: 1; resize: none; border: 1px solid var(--line); border-radius: 10px;
+    padding: 9px 12px; font-family: var(--sans); font-size: 13.5px;
+    line-height: 1.6; color: var(--ink); background: #fff;
+    max-height: 132px; outline: none; transition: border-color .16s;
+  }
+  .ask-input textarea:focus { border-color: var(--accent2); }
+  .ask-input textarea:disabled { background: var(--bg); color: var(--ink3); }
+  .ask-send {
+    flex: none; width: 38px; height: 38px; border-radius: 10px;
+    border: none; cursor: pointer; background: var(--accent); color: #fff;
+    display: grid; place-items: center; transition: background .16s, opacity .16s;
+  }
+  .ask-send:hover:not(:disabled) { background: #255B75; }
+  .ask-send:disabled { opacity: .4; cursor: not-allowed; }
+  .ask-send svg { width: 17px; height: 17px; }
+
+  /* 「追问」小按钮：挂在每个板块与论证链节点上 */
+  .ask-btn {
+    flex: none; border: 1px solid var(--line); background: #fff;
+    color: var(--ink3); font-size: 11.5px; line-height: 1;
+    padding: 4px 9px; border-radius: 999px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 4px;
+    transition: all .16s; white-space: nowrap;
+  }
+  .ask-btn:hover { color: var(--accent); border-color: var(--accent2); background: var(--soft); }
+  .ask-btn svg { width: 11px; height: 11px; }
+  .ask-btn.dark {
+    background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.16);
+    color: rgba(233,239,246,.66);
+  }
+  .ask-btn.dark:hover { background: rgba(111,179,217,.18); border-color: rgba(143,210,240,.5); color: #DCEAF6; }
+  .cd-head .ask-btn { margin-left: auto; }
+
+  /* 论证链里的证据改成竖排：中英要两行，横排放不下 */
+  .cd-ev {
+    margin-top: 11px; display: flex; flex-direction: column; gap: 3px;
+    font-size: 11.5px; color: #7A8B9D;
+    border-left: 2px solid rgba(143,210,240,.22); padding-left: 10px;
+  }
+  .cd-ev b { color: #8FD2F0; font-family: var(--mono); font-weight: 500; }
+  .cd-ev span { font-style: italic; }
+  .cd-ev .zh { font-style: normal; color: #C3D2E0; }
+
+  @media (max-width: 640px) {
+    .ask-panel { width: 100%; }
+    .ask-fab { right: 16px; bottom: 16px; }
+  }
+
+  .mod-figs { margin-top: 12px; display: grid; gap: 14px; }
+  .mod-figs:empty { display: none; }
+  figure.mfig { margin: 0; }
+  figure.mfig img { width: 100%; border: 1px solid var(--line, #E7E2D8);
+    border-radius: 10px; background: #fff; }
+  figure.mfig figcaption { font-size: 12.5px; color: var(--ink2, #56616F);
+    margin-top: 5px; }
+  figure.mfig .fkind { display: inline-block; font-size: 11px; padding: 1px 7px;
+    border-radius: 6px; background: rgba(46,111,142,.1); color: #2E6F8E;
+    margin-right: 5px; }
+  .mod-td { margin-top: 12px; }
+  .dm-wrap { padding: 4px 2px; }
+  .dm-title { font-weight: 600; margin-bottom: 6px; }
+  .dm-cap { font-size: 13px; color: var(--ink2, #56616F); margin: 8px 0 2px; }
+  .dm-stage { background: #fff; border: 1px solid var(--line);
+    border-radius: 12px; padding: 10px 8px; }
+  .dm-svg { width: 100%; display: block; }
+  .dm-narr { margin: 12px 0; font-size: 14.5px; line-height: 1.7;
+    background: #fff; border-left: 3px solid #2E6F8E;
+    padding: 10px 14px; border-radius: 0 10px 10px 0; }
+  .dm-ctl { display: flex; align-items: center; gap: 10px; }
+  .dm-ctl button { min-width: 40px; height: 40px; border-radius: 20px;
+    border: 1px solid var(--line); background: #fff; cursor: pointer;
+    font-size: 16px; }
+  #dmPlay { padding: 0 18px; background: #2E6F8E; color: #fff;
+    border-color: #2E6F8E; font-size: 13.5px; }
+  .dm-dots { display: flex; gap: 6px; flex: 1; justify-content: center; }
+  .dm-dot { width: 8px; height: 8px; border-radius: 50%;
+    background: #D3D1C7; cursor: pointer; }
+  .dm-dot.on { background: #2E6F8E; }
+  [data-ei] { opacity: 0; }
+  [data-ei].dm-on { opacity: 1; transition: opacity .5s ease; }
+  .dm-hl { filter: drop-shadow(0 0 5px rgba(46, 111, 142, .65)); }
+  [data-mv] { transition: transform .9s ease; }
+  [data-mv].dm-pre { transform: translateY(var(--mvdy, 0px)); }
+  .dm-lnk { stroke: #C98A2D; stroke-width: 2.2; fill: none;
+    stroke-dasharray: 220; stroke-dashoffset: 220;
+    animation: dmDraw .9s ease forwards; }
+  .dm-bigarr { stroke: #5F5E5A; stroke-width: 3; fill: none;
+    stroke-linecap: round; }
+  .dm-hd { font-size: 14px; font-weight: 700; fill: #24303B; }
+  .dm-lb2 { font-size: 12px; fill: #24303B; font-weight: 600; }
+  .dm-ct2 { font-size: 10px; fill: #fff; opacity: .85; }
+  .dm-vs { font-size: 13px; font-weight: 700; fill: #5F5E5A; }
+  .dm-pp { animation: dmPipe 3.2s linear infinite; opacity: .8; }
+  @keyframes dmPipe { from { transform: translateX(0); }
+    to { transform: translateX(392px); } }
+  .dm-ticks { display: flex; gap: 8px; justify-content: center; margin: 8px 0 0; }
+  .dm-tick { width: 26px; height: 5px; border-radius: 3px;
+    background: #D8DFE4; cursor: pointer; }
+  .dm-tick.on { background: #C98A2D; }
+  /* ---- v0.17 动效层：转场 / 打字 / 持续运动 / 镜头 ---- */
+  .dm-stage { transition: transform .65s cubic-bezier(.22, .9, .34, 1);
+    background-image: radial-gradient(#E6EBEF 1px, transparent 1px);
+    background-size: 20px 20px; }
+  .dm-stage.dm-zoom { transform: scale(1.035); }
+  .dm-stage .dm-svg { animation: dmSceneIn .6s cubic-bezier(.22, .9, .34, 1) backwards; }
+  @keyframes dmSceneIn { from { opacity: 0; transform: translateY(16px) scale(.982); }
+    to { opacity: 1; transform: none; } }
+  [data-ei] { transform: translateY(9px); transition: opacity .5s ease,
+    transform .6s cubic-bezier(.22, .9, .34, 1); }
+  [data-ei].dm-on { transform: none; }
+  .dm-svg circle { transform-box: fill-box; transform-origin: center;
+    animation: dmPulse 3.4s ease-in-out infinite; }
+  @keyframes dmPulse { 0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.09); } }
+  .dm-bar { transform-box: fill-box; transform-origin: bottom;
+    animation: dmGrow .75s cubic-bezier(.22, .9, .34, 1) backwards; }
+  @keyframes dmGrow { from { transform: scaleY(0); } }
+  .dm-seg { stroke-dasharray: 420; stroke-dashoffset: 420;
+    animation: dmDraw .85s ease forwards; }
+  .dm-narr { border-left: 3px solid #C98A2D; padding-left: 12px;
+    animation: dmSceneIn .5s ease backwards; }
+  /* ---- v0.17 动效层：转场 / 打字 / 持续运动 / 镜头 ---- */
+  .dm-stage { transition: transform .65s cubic-bezier(.22, .9, .34, 1);
+    background-image: radial-gradient(#E6EBEF 1px, transparent 1px);
+    background-size: 20px 20px; }
+  .dm-stage.dm-zoom { transform: scale(1.035); }
+  .dm-stage .dm-svg { animation: dmSceneIn .6s cubic-bezier(.22, .9, .34, 1) backwards; }
+  @keyframes dmSceneIn { from { opacity: 0; transform: translateY(16px) scale(.982); }
+    to { opacity: 1; transform: none; } }
+  [data-ei] { transform: translateY(9px); transition: opacity .5s ease,
+    transform .6s cubic-bezier(.22, .9, .34, 1); }
+  [data-ei].dm-on { transform: none; }
+  .dm-svg circle { transform-box: fill-box; transform-origin: center;
+    animation: dmPulse 3.4s ease-in-out infinite; }
+  @keyframes dmPulse { 0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.09); } }
+  .dm-bar { transform-box: fill-box; transform-origin: bottom;
+    animation: dmGrow .75s cubic-bezier(.22, .9, .34, 1) backwards; }
+  @keyframes dmGrow { from { transform: scaleY(0); } }
+  .dm-seg { stroke-dasharray: 420; stroke-dashoffset: 420;
+    animation: dmDraw .85s ease forwards; }
+  .dm-narr { border-left: 3px solid #C98A2D; padding-left: 12px;
+    animation: dmSceneIn .5s ease backwards; }
+  .dm-num { font-size: 12px; color: var(--ink3, #8A94A2); }
+  .dm-pop { animation: dmPop .5s ease backwards; }
+  @keyframes dmPop { from { opacity: 0; } }
+  .dm-bar { transform-box: fill-box; transform-origin: left center;
+    animation: dmGrow .8s ease backwards; }
+  @keyframes dmGrow { from { transform: scaleX(0); } }
+  .dm-flow { fill: #E9F1F5; stroke: #2E6F8E;
+    animation: dmFade .5s ease backwards; }
+  .dm-arrow { stroke: #5F5E5A; stroke-width: 1.5;
+    animation: dmFade .3s ease backwards; }
+  .dm-line { stroke-dasharray: 600; stroke-dashoffset: 600;
+    animation: dmDraw 1.6s ease forwards; }
+  @keyframes dmDraw { to { stroke-dashoffset: 0; } }
+  @keyframes dmFade { from { opacity: 0; } }
+  .dm-lb { font-size: 11px; fill: #2C2C2A; animation: dmFade .4s ease backwards; }
+  .dm-val { font-size: 11px; fill: #2E6F8E; font-weight: 600;
+    animation: dmFade .4s ease .3s backwards; }
+  .dm-mm-c { fill: #2E6F8E; }
+  .dm-mm-ct { fill: #fff; font-size: 12px; font-weight: 600;
+    animation: dmPop .5s ease backwards; }
+  .dm-mm-line { stroke: #B9C6CF; fill: none; stroke-width: 1.5;
+    stroke-dasharray: 220; stroke-dashoffset: 220;
+    animation: dmDraw 1s ease forwards; }
+  .dm-mm-b { fill: #fff; stroke: #E7E2D8; animation: dmFade .5s ease backwards; }
+  .dm-mm-bt { font-size: 12.5px; font-weight: 700; }
+  .dm-nd { font-size: 12px; fill: #24303B;
+    animation: dmFade .35s ease backwards; }
+  .dm-mm-c { fill: #2E6F8E; }
+  .dm-mm-ct { fill: #fff; font-size: 12px; font-weight: 600;
+    animation: dmPop .5s ease backwards; }
+  .dm-mm-line { stroke: #B9C6CF; fill: none; stroke-width: 1.5;
+    stroke-dasharray: 220; stroke-dashoffset: 220;
+    animation: dmDraw 1s ease forwards; }
+  .dm-mm-b { fill: #fff; stroke: #E7E2D8; animation: dmFade .5s ease backwards; }
+  .dm-mm-bt { font-size: 11.5px; font-weight: 600; fill: #2C2C2A;
+    animation: dmFade .4s ease backwards; }
+  .dm-cmp-l { fill: #FBEDEA; stroke: #C0483B; stroke-width: 1.2; }
+  .dm-cmp-r { fill: #E8F2EF; stroke: #3E8E7E; stroke-width: 1.2; }
+  .dm-tt { font-size: 12px; font-weight: 600; fill: #2C2C2A;
+    animation: dmFade .4s ease backwards; }
+  .dm-vs { font-size: 13px; font-weight: 700; fill: #888780;
+    animation: dmPop .5s ease .5s backwards; }
+  .dm-cmp-l { fill: #FBEDEA; stroke: #C0483B; stroke-width: 1.2; }
+  .dm-cmp-r { fill: #E8F2EF; stroke: #3E8E7E; stroke-width: 1.2; }
+  .dm-tt { font-size: 12px; font-weight: 600; fill: #2C2C2A;
+    animation: dmFade .4s ease backwards; }
+  .dm-vs { font-size: 13px; font-weight: 700; fill: #888780;
+    animation: dmPop .5s ease .5s backwards; }
+</style>
+<script>
+  window.__PA_ERR = "";
+  window.onerror = function (m, s, l) {
+    window.__PA_ERR = m + " (行 " + l + ")";
+    try { window.__PA_ERR_SHOW && window.__PA_ERR_SHOW(); } catch (e) {}
+  };
+  window.addEventListener("unhandledrejection", function (e) {
+    window.__PA_ERR = "未处理的 Promise 错误: " + (e.reason && e.reason.message
+      ? e.reason.message : e.reason);
+    try { window.__PA_ERR_SHOW && window.__PA_ERR_SHOW(); } catch (e2) {}
+  });
+  </script>
+  </head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="kicker">paperatomy · 论文解剖</div>
+    <h1 id="title"></h1>
+    <div class="meta" id="meta"></div>
+  </header>
+
+  <nav class="jump">
+    <div class="jump-links" id="jump"></div>
+    <button class="jump-toggle" id="toggleAll">全部折叠</button>
+  </nav>
+  <main id="main"></main>
+
+  <footer>
+    <span id="stat"></span>
+    <span>由 <a href="https://github.com/1fish4/paperatomy">paperatomy</a> 生成 · 每块内容均附原文页码与摘录</span>
+  </footer>
+</div>
+
+
+<button class="back-fab" id="backFab" type="button">
+  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor"
+       stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M15 6l-6 6 6 6"/></svg>工作台</button>
+
+<button class="print-fab" type="button" title="打印 / 存为 PDF" onclick="window.print()">⎙</button>
+  <button class="ask-fab" id="askFab" type="button" aria-label="追问这篇论文">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+       stroke-linecap="round" stroke-linejoin="round">
+    <path d="M20 14.5a2 2 0 0 1-2 2H8l-4 3.5V6.5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2z"/>
+    <path d="M8.5 9.8h7M8.5 12.8h4.5"/>
+  </svg>
+  <i class="dot"></i>
+</button>
+
+<aside class="ask-panel" id="askPanel" aria-hidden="true">
+  <div class="ask-head">
+    <div>
+      <div class="ask-title">追问这篇论文</div>
+      <div class="ask-sub" id="askSub">正在检查本地服务…</div>
+    </div>
+    <button class="ask-close" id="askClose" type="button" aria-label="关闭">×</button>
+  </div>
+
+  <div class="ask-log" id="askLog"></div>
+
+  <div class="ask-ctx" id="askCtx"></div>
+
+  <div class="ask-input">
+    <textarea id="askText" rows="1" placeholder="问点什么，比如：这个改动为什么能成立？"></textarea>
+    <button class="ask-send" id="askSend" type="button" aria-label="发送" disabled>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+           stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4.5 12h13M11.5 6l6 6-6 6"/>
+      </svg>
+    </button>
+  </div>
+</aside>
+
+<!-- 本地服务会把这一行替换成实际端口；静态打开时保持 null -->
+<script>window.__PA_SERVE__ = null;</script>
+
+<script id="paper-data" type="application/json">{"paper_title":"Resource-efficient Algorithms and Systems of Foundation Models: A Survey","paper_title_zh":"","template_name":"综述","model":"deepseek-chat","lang":"zh","pages":35,"blocks":8,"groups":[{"name":"概览","blocks":[{"id":"tl_dr","title":"一句话结论","content":"该综述覆盖大基础模型（LLM、ViT、扩散模型、多模态模型）的资源高效化研究，按模型架构、算法（预训练、微调、推理、压缩）与系统（分布式训练、云/边服务）三条主线组织，系统梳理了降低计算、内存、存储、带宽开销的策略，并指出云边混合部署、模型稀疏性利用、FM-as-a-service、智能体整体优化与实用隐私保护是未来方向。","confidence":"high","empty":false,"evidence":[{"page":1,"quote":"This survey delves into the critical importance of such research, examining both algorithmic and systemic aspects. It offers a comprehensive analysis and valuable insights gleaned from existing literature, encompassing a broad array of topics from cutting-edge model architectures and training/serving algorithms to practical system designs and implementations.","quote_zh":"本综述深入探讨了此类研究的关键重要性，同时考察算法与系统两个方面。它对现有文献进行了全面分析与提炼，涵盖从前沿模型架构、训练/服务算法到实际系统设计与实现的广泛主题。","section":"Abstract","para":1,"verified":true}]},{"id":"scope","title":"收录范围","content":"领域边界：聚焦基础模型（语言、视觉、多模态）的资源高效化，仅涵盖算法与系统创新，明确排除硬件设计；资源限定为计算、内存、存储、带宽等物理资源，排除训练数据（标签）与隐私；主要收录 CSRankings 顶级会议论文，并手动补充 arXiv 上相关且潜在高影响力的工作；主要收录 2020 年之后的论文。时间跨度：模型演进图截至 2024 年 1 月。文献数量：论文未给出精确统计。","confidence":"high","empty":false,"evidence":[{"page":2,"quote":"Scope and rationales. (i) We survey only algorithm and system innovations; we exclude a huge body of work at hardware design; (ii) The definition of resource in this survey is limited to mainly physical ones, including computing, memory, storage, bandwidth, etc; we exclude training data (labels) and privacy that can also be regarded as resources; (iii) We mainly survey papers published on top-tier CS conferences, i.e., those included in CSRankings. We also manually pick related and potentially high-impact papers from arXiv. (iv) We mainly survey papers published after the year of 2020, since the innovation of AI is going fast with old knowledge and methods being overturned frequently.","quote_zh":"范围与理由。(i) 我们只综述算法与系统创新；我们排除了硬件设计方面的大量工作；(ii) 本综述中资源的定义主要限于物理资源，包括计算、内存、存储、带宽等；我们排除了训练数据（标签）和隐私，它们也可被视为资源；(iii) 我们主要综述发表在顶级计算机科学会议（即 CSRankings 收录的会议）上的论文。我们还从 arXiv 手动挑选相关且潜在高影响力的论文。(iv) 我们主要综述 2020 年之后发表的论文，因为人工智能创新进展迅速，旧知识和方法频繁被推翻。","section":"1 INTRODUCTION","section_no":"1","para":12,"verified":true},{"page":3,"quote":"Fig. 1 illustrates the evolutionary trace of popular foundation models (FMs) up to Jan. 2024.","quote_zh":"图 1 展示了截至 2024 年 1 月流行基础模型（FM）的演进轨迹。","section":"2 FOUNDATION MODEL OVERVIEW","section_no":"2","para":5,"verified":true}]},{"id":"problem","title":"领域要解决的问题","content":"领域问题：基础模型（LLM、ViT、扩散模型、多模态模型）凭借可扩展性在性能与通用性上大幅提升，但带来巨大的硬件资源开销（如 GPT-3-175B 消耗 3.14×10^23 FLOPs，LLaMA-70B 需 1.7×10^6 GPU 小时），且仅少数大玩家能训练部署最先进模型，导致控制权集中、隐私难以保护、设备端部署受限（<10B）。因此需要在不牺牲性能的前提下降低资源足迹。卡点：注意力机制二次复杂度 O(T^2 D)、FFN 的 O(T D^2) 计算瓶颈；自回归解码的 KV cache 内存开销；训练数据冗余；微调全参数成本高；云服务内存与调度压力；端侧“内存墙”与 I/O 瓶颈。","confidence":"high","empty":false,"evidence":[{"page":1,"quote":"However, the substantial advancements in versatility and performance these models offer come at a significant cost in terms of hardware resources.","quote_zh":"然而，这些模型在通用性和性能上的大幅进步是以显著的硬件资源成本为代价的。","section":"Abstract","para":1,"verified":true},{"page":2,"quote":"Till the end of 2023, there are only a few major players capable of training and deploying the state-of-the-art FMs, who thereby have powerful control over the public and can potentially manipulate them in a way they prefer. The models are served on clouds instead of devices as many lightweight DNNs do [277, 303]; it makes data privacy preservation almost impossible.","quote_zh":"截至 2023 年底，只有少数主要参与者能够训练和部署最先进的基础模型，他们因此对公众拥有强大的控制力，并可能以他们偏好的方式操纵公众。这些模型像许多轻量级 DNN 那样在云端而非设备上提供服务[277, 303]；这使得数据隐私保护几乎不可能。","section":"1 INTRODUCTION","section_no":"1","para":10,"verified":true},{"page":4,"quote":"The attention mechanism in large FMs faces significant computational bottlenecks primarily due to its quadratic complexity.","quote_zh":"大型基础模型中的注意力机制面临显著的计算瓶颈，主要由于其二次复杂度。","section":"2 FOUNDATION MODEL OVERVIEW","section_no":"2","para":16,"verified":true}]}]},{"name":"框架","blocks":[{"id":"taxonomy","title":"分类框架","content":"作者按“资源高效化的层次”建立一级维度：架构、算法、系统。\n\n一、资源高效架构（第3节）\n1. 高效注意力：稀疏注意力（Longformer、ETC、BIGBIRD、HEPOS、MATE、TDANet）；近似注意力（Linformer、Reformer、Katharopoulos 核方法、Polysketchformer、Mega、Deformable Attention、CrossViT）；无注意力（Hyena、SSM/Mamba、Recurrent-Style Transformers、RWKV、RetNet）。\n2. 动态神经网络：混合专家 MoE（Switch Transformer、GLaM、V-MoE、LIMoE、Mistral1、MoEfication、Sparse upcycling、FFF）；早退出（He et al. 等）。\n3. 扩散模型优化：高效扩散（改进 DDPM、DDIM、PNDM、DPM-Solver）；潜空间扩散（LDM/Stable Diffusion、LD-ZNet、SALAD）；扩散架构变体（SnapFusion、ScaleCrafter、ERNIE-ViLG、Mobile diffusion）。\n4. ViT 专用优化：LeViT、MobileViT、EfficientFormer、EfficientViT、FastViT、LightViT、EdgeViT。\n\n二、资源高效算法（第4节，按 FM 生命周期划分）\n1. 预训练算法：训练数据质量控制（DataComp、DFN、DataCompDR）；训练数据缩减（文本去重、图像 patch 移除：TRIPS、MAE、MixMAE、COPA、PatchDropout）；渐进学习（StackingBERT、CompoundGrow、Staged training、Knowledge inheritance、AutoProg、LiGO）；混合精度训练（Mesa、GACT）。\n2. 微调算法：加性调优（adapter tuning：ADA、MetaTroll、ST-Adapter、HiWi、AdaMix、MEFT、Residual Adapters；prompt tuning：PromptTuning、ATTEMPT、BioInstruct、DualPL、MPrompt；prefix tuning：UAPT、Prefix-diffusion、DOP、DAPA、PIP）；选择性调优（SAM、SmartFRZ、FiSH-DiP、Token Mixing、VL-PET）；重参数调优（LoRA 系列：EfficientDM、QLoRA、PEQA、QALoRA、LoftQ、GLoRA、PELA、LongLoRA、LBP-WHT、DSEE、Delta-LoRA、PiSSA、DoRA、LoRA+）。\n3. 推理算法：机会式解码（speculative decoding、SpecTr、ProphetNet、Draft & Verify、Medusa、Look-ahead decoding、SpecInfer、LLMCad）；输入过滤与压缩（prompt 压缩：LLMLingua、EntropyRank、LLMZip、AutoCompressors、ICAE、Nugget 2D、CoT-Max；token 剪枝：PoWER-BERT、Length-Adaptive Transformer、TR-BERT、DynamicViT、AdaViT、A-ViT、SPViT、PuMer）；KV cache（H2O、Dynamic Context Pruning、Scissorhands、Landmark Attention）；长上下文（LM-Infinite、StreamingLLM、PCW、LongNet、SLED）。\n4. 模型压缩：剪枝（结构化、非结构化、上下文剪枝）；知识蒸馏（白盒 KD：MiniLLM、GKD、TED；黑盒 KD：ICL 蒸馏、CoT 蒸馏）；量化（QAT：LLM-QAT、QuantGPT、BitNet；PTQ：权重仅量化 SpQR、LLM.int8()、AWQ、OWQ、SqueezeLLM、GPTQ、QuIP；权重-激活联合量化 SmoothQuant、RPTQ、OliVe、Outlier Suppression+、QLLM、LLM-FP4、ZeroQuant、FlexRound、ATOM）；低秩分解（TensorGPT、LoSparse、ViTALiTy）。\n\n三、资源高效系统（第5节）\n1. 分布式训练：容错（Varuna、Gemini、Bamboo、activation checkpointing、Oobleck）；并行（DP/ZeRO、TP、PP、SP、Galvatron）；通信优化；存储卸载（ZeRO-Offload、FlashNeuron、Behemoth）；异构 GPU（Hetpipe、Whale）；MoE 训练系统（MegaBlocks、Brainstorm、FlexMoE、Tutel、SmartMoE、Janus、MoE-Mamba）。\n2. 硬件感知优化：edgebert、FlightLLM、SpAtten、A3。\n3. 云端服务：prefill/decoding 调度（Sarathi-Serve、dLoRA）；内存节省（DeepSpeed-Inference、FlexGen、vLLM/PagedAttention、S-LoRA、SGLang）；新兴平台（SpotServe、HexGen）。\n4. 边缘服务：边云协同（EdgeFM）；端侧 MoE（EdgeMoe、PC-MoE）；内存优化（LLMCad、PowerInfer）；I/O 优化（STI、LLM in a flash）；内核优化（32-bit 整数边缘内核、llm.npu）。","confidence":"high","empty":false,"evidence":[{"page":3,"quote":"Organization. Section 2 overviews the classical foundation models and their runtime cost. Section 3 investigates the architectural innovations that revise or replace the existing foundation model architectures. Section 4 and Section 5 examine the algorithm-level and system-level literature towards more resource-efficient foundation models. Section 6 concludes the survey and presents potential future directions.","quote_zh":"组织结构。第 2 节概述经典基础模型及其运行时成本。第 3 节考察修改或替换现有基础模型架构的架构创新。第 4 节和第 5 节考察面向更资源高效基础模型的算法级和系统级文献。第 6 节总结本综述并提出潜在未来方向。","section":"2 FOUNDATION MODEL OVERVIEW","section_no":"2","para":3,"verified":true},{"page":9,"quote":"This section focuses on resoruce-efficient large FMs techniques at the algorithm level. Compared to traditional DNNs, large FMs exhibit new characteristics such as its huge parameter set and autoregressive inference. This disparity has led to the emergence of numerous resource-efficient algorithms, which are categorized based on the lifecycle of FMs: pre-training, fine-tuning, serving algorithms, and model compression.","quote_zh":"本节聚焦算法层面的资源高效大型基础模型技术。与传统 DNN 相比，大型基础模型展现出新特征，如庞大的参数集和自回归推理。这种差异催生了大量资源高效算法，这些算法按基础模型生命周期分类：预训练、微调、服务算法和模型压缩。","section":"4 RESOURCE-EFFICIENT ALGORITHMS","section_no":"4","para":5,"verified":true},{"page":20,"quote":"This section investigates the system research to enable resource-efficient large FMs, notable at four aspects: (1) distributed training; (2) hardware-aware optimizations; (3) serving in cloud, and (4) serving in edge.","quote_zh":"本节考察实现资源高效大型基础模型的系统研究，主要集中在四个方面：(1) 分布式训练；(2) 硬件感知优化；(3) 云端服务；(4) 边缘服务。","section":"5 RESOURCE-EFFICIENT SYSTEMS","section_no":"5","para":6,"verified":true}]},{"id":"comparison","title":"各类方法对比","content":"论文未提供统一的实验对比，各方法的结果来自不同论文、不同模型与基准，不可直接比较。以下按类别归纳核心思路、优势、局限与适用场景，并引用原文给出的关键数字。\n\n1. 高效注意力：稀疏注意力将复杂度降至线性（Longformer 等），但可能损失长程依赖；近似注意力（Linformer、Reformer）降低内存，但近似误差影响精度；无注意力架构（Mamba 5× 加速、RetNet 训练内存节省 25-50% 且 7× 加速）在长序列上高效，但生态与通用性尚待验证。适用长序列训练/推理。\n2. 动态神经网络：MoE 以稀疏激活扩展参数（Switch Transformer 达 1 万亿参数、2048 专家；V-MoE 15B 匹配稠密模型且训练时间更少；Sparse upcycling 减少约 50% 预训练成本；FFF 快 220× 但约 5% 精度损失），局限是路由与负载均衡、通信开销；早退出在置信度高时提前终止，适合资源受限推理，但可能牺牲精度。\n3. 扩散优化：DDIM、PNDM、DPM-Solver 加速采样（DPM-Solver 仅需 10-20 步去噪）；潜空间扩散（LDM）大幅降低高分辨率生成的内存；SnapFusion 在移动端 2 秒内生成 512×512 图像；ERNIE-ViLG 零样本 FID-30k 6.75。局限是生成质量与步数的权衡。\n4. ViT 专用优化：LeViT、MobileViT、EfficientFormer 等混合 CNN-Transformer 架构面向端侧低延迟；EfficientViT 线性注意力在超分任务上比 Restormer 快 6.4×；FastViT 降低内存访问成本。局限是通用性受限。\n5. 预训练算法：数据去重与 patch 移除（TRIPS 减少 40% 计算）降低数据开销；渐进学习（StackingBERT、LiGO）复用计算；混合精度减半内存。局限是可能影响最终精度。\n6. 微调算法：加性调优（adapter/prompt/prefix）冻结主干、成本低，但多任务存储开销（AdaMix 合并权重缓解）；选择性调优更新少量参数，但选择策略影响性能；重参数调优（LoRA 系列）最流行，但与全量微调仍有性能差距（Delta-LoRA、PiSSA、DoRA、LoRA+ 致力于缩小差距）。\n7. 推理算法：speculative decoding 在 T5X 上 2-3× 加速、70B Chinchilla 类似；SpecTr 墙钟时间 2.13× 提升；Draft & Verify 在 Llama-2 上 1.73×；Medusa 无需辅助模型；prompt/token 压缩降低输入开销；KV cache 驱逐（H2O 延迟降低 1.9×、吞吐提升 29×；Scissorhands 内存降低 5×）；长上下文方法（LM-Infinite O(n)、LongNet 支持 1B token、SLED 无需专门预训练）。局限是额外模型/验证开销与精度损失。\n8. 模型压缩：剪枝需大量重预训练或特殊结构；KD 分白盒/黑盒，黑盒依赖 API 质量；量化中 QAT 成本高、PTQ 易部署但异常值敏感（GPTQ 3-4 bit 量化 175B 模型；AWQ 保护 top 1% 权重；SmoothQuant 联合量化）；低秩分解（TensorGPT 嵌入层压缩 38.40×）压缩率高但可能损失表达力。\n9. 系统：分布式训练通过容错、并行、通信隐藏、卸载与异构 GPU 支持大规模训练，但复杂度高；云端服务（vLLM PagedAttention、S-LoRA、SGLang）优化内存与调度；边缘服务（EdgeFM、PowerInfer、LLMCad、STI）应对内存墙与 I/O，但受设备资源限制。","confidence":"medium","empty":false,"evidence":[{"page":5,"quote":"The time and space complexity comparison is shown in Table 1.","quote_zh":"时间与空间复杂度对比见表 1。","section":"3 RESOURCE-EFFICIENT ARCHITECTURES","section_no":"3","para":8,"verified":true},{"page":6,"quote":"Mamba [83] seamlessly integrates selective SSMs into a streamlined neural network architecture, eliminating attention and MLP blocks. This model achieves a notable 5× speed increase over traditional transformers and exhibits linear scaling with sequence length.","quote_zh":"Mamba[83] 将选择性 SSM 无缝集成到精简的神经网络架构中，消除了注意力与 MLP 块。该模型相比传统 Transformer 实现了显著的 5 倍加速，并随序列长度呈线性扩展。","section":"3 RESOURCE-EFFICIENT ARCHITECTURES","section_no":"3","para":14,"verified":true},{"page":6,"quote":"RetNet [231] introduces an architecture that replaces multi-head attention with a multi-scale retention mechanism. During training, RetNet demonstrates a 25-50% memory saving and a 7× acceleration compared to the standard Transformer.","quote_zh":"RetNet[231] 引入了一种用多尺度保留机制替代多头注意力的架构。在训练期间，RetNet 相比标准 Transformer 展现出 25-50% 的内存节省和 7 倍加速。","section":"3 RESOURCE-EFFICIENT ARCHITECTURES","section_no":"3","para":14,"verified":true},{"page":7,"quote":"Sparse upcycling [129] initializes sparsely activated MoE from dense checkpoints, reducing about 50% of the original dense pretraining costs. FFF [24] divides the feed-forward layer into separate leaves instead of copying the entire feed-forward layer as an expert, being up to 220× faster than the original feed-forward layer with about 5% accuracy loss.","quote_zh":"Sparse upcycling[129] 从稠密检查点初始化稀疏激活的 MoE，减少约 50% 的原始稠密预训练成本。FFF[24] 将前馈层划分为独立的叶子而非复制整个前馈层作为专家，比原始前馈层快达 220 倍，精度损失约 5%。","section":"3 RESOURCE-EFFICIENT ARCHITECTURES","section_no":"3","para":17,"verified":true},{"page":8,"quote":"DPM-Solver [176] utilizes a high-order solver that exploits the semi-linear structure of diffusion ODEs, facilitating fast and high-quality sample generation. Remarkably, DPM-Solver achieves this with as few as 10-20 denoising steps, highlighting the latency efficiency in sample generation.","quote_zh":"DPM-Solver[176] 利用高阶求解器，利用扩散 ODE 的半线性结构，促进快速高质量的样本生成。值得注意的是，DPM-Solver 仅需 10-20 步去噪即可实现，凸显了样本生成的延迟效率。","section":"3 RESOURCE-EFFICIENT ARCHITECTURES","section_no":"3","para":26,"verified":true},{"page":8,"quote":"SnapFusion [150] introduces an optimized text-to-image diffusion model for mobile devices, featuring a resource-efficient network architecture. This model overcomes the computational and latency limitations of existing models through a redesigned network architecture and improved step distillation. It generates high-quality 512×512 images in under 2 seconds with fewer denoising steps.","quote_zh":"SnapFusion[150] 为移动设备引入了一种优化的文本到图像扩散模型，具有资源高效的网络架构。该模型通过重新设计的网络架构和改进的步骤蒸馏，克服了现有模型的计算和延迟限制。它以更少的去噪步骤在 2 秒内生成高质量的 512×512 图像。","section":"3 RESOURCE-EFFICIENT ARCHITECTURES","section_no":"3","para":29,"verified":true},{"page":9,"quote":"EfficientViT [29] introduces a linear attention mechanism to alleviate the computational cost linked with the high overhead of softmax in non-linear attention. In the domain of super-resolution, EfficientViT achieves a speedup of up to 6.4 × compared to Restormer [296].","quote_zh":"EfficientViT[29] 引入线性注意力机制，以缓解非线性注意力中 softmax 高开销带来的计算成本。在超分辨率领域，EfficientViT 相比 Restormer[296] 实现了高达 6.4 倍的加速。","section":"4 RESOURCE-EFFICIENT ALGORITHMS","section_no":"4","para":4,"verified":true},{"page":10,"quote":"TRIPS [114] employs a patch selection layer to reduce image patches. This layer computes attentive image tokens through text guidance, resulting in a 40% reduction in computation resources, compared to previous pre-training vision-language models.","quote_zh":"TRIPS[114] 采用 patch 选择层来减少图像 patch。该层通过文本引导计算注意力图像 token，相比之前的预训练视觉-语言模型，计算资源减少 40%。","section":"4 RESOURCE-EFFICIENT ALGORITHMS","section_no":"4","para":13,"verified":true},{"page":13,"quote":"LoRA, as the most popular parameter-efficient fine-tuning method, still exhibits performance gaps when compared to full fine-tuning.","quote_zh":"LoRA 作为最流行的参数高效微调方法，与全量微调相比仍存在性能差距。","section":"4 RESOURCE-EFFICIENT ALGORITHMS","section_no":"4","para":32,"verified":true},{"page":13,"quote":"Yaniv et al. [141] report a 2–3× improvement in performance using speculative decoding on the T5X model, while a concurrent study [36] demonstrates similar speedups on a 70B Chinchilla model. SpecTr [232] further enhances speculative decoding by increasing the number of candidate tokens and improving the draft selection process, resulting in a 2.13× improvement in wall clock speed and an additional 1.37× speedup on standard benchmarks.","quote_zh":"Yaniv 等人[141] 报告在 T5X 模型上使用推测解码性能提升 2-3 倍，而同期研究[36] 在 70B Chinchilla 模型上展示了类似加速。SpecTr[232] 通过增加候选 token 数量和改进草稿选择过程进一步增强推测解码，在标准基准上实现墙钟时间 2.13 倍提升和额外 1.37 倍加速。","section":"4 RESOURCE-EFFICIENT ALGORITHMS","section_no":"4","para":34,"verified":true},{"page":14,"quote":"H2O [307] introduces a KV cache eviction strategy designed for optimal memory efficiency. This strategy employs attention scores to identify and select the least important KV cache tokens in the current state for eviction. When compared to robust baselines, H2O demonstrates the capability to reduce latency by up to 1.9× and increase throughput by 29×.","quote_zh":"H2O[307] 引入了一种旨在实现最优内存效率的 KV cache 驱逐策略。该策略利用注意力分数识别并选择当前状态下最不重要的 KV cache token 进行驱逐。与稳健基线相比，H2O 展现出将延迟降低高达 1.9 倍、吞吐提升 29 倍的能力。","section":"4 RESOURCE-EFFICIENT ALGORITHMS","section_no":"4","para":44,"verified":true},{"page":15,"quote":"Scissorhands [173] utilizes an innovative compact KV cache and results in a notable reduction in KV cache inference memory usage, achieving up to a 5× reducation while maintaining model quality.","quote_zh":"Scissorhands[173] 利用创新的紧凑 KV cache，显著降低 KV cache 推理内存使用，在保持模型质量的同时实现高达 5 倍的减少。","verified":false},{"page":15,"quote":"LongNet [55] introduces dilated attention, expanding the attentive field exponentially as the distance increases. This innovation allows LongNet to scale Transformers efficiently, enabling them to handle sequences of up to 1B tokens.","quote_zh":"LongNet[55] 引入膨胀注意力，随距离增加指数级扩展注意力场。这一创新使 LongNet 能够高效扩展 Transformer，使其能够处理长达 10 亿 token 的序列。","section":"4 RESOURCE-EFFICIENT ALGORITHMS","section_no":"4","para":48,"verified":true},{"page":18,"quote":"GPTQ [71] employs layer-wise quantization with OBQ [69], utilizing inverse Hessian information to update weights. GPTQ reduces the bit-width of each weight to 3 or 4 bits, allowing quantization of GPT models with 175 billion parameters with minimal accuracy loss.","quote_zh":"GPTQ[71] 采用逐层量化与 OBQ[69]，利用逆 Hessian 信息更新权重。GPTQ 将每个权重的位宽降至 3 或 4 位，允许对 1750 亿参数的 GPT 模型进行量化且精度损失极小。","section":"4 RESOURCE-EFFICIENT ALGORITHMS","section_no":"4","para":73,"verified":true},{"page":19,"quote":"TensorGPT [278] proposes an approach based on the tensor-train decomposition, where each token embedding is treated as a matrix product state that can be efficiently computed in a distributed manner. Through TensorGPT, the embedding layer can be compressed by a factor of up to 38.40×.","quote_zh":"TensorGPT[278] 提出一种基于张量列分解的方法，将每个 token 嵌入视为可分布式高效计算的矩阵乘积态。通过 TensorGPT，嵌入层可压缩高达 38.40 倍。","section":"4 RESOURCE-EFFICIENT ALGORITHMS","section_no":"4","para":79,"verified":true}]}]},{"name":"结论","blocks":[{"id":"consensus","title":"领域现状与共同前提","content":"论文未集中汇总领域共识，但从多处可归纳出以下共享前提与默认做法：(1) 基础模型普遍基于 Transformer 架构，因此注意力二次复杂度与 FFN 计算是共同瓶颈（第2、3节）；(2) 资源高效化以不牺牲性能为前提，多数工作以精度-效率权衡为评价维度，但缺乏统一基准，结果不可直接比较；(3) 模型压缩（剪枝、KD、量化、低秩分解）与参数高效微调（LoRA 等）被广泛采用，但普遍承认与全量微调/原模型存在性能差距（如 LoRA 性能差距、FFF 约 5% 精度损失）；(4) 云端服务与端侧部署并重，端侧受内存墙与 I/O 限制是共同承认的瓶颈；(5) 缩放定律持续有效，模型规模将继续增长，因此资源高效研究长期重要。","confidence":"medium","empty":false,"evidence":[{"page":2,"quote":"An impressive evidence is the scaling law [119]: it describes how the performance of transformer-based models can predictably improve with more model size and data volume; until today, the scaling law stands still.","quote_zh":"一个令人印象深刻的证据是缩放定律[119]：它描述了基于 Transformer 的模型性能如何随模型规模和数据量的增加而可预测地提升；直到今天，缩放定律依然成立。","section":"1 INTRODUCTION","section_no":"1","para":8,"verified":true},{"page":4,"quote":"Since most FMs are based on transformer architecture, we briefly analyze the resource cost of it.","quote_zh":"由于大多数基础模型基于 Transformer 架构，我们简要分析其资源成本。","section":"2 FOUNDATION MODEL OVERVIEW","section_no":"2","para":16,"verified":true},{"page":13,"quote":"LoRA, as the most popular parameter-efficient fine-tuning method, still exhibits performance gaps when compared to full fine-tuning.","quote_zh":"LoRA 作为最流行的参数高效微调方法，与全量微调相比仍存在性能差距。","section":"4 RESOURCE-EFFICIENT ALGORITHMS","section_no":"4","para":32,"verified":true},{"page":23,"quote":"While small language models [177, 290] have been developed for on-device deployment, the runtime efficiency (decoding speed, memory footprint, energy consumption, etc) still remains a key challenge.","quote_zh":"尽管已开发出用于设备端部署的小型语言模型[177, 290]，但运行时效率（解码速度、内存占用、能耗等）仍是一个关键挑战。","section":"5 RESOURCE-EFFICIENT SYSTEMS","section_no":"5","para":37,"verified":true}]},{"id":"open","title":"开放问题与方向","content":"作者在第6节列出5条未来方向：\n(1) 云边混合部署：为使通用智能无处不在、保护隐私且高可用，许多基础模型最终将下沉到近用户设备；初步工作已将 LLaMA-7B 带到智能手机和 PC。未来基础模型能在设备上以何种规模和速度运行，将成为硬件厂商商业模式的关键竞争力。尚未解决的原因：端侧资源（内存、能耗、解码速度）仍受限，且缺乏大规模实际部署。\n(2) 利用模型稀疏性：模型越大，给定任务下激活比例越小；近期文献发现即使稠密训练的非 MoE 模型也存在运行时激活稀疏性，可用于降低推理时间与内存。作者认为利用模型与激活稀疏性是可持续扩展模型规模的有前景方向，可能出现 MoE 之外更高效的稀疏架构。尚未解决的原因：稀疏性利用尚不充分，高效稀疏架构仍待探索。\n(3) 基础模型即服务：在云端和设备上，基础模型正在统一 DNN 生态，最终成为像 Web 和数据库一样被调用的通用服务。这既带来硬件-算法协同设计优化的机会，也在调度、负载均衡、安全与隔离等系统基础设施设计上提出新挑战。尚未解决的原因：服务化带来的系统与基础设施问题尚未解决。\n(4) 以智能体作为整体系统优化：未来基础模型尤其是 LLM 将成为构建智能体的关键模块，其效率不应作为独立 LLM 服务考虑，而需迎合特定智能体工作流；例如智能体系统可能需要多个基础模型协作，存在内在逻辑依赖，为每个任务选择合适的模型并在给定硬件资源上调度以最大化智能体性能的设计空间巨大。尚未解决的原因：设计空间巨大，缺乏整体优化方法。\n(5) 实用的隐私保护基础模型：随着上传到云端供基础模型处理的用户数据量持续增加，隐私问题日益严重；现有方法包括联邦学习等。尚未解决的原因：隐私保护与资源效率的实用结合仍待突破。","confidence":"high","empty":false,"evidence":[{"page":24,"quote":"The research opportunity of resource-efficient large FM is extremely large, notably: (1) Cloud-edge hybrid deployment. ... (2) Exploiting the model sparsity. ... (3) Large FM as a service. ... (4) Agent as a holistic system to optimize. ... (5) Practical privacy-preserving FM.","quote_zh":"资源高效大型基础模型的研究机会极其巨大，尤其是：(1) 云边混合部署。……(2) 利用模型稀疏性。……(3) 基础模型即服务。……(4) 以智能体作为整体系统优化。……(5) 实用的隐私保护基础模型。","section":"6 CONCLUSIONS AND FUTURE DIRECTIONS","section_no":"6","para":9,"verified":true}]}]},{"name":"判断","blocks":[{"id":"questions","title":"值得追问的问题","content":"1. 分类框架的互斥性与完备性：架构、算法、系统三个维度存在交叉（如 MoE 既属架构又属系统，量化既属算法又用于微调），作者如何界定边界？是否遗漏了“数据为中心”的高效化（如数据筛选、合成数据）作为独立维度？\n2. 综述明确排除硬件设计与隐私，但未来方向(5)又强调实用隐私保护，且硬件-算法协同设计在方向(3)中被提及；这种排除是否削弱了对端侧部署与隐私保护交叉问题的覆盖？\n3. 综述主要收录 2020 年后顶级会议论文，且承认各方法结果不可直接比较；在缺乏统一基准的情况下，作者如何判断哪类方法“更优”？后续工作（如 Mamba 系列、更高效的 MoE 路由）是否已推翻文中某些结论（如稀疏注意力必然降低 KV cache 内存）？","confidence":"low","empty":false,"evidence":[{"page":2,"quote":"Scope and rationales. (i) We survey only algorithm and system innovations; we exclude a huge body of work at hardware design; (ii) The definition of resource in this survey is limited to mainly physical ones, including computing, memory, storage, bandwidth, etc; we exclude training data (labels) and privacy that can also be regarded as resources;","quote_zh":"范围与理由。(i) 我们只综述算法与系统创新；我们排除了硬件设计方面的大量工作；(ii) 本综述中资源的定义主要限于物理资源，包括计算、内存、存储、带宽等；我们排除了训练数据（标签）和隐私，它们也可被视为资源；","section":"1 INTRODUCTION","section_no":"1","para":12,"verified":true},{"page":14,"quote":"However, it’s noteworthy that most sparse attention designs, which primarily target the reduction of computational complexity [25, 295], do not necessarily lead to a reduction in KV cache memory consumption.","quote_zh":"然而，值得注意的是，大多数稀疏注意力设计主要针对降低计算复杂度[25, 295]，并不必然导致 KV cache 内存消耗的减少。","section":"4 RESOURCE-EFFICIENT ALGORITHMS","section_no":"4","para":44,"verified":true}]}]}],"chain":{"thesis":"基础模型的能力来自规模，但规模带来巨大硬件开销；综述按架构、算法、系统三层梳理降低计算/内存/带宽等物理资源消耗的研究，并指出云边混合、稀疏性、FM-as-a-service 等未来方向。","confidence":"medium","note":"这是一篇综述，没有单一方法改动与实验数字，因此 change 节点只能给出「综述所归纳的改动范式」的前后对照，effect 数字均取自被引工作的原文报告；链条按「问题→关键判断→三层改动→机制→效果→代价→待解」串成一条线。","nodes":[{"id":"n1","type":"problem","label":"规模换性能代价高","detail":"FMs 的精度与泛化随参数和数据持续增长（scaling law 仍成立），但训练与部署的硬件资源开销随之暴涨，且只有少数大厂能承担。","evidence":[{"page":10,"quote":"For instance, GPT-3-175B consumes 3.14×1023FLOPs and LLaMA-70B takes 1.7×106GPU hours.","quote_zh":"例如，GPT-3-175B 消耗 3.14×10^23 FLOPs，LLaMA-70B 需要 1.7×10^6 GPU 小时。","section":"4 RESOURCE-EFFICIENT ALGORITHMS","section_no":"4","para":8,"verified":true},{"page":2,"quote":"However, the scalability comes at a cost of huge resource demand.","quote_zh":"然而，这种可扩展性是以巨大的资源需求为代价的。","section":"1 INTRODUCTION","section_no":"1","para":9,"verified":true}],"metric":{"value":"1.7","unit":"百万 GPU 小时","label":"LLaMA-70B 预训练开销"}},{"id":"n2","type":"insight","label":"开销集中在注意力与 FFN","detail":"作者实测各 FMs 的 FLOPs 与存储分布，判断资源瓶颈可定位：注意力为 O(T²D)、FFN 为 O(TD²)，FFN 计算最密集、embedding/LM head 占存储但计算少。","evidence":[{"page":5,"quote":"In quantitative terms, the computation complexity of attention is 𝑂(𝑇2𝐷), while that of FFN is 𝑂(𝑇𝐷2), where 𝑇represents the sequence length and 𝐷the hidden state dimension of the model [161].","quote_zh":"定量地说，注意力的计算复杂度是 O(T²D)，而 FFN 的是 O(TD²)，其中 T 表示序列长度，D 表示模型的隐藏状态维度。","section":"3 RESOURCE-EFFICIENT ARCHITECTURES","section_no":"3","para":5,"verified":true},{"page":5,"quote":"The FFN layer is the most computationally intensive component.","quote_zh":"FFN 层是计算最密集的组件。","section":"3 RESOURCE-EFFICIENT ARCHITECTURES","section_no":"3","para":7,"verified":true}]},{"id":"n3","type":"change","label":"按架构/算法/系统三层改","detail":"综述把全部降本工作组织为三条改动线：改架构（高效注意力、MoE、早退、扩散/ViT 专用）、改算法（预训练、微调、推理、压缩）、改系统（分布式训练、云/边服务）。","evidence":[{"page":3,"quote":"Section 3 investigates the architectural innovations that revise or replace the existing foundation model architecture. Section 4 and Section 5 examine the algorithm-level and system-level literature towards more resource-efficient foundation models.","quote_zh":"第 3 节考察修正或替换现有基础模型架构的架构创新。第 4 节和第 5 节考察面向更资源高效基础模型的算法级与系统级文献。","section":"2 FOUNDATION MODEL OVERVIEW","section_no":"2","para":3,"verified":true}],"before":{"kind":"blocks","items":["Transformer 全注意力","稠密 FFN","全参数微调","逐 token 自回归解码","单机全精度训练"],"highlight":0},"after":{"kind":"blocks","items":["稀疏/近似/无注意力","MoE 稀疏激活","LoRA/Adapter/Prompt","投机解码 + KV cache 管理","分布式并行 + 量化/卸载"],"highlight":0}},{"id":"n4","type":"taxonomy","label":"生命周期四段切算法","detail":"算法层按 FMs 生命周期切成预训练、微调、推理、模型压缩四段，每段再列具体技术族。","evidence":[{"page":9,"quote":"This disparity has led to the emergence of numerous resource-efficient algorithms, which are categorized based on the lifecycle of FMs: pre-training, fine-tuning, serving algorithms, and model compression.","quote_zh":"这种差异催生了大量资源高效算法，它们按 FMs 的生命周期分类：预训练、微调、服务算法和模型压缩。","verified":false}],"root":{"name":"资源高效算法","children":[{"name":"预训练","what":"降低训练开销","children":[{"name":"数据质量控制"},{"name":"训练数据削减"},{"name":"渐进学习"},{"name":"混合精度训练"}]},{"name":"微调","what":"降低适配开销","children":[{"name":"Additive Tuning"},{"name":"Selective Tuning"},{"name":"Re-parameter Tuning"}]},{"name":"推理","what":"降低解码开销","children":[{"name":"Opportunistic Decoding"},{"name":"输入过滤与压缩"},{"name":"KV Cache"},{"name":"长上下文"}]},{"name":"模型压缩","what":"降低存储与计算","children":[{"name":"Pruning"},{"name":"Knowledge Distillation"},{"name":"Quantization"},{"name":"Low-Rank Decomposition"}]}]}},{"id":"n5","type":"mechanism","label":"改复杂度或改激活比例","detail":"各条改动通过两种量起作用：把注意力的 O(T²D) 降为线性/次二次（稀疏、低秩、SSM），或只激活部分参数/层/token（MoE、早退、剪枝、投机解码），从而直接削减 FLOPs 与 KV cache 内存。","evidence":[{"page":5,"quote":"The implementation of a KV cache in the decoder can substantially mitigate computational costs by reusing key and value vectors across various positions [134].","quote_zh":"在解码器中实现 KV cache 可以通过在不同位置复用键和值向量来大幅降低计算成本。","section":"3 RESOURCE-EFFICIENT ARCHITECTURES","section_no":"3","para":6,"verified":true},{"page":6,"quote":"This model achieves a notable 5× speed increase over traditional transformers and exhibits linear scaling with sequence length.","quote_zh":"该模型相比传统 transformer 实现了显著的 5× 加速，并随序列长度呈线性扩展。","section":"3 RESOURCE-EFFICIENT ARCHITECTURES","section_no":"3","para":14,"verified":true}]},{"id":"n6","type":"effect","label":"多处报告 2–7× 加速","detail":"综述汇总的被引工作给出可测收益：投机解码在 T5X 上 2–3×、RetNet 训练 7×、Mamba 5×、H2O 吞吐 29×、Scissorhands KV cache 内存降 5×。","evidence":[{"page":13,"quote":"Yaniv et al. [141] report a 2–3× improvement in performance using speculative decoding on the T5X model, while a concurrent study [36] demonstrates similar speedups on a 70B Chinchilla model.","quote_zh":"Yaniv 等人 [141] 报告在 T5X 模型上使用投机解码带来 2–3× 的性能提升，而一项同期研究 [36] 在 70B Chinchilla 模型上展示了类似的加速。","section":"4 RESOURCE-EFFICIENT ALGORITHMS","section_no":"4","para":34,"verified":true},{"page":6,"quote":"During training, RetNet demonstrates a 25-50% memory saving and a 7× acceleration compared to the standard Transformer.","quote_zh":"在训练期间，RetNet 相比标准 Transformer 展现出 25–50% 的内存节省和 7× 的加速。","section":"3 RESOURCE-EFFICIENT ARCHITECTURES","section_no":"3","para":14,"verified":true},{"page":14,"quote":"When compared to robust baselines, H2O demonstrates the capability to reduce latency by up to 1.9× and increase throughput by 29×.","quote_zh":"与稳健的基线相比，H2O 展现出将延迟最多降低 1.9×、将吞吐提升 29× 的能力。","section":"4 RESOURCE-EFFICIENT ALGORITHMS","section_no":"4","para":44,"verified":true}],"metric":{"value":"2","unit":"×","label":"投机解码加速（区间 2–3×）"}},{"id":"n7","type":"cost","label":"精度损失与重训开销","detail":"压缩与稀疏化通常以精度或额外训练为代价：FFF 快 220× 但损失约 5% 精度；QAT 训练成本仍高；PTQ 缺少训练反馈回路；多数稀疏注意力并不降低 KV cache 内存。","evidence":[{"page":7,"quote":"FFF [24] divides the feed-forward layer into separate leaves instead of copying the entire feed-forward layer as an expert, being up to 220× faster than the original feed-forward layer with about 5% accuracy loss.","quote_zh":"FFF [24] 将前馈层划分为独立的叶子，而不是把整个前馈层复制为专家，比原始前馈层快最多 220×，精度损失约 5%。","section":"3 RESOURCE-EFFICIENT ARCHITECTURES","section_no":"3","para":17,"verified":true},{"page":14,"quote":"However, it’s noteworthy that most sparse attention designs, which primarily target the reduction of computational complexity [25, 295], do not necessarily lead to a reduction in KV cache memory consumption.","quote_zh":"然而值得注意的是，大多数稀疏注意力设计主要针对降低计算复杂度 [25, 295]，并不必然带来 KV cache 内存消耗的降低。","section":"4 RESOURCE-EFFICIENT ALGORITHMS","section_no":"4","para":44,"verified":true},{"page":18,"quote":"However, unlike QAT and distillation, PTQ lacks the feedback loop for adjusting precision through training.","quote_zh":"然而，与 QAT 和蒸馏不同，PTQ 缺少通过训练调整精度的反馈回路。","section":"4 RESOURCE-EFFICIENT ALGORITHMS","section_no":"4","para":69,"verified":true}]},{"id":"n8","type":"question","label":"云边混合与稀疏性待解","detail":"作者指出未来方向：云边混合部署、利用模型/激活稀疏性、FM 作为服务、以 agent 为整体优化、实用隐私保护；设备端仍受解码速度、内存、能耗制约。","evidence":[{"page":24,"quote":"We believe that exploiting the model and activation sparsity will be a promising direction towards sustainable model size scaling.","quote_zh":"我们认为，利用模型与激活稀疏性将是通向可持续模型规模扩展的一个有前景的方向。","section":"6 CONCLUSIONS AND FUTURE DIRECTIONS","section_no":"6","para":7,"verified":true},{"page":23,"quote":"While small language models [177, 290] have been developed for on-device deployment, the runtime efficiency (decoding speed, memory footprint, energy consumption, etc) still remains a key challenge.","quote_zh":"尽管已为设备端部署开发了小语言模型 [177, 290]，但运行时效率（解码速度、内存占用、能耗等）仍是关键挑战。","section":"5 RESOURCE-EFFICIENT SYSTEMS","section_no":"5","para":37,"verified":true}]}],"evidence":[],"warnings":[],"types":{"problem":{"label":"问题","color":"#E8836B"},"insight":{"label":"洞察","color":"#D9B45E"},"change":{"label":"改动","color":"#6FB3D9"},"mechanism":{"label":"机制","color":"#8FBF9F"},"effect":{"label":"效果","color":"#7ED0A8"},"cost":{"label":"代价","color":"#C58FB0"},"taxonomy":{"label":"框架","color":"#9B9BE0"},"question":{"label":"待解","color":"#93A4B8"}}},"network":{"center":{"title":"Resource-efficient Algorithms and Systems of Foundation Models: A Survey","year":0,"doi":"","matched":false,"topics":[],"venue":"","ccf":"","search_terms":["Foundation","Survey","Vision","Encoder","Multimodal","Algorithms","Telecommunications","Peking"]},"nodes":[{"title":"Learning to Grow Pretrained Models for Efficient Transformer Training","kind":"cited","origin":"pdf","year":2023,"cited_by":18,"relevance":0.39,"reasons":["与本文共享关键词：efficient、models","被引 18 次"],"doi":"10.48550/arxiv.2303.00980","venue":"arXiv (Cornell University)","openalex_id":"W4323112125","topics":[{"name":"Domain Adaptation and Few-Shot Learning","score":0.7279999852180481,"field":"Computer Science","subfield":"Artificial Intelligence","field_zh":"计算机科学","subfield_zh":"人工智能"},{"name":"Advanced Neural Network Applications","score":0.1509000062942505,"field":"Computer Science","subfield":"Computer Vision and Pattern Recognition","field_zh":"计算机科学","subfield_zh":"计算机视觉与模式识别"},{"name":"Topic Modeling","score":0.10970000177621841,"field":"Computer Science","subfield":"Artificial Intelligence","field_zh":"计算机科学","subfield_zh":"人工智能"}]},{"title":"PipeFisher: Efficient Training of Large Language Models Using Pipelining and Fisher Information Matrices","kind":"cited","origin":"pdf","year":2022,"cited_by":9,"relevance":0.37,"reasons":["与本文共享关键词：efficient、models","被引 9 次"],"doi":"10.48550/arxiv.2211.14133","venue":"arXiv (Cornell University)","openalex_id":"W4310285541","topics":[{"name":"Parallel Computing and Optimization Techniques","score":0.8237000107765198,"field":"Computer Science","subfield":"Hardware and Architecture","field_zh":"计算机科学","subfield_zh":"硬件与体系结构"},{"name":"Stochastic Gradient Optimization Techniques","score":0.0794999971985817,"field":"Computer Science","subfield":"Artificial Intelligence","field_zh":"计算机科学","subfield_zh":"人工智能"},{"name":"Topic Modeling","score":0.02889999933540821,"field":"Computer Science","subfield":"Artificial Intelligence","field_zh":"计算机科学","subfield_zh":"人工智能"}]},{"title":"High-Resolution Image Synthesis with Latent Diffusion Models","kind":"cited","origin":"pdf","year":2022,"cited_by":16803,"relevance":0.36,"reasons":["与本文共享关键词：models","被引 16803 次"],"doi":"10.1109/cvpr52688.2022.01042","venue":"IEEE Computer Society Conference on Computer Vision and Pattern Recognition/Proc","openalex_id":"W4312933868","topics":[{"name":"Generative Adversarial Networks and Image Synthesis","score":1.0,"field":"Computer Science","subfield":"Computer Vision and Pattern Recognition","field_zh":"计算机科学","subfield_zh":"计算机视觉与模式识别"},{"name":"Image and Signal Denoising Methods","score":0,"field":"Computer Science","subfield":"Computer Vision and Pattern Recognition","field_zh":"计算机科学","subfield_zh":"计算机视觉与模式识别"},{"name":"Advanced Neural Network Applications","score":0,"field":"Computer Science","subfield":"Computer Vision and Pattern Recognition","field_zh":"计算机科学","subfield_zh":"计算机视觉与模式识别"}]},{"title":"Chain-Of-Thought Prompting Elicits Reasoning in Large Language Models","kind":"cited","origin":"pdf","year":2022,"cited_by":4504,"relevance":0.34,"reasons":["与本文共享关键词：models","被引 4504 次"],"doi":"10.52202/068431-1800","venue":"neural information processing systems","openalex_id":"W7133224126","topics":[{"name":"Topic Modeling","score":0.8314999938011169,"field":"Computer Science","subfield":"Artificial Intelligence","field_zh":"计算机科学","subfield_zh":"人工智能"},{"name":"Natural Language Processing Techniques","score":0.09269999712705612,"field":"Computer Science","subfield":"Artificial Intelligence","field_zh":"计算机科学","subfield_zh":"人工智能"},{"name":"Multimodal Machine Learning Applications","score":0.02319999970495701,"field":"Computer Science","subfield":"Computer Vision and Pattern Recognition","field_zh":"计算机科学","subfield_zh":"计算机视觉与模式识别"}]},{"title":"Improved Denoising Diffusion Probabilistic Models","kind":"cited","origin":"pdf","year":2021,"cited_by":1550,"relevance":0.32,"reasons":["与本文共享关键词：models","被引 1550 次"],"doi":"10.48550/arxiv.2102.09672","venue":"arXiv (Cornell University)","openalex_id":"W3122887982","topics":[{"name":"Generative Adversarial Networks and Image Synthesis","score":0.9951000213623047,"field":"Computer Science","subfield":"Computer Vision and Pattern Recognition","field_zh":"计算机科学","subfield_zh":"计算机视觉与模式识别"},{"name":"Image and Signal Denoising Methods","score":0.002300000051036477,"field":"Computer Science","subfield":"Computer Vision and Pattern Recognition","field_zh":"计算机科学","subfield_zh":"计算机视觉与模式识别"},{"name":"Adversarial Robustness in Machine Learning","score":0.0007999999797903001,"field":"Computer Science","subfield":"Artificial Intelligence","field_zh":"计算机科学","subfield_zh":"人工智能"}]},{"title":"A survey of transformers","kind":"cited","origin":"pdf","year":2022,"cited_by":1422,"relevance":0.32,"reasons":["与本文共享关键词：survey","被引 1422 次"],"doi":"10.1016/j.aiopen.2022.10.001","venue":"AI Open","openalex_id":"W3171649327","topics":[{"name":"Topic Modeling","score":0.6304000020027161,"field":"Computer Science","subfield":"Artificial Intelligence","field_zh":"计算机科学","subfield_zh":"人工智能"},{"name":"Advanced Neural Network Applications","score":0.2572999894618988,"field":"Computer Science","subfield":"Computer Vision and Pattern Recognition","field_zh":"计算机科学","subfield_zh":"计算机视觉与模式识别"},{"name":"Domain Adaptation and Few-Shot Learning","score":0.03799999877810478,"field":"Computer Science","subfield":"Artificial Intelligence","field_zh":"计算机科学","subfield_zh":"人工智能"}]},{"title":"Efficient large-scale language model training on GPU clusters using megatron-LM","kind":"cited","origin":"pdf","year":2021,"cited_by":640,"relevance":0.3,"reasons":["与本文共享关键词：efficient","被引 640 次"],"doi":"10.1145/3458817.3476209","venue":"International Conference for High Performance Computing, Networking, Storage and","openalex_id":"W3187255235","topics":[{"name":"Parallel Computing and Optimization Techniques","score":0.9678000211715698,"field":"Computer Science","subfield":"Hardware and Architecture","field_zh":"计算机科学","subfield_zh":"硬件与体系结构"},{"name":"Topic Modeling","score":0.009399999864399433,"field":"Computer Science","subfield":"Artificial Intelligence","field_zh":"计算机科学","subfield_zh":"人工智能"},{"name":"Natural Language Processing Techniques","score":0.005100000184029341,"field":"Computer Science","subfield":"Artificial Intelligence","field_zh":"计算机科学","subfield_zh":"人工智能"}]},{"title":"SpAtten: Efficient Sparse Attention Architecture with Cascade Token and Head Pruning","kind":"cited","origin":"pdf","year":2021,"cited_by":427,"relevance":0.29,"reasons":["与本文共享关键词：efficient","被引 427 次"],"doi":"10.1109/hpca51647.2021.00018","venue":"IEEE International Symposium on High-Performance Computer Architecture (HPCA)","openalex_id":"W3159727696","topics":[{"name":"Advanced Neural Network Applications","score":0.5806000232696533,"field":"Computer Science","subfield":"Computer Vision and Pattern Recognition","field_zh":"计算机科学","subfield_zh":"计算机视觉与模式识别"},{"name":"Parallel Computing and Optimization Techniques","score":0.36059999465942383,"field":"Computer Science","subfield":"Hardware and Architecture","field_zh":"计算机科学","subfield_zh":"硬件与体系结构"},{"name":"Topic Modeling","score":0.011099999770522118,"field":"Computer Science","subfield":"Artificial Intelligence","field_zh":"计算机科学","subfield_zh":"人工智能"}]},{"title":"ZeroQuant: Efficient and Affordable Post-Training Quantization for Large-Scale Transformers","kind":"cited","origin":"pdf","year":2022,"cited_by":151,"relevance":0.27,"reasons":["与本文共享关键词：efficient","被引 151 次"],"doi":"10.52202/068431-1970","venue":"neural information processing systems","openalex_id":"W7133231030","topics":[{"name":"Advanced Neural Network Applications","score":0.9916999936103821,"field":"Computer Science","subfield":"Computer Vision and Pattern Recognition","field_zh":"计算机科学","subfield_zh":"计算机视觉与模式识别"},{"name":"Domain Adaptation and Few-Shot Learning","score":0.00139999995008111,"field":"Computer Science","subfield":"Artificial Intelligence","field_zh":"计算机科学","subfield_zh":"人工智能"},{"name":"Topic Modeling","score":0.00039999998989515007,"field":"Computer Science","subfield":"Artificial Intelligence","field_zh":"计算机科学","subfield_zh":"人工智能"}]},{"title":"FlexGen: High-Throughput Generative Inference of Large Language Models with a Single GPU","kind":"cited","origin":"pdf","year":2023,"cited_by":86,"relevance":0.26,"reasons":["与本文共享关键词：models","被引 86 次"],"doi":"10.48550/arxiv.2303.06865","venue":"arXiv (Cornell University)","openalex_id":"W4324297016","topics":[{"name":"Parallel Computing and Optimization Techniques","score":0.42480000853538513,"field":"Computer Science","subfield":"Hardware and Architecture","field_zh":"计算机科学","subfield_zh":"硬件与体系结构"},{"name":"Natural Language Processing Techniques","score":0.1914999932050705,"field":"Computer Science","subfield":"Artificial Intelligence","field_zh":"计算机科学","subfield_zh":"人工智能"},{"name":"Topic Modeling","score":0.15539999306201935,"field":"Computer Science","subfield":"Artificial Intelligence","field_zh":"计算机科学","subfield_zh":"人工智能"}]},{"title":"Overlap Communication with Dependent Computation via Decomposition in Large Deep Learning Models","kind":"cited","origin":"pdf","year":2022,"cited_by":65,"relevance":0.25,"reasons":["与本文共享关键词：models","被引 65 次"],"doi":"10.1145/3567955.3567959","venue":"International Conference on Architectural Support for Programming Languages and ","openalex_id":"W4312060029","topics":[{"name":"Parallel Computing and Optimization Techniques","score":0.9878000020980835,"field":"Computer Science","subfield":"Hardware and Architecture","field_zh":"计算机科学","subfield_zh":"硬件与体系结构"},{"name":"Advanced Neural Network Applications","score":0.001500000013038516,"field":"Computer Science","subfield":"Computer Vision and Pattern Recognition","field_zh":"计算机科学","subfield_zh":"计算机视觉与模式识别"},{"name":"Stochastic Gradient Optimization Techniques","score":0.0008999999845400453,"field":"Computer Science","subfield":"Artificial Intelligence","field_zh":"计算机科学","subfield_zh":"人工智能"}]},{"title":"Deja Vu: Contextual Sparsity for Efficient LLMs at Inference Time","kind":"cited","origin":"pdf","year":2023,"cited_by":51,"relevance":0.25,"reasons":["与本文共享关键词：efficient","被引 51 次"],"doi":"10.48550/arxiv.2310.17157","venue":"arXiv (Cornell University)","openalex_id":"W4387995158","topics":[{"name":"Advanced Neural Network Applications","score":0.8773999810218811,"field":"Computer Science","subfield":"Computer Vision and Pattern Recognition","field_zh":"计算机科学","subfield_zh":"计算机视觉与模式识别"},{"name":"Topic Modeling","score":0.07810000330209732,"field":"Computer Science","subfield":"Artificial Intelligence","field_zh":"计算机科学","subfield_zh":"人工智能"},{"name":"Natural Language Processing Techniques","score":0.012600000016391277,"field":"Computer Science","subfield":"Artificial Intelligence","field_zh":"计算机科学","subfield_zh":"人工智能"}]},{"title":"Parallel Context Windows for Large Language Models","kind":"cited","origin":"pdf","year":2023,"cited_by":49,"relevance":0.25,"reasons":["与本文共享关键词：models","被引 49 次"],"doi":"10.18653/v1/2023.acl-long.352","venue":"Proceedings of the conference - Association for Computational Linguistics. Meeti","openalex_id":"W4385570090","topics":[{"name":"Topic Modeling","score":0.7886000275611877,"field":"Computer Science","subfield":"Artificial Intelligence","field_zh":"计算机科学","subfield_zh":"人工智能"},{"name":"Natural Language Processing Techniques","score":0.20630000531673431,"field":"Computer Science","subfield":"Artificial Intelligence","field_zh":"计算机科学","subfield_zh":"人工智能"},{"name":"Sentiment Analysis and Opinion Mining","score":0.00039999998989515007,"field":"Computer Science","subfield":"Artificial Intelligence","field_zh":"计算机科学","subfield_zh":"人工智能"}]},{"title":"Janus: A Unified Distributed Training Framework for Sparse Mixture-of-Experts Models","kind":"cited","origin":"pdf","year":2023,"cited_by":48,"relevance":0.25,"reasons":["与本文共享关键词：models","被引 48 次"],"doi":"10.1145/3603269.3604869","venue":"ACM SIGCOMM Conference (SIGCOMM)","openalex_id":"W4386396242","topics":[{"name":"Parallel Computing and Optimization Techniques","score":0.4255000054836273,"field":"Computer Science","subfield":"Hardware and Architecture","field_zh":"计算机科学","subfield_zh":"硬件与体系结构"},{"name":"Advanced Neural Network Applications","score":0.23330000042915344,"field":"Computer Science","subfield":"Computer Vision and Pattern Recognition","field_zh":"计算机科学","subfield_zh":"计算机视觉与模式识别"},{"name":"Stochastic Gradient Optimization Techniques","score":0.053300000727176666,"field":"Computer Science","subfield":"Artificial Intelligence","field_zh":"计算机科学","subfield_zh":"人工智能"}]},{"title":"Outlier Suppression: Pushing the Limit of Low-Bit Transformer Language Models","kind":"cited","origin":"pdf","year":2022,"cited_by":46,"relevance":0.24,"reasons":["与本文共享关键词：models","被引 46 次"],"doi":"10.52202/068431-1265","venue":"neural information processing systems","openalex_id":"W7133204437","topics":[{"name":"Topic Modeling","score":0.6919000148773193,"field":"Computer Science","subfield":"Artificial Intelligence","field_zh":"计算机科学","subfield_zh":"人工智能"},{"name":"Advanced Neural Network Applications","score":0.15139999985694885,"field":"Computer Science","subfield":"Computer Vision and Pattern Recognition","field_zh":"计算机科学","subfield_zh":"计算机视觉与模式识别"},{"name":"Natural Language Processing Techniques","score":0.04309999942779541,"field":"Computer Science","subfield":"Artificial Intelligence","field_zh":"计算机科学","subfield_zh":"人工智能"}]},{"title":"Mobile Foundation Model as Firmware","kind":"cited","origin":"pdf","year":2024,"cited_by":43,"relevance":0.24,"reasons":["与本文共享关键词：foundation","被引 43 次"],"doi":"10.1145/3636534.3649361","venue":"ACM Annual International Conference on Mobile Computing and Networking (MobiCom)","openalex_id":"W4399140776","topics":[{"name":"Advanced Neural Network Applications","score":0.41429999470710754,"field":"Computer Science","subfield":"Computer Vision and Pattern Recognition","field_zh":"计算机科学","subfield_zh":"计算机视觉与模式识别"},{"name":"Embedded Systems Design Techniques","score":0.33230000734329224,"field":"Computer Science","subfield":"Hardware and Architecture","field_zh":"计算机科学","subfield_zh":"硬件与体系结构"},{"name":"Parallel Computing and Optimization Techniques","score":0.16459999978542328,"field":"Computer Science","subfield":"Hardware and Architecture","field_zh":"计算机科学","subfield_zh":"硬件与体系结构"}]},{"title":"Knowledge Inheritance for Pre-trained Language Models","kind":"cited","origin":"pdf","year":2022,"cited_by":33,"relevance":0.24,"reasons":["与本文共享关键词：models","被引 33 次"],"doi":"10.18653/v1/2022.naacl-main.288","venue":"Conference of the North American Chapter of the Association for Computational Li","openalex_id":"W3164896303","topics":[{"name":"Topic Modeling","score":0.9550999999046326,"field":"Computer Science","subfield":"Artificial Intelligence","field_zh":"计算机科学","subfield_zh":"人工智能"},{"name":"Domain Adaptation and Few-Shot Learning","score":0.02250000089406967,"field":"Computer Science","subfield":"Artificial Intelligence","field_zh":"计算机科学","subfield_zh":"人工智能"},{"name":"Natural Language Processing Techniques","score":0.012799999676644802,"field":"Computer Science","subfield":"Artificial Intelligence","field_zh":"计算机科学","subfield_zh":"人工智能"}]},{"title":"PLATON: Pruning Large Transformer Models with Upper Confidence Bound of Weight Importance","kind":"cited","origin":"pdf","year":2022,"cited_by":25,"relevance":0.23,"reasons":["与本文共享关键词：models","被引 25 次"],"doi":"10.48550/arxiv.2206.12562","venue":"arXiv (Cornell University)","openalex_id":"W4283700140","topics":[{"name":"Advanced Neural Network Applications","score":0.9955999851226807,"field":"Computer Science","subfield":"Computer Vision and Pattern Recognition","field_zh":"计算机科学","subfield_zh":"计算机视觉与模式识别"},{"name":"Topic Modeling","score":0.0010999999940395355,"field":"Computer Science","subfield":"Artificial Intelligence","field_zh":"计算机科学","subfield_zh":"人工智能"},{"name":"Machine Learning and Data Classification","score":0.0007999999797903001,"field":"Computer Science","subfield":"Artificial Intelligence","field_zh":"计算机科学","subfield_zh":"人工智能"}]},{"title":"Staged Training for Transformer Language Models","kind":"cited","origin":"pdf","year":2022,"cited_by":8,"relevance":0.21,"reasons":["与本文共享关键词：models","被引 8 次"],"doi":"10.48550/arxiv.2203.06211","venue":"arXiv (Cornell University)","openalex_id":"W4225512894","topics":[{"name":"Topic Modeling","score":0.8417999744415283,"field":"Computer Science","subfield":"Artificial Intelligence","field_zh":"计算机科学","subfield_zh":"人工智能"},{"name":"Natural Language Processing Techniques","score":0.10769999772310257,"field":"Computer Science","subfield":"Artificial Intelligence","field_zh":"计算机科学","subfield_zh":"人工智能"},{"name":"Domain Adaptation and Few-Shot Learning","score":0.017100000753998756,"field":"Computer Science","subfield":"Artificial Intelligence","field_zh":"计算机科学","subfield_zh":"人工智能"}]},{"title":"Advances in Neural Information Processing Systems 30 : 31st Annual Conference on Neural Information Processing Systems (NIPS 2017), Long Beach, California, USA, 4-9 December 2017","kind":"cited","origin":"pdf","year":2017,"cited_by":7,"relevance":0.21,"reasons":["与本文共享关键词：systems","被引 7 次"],"openalex_id":"W3168137212","topics":[{"name":"Neural Networks and Applications","score":0.850600004196167,"field":"Computer Science","subfield":"Artificial Intelligence","field_zh":"计算机科学","subfield_zh":"人工智能"},{"name":"Advanced Neural Network Applications","score":0.019600000232458115,"field":"Computer Science","subfield":"Computer Vision and Pattern Recognition","field_zh":"计算机科学","subfield_zh":"计算机视觉与模式识别"},{"name":"Artificial Intelligence Applications","score":0.017100000753998756,"field":"Computer Science","subfield":"Artificial Intelligence","field_zh":"计算机科学","subfield_zh":"人工智能"}]},{"title":"Fernando Acosta and others","kind":"cited","origin":"pdf","year":2023,"cited_by":0,"relevance":0.15,"reasons":["仅见于本文参考文献列表（未在 OpenAlex 收录）"]},{"title":"DeepSpeed-inference: enabling efficient inference of transformer models at unprecedented scale","kind":"cited","origin":"pdf","year":2022,"cited_by":0,"relevance":0.15,"reasons":["仅见于本文参考文献列表（未在 OpenAlex 收录）"]},{"title":"Attempt: Parameter-efficient multi-task tuning via attentional mixtures of soft prompts","kind":"cited","origin":"pdf","year":2022,"cited_by":0,"relevance":0.15,"reasons":["仅见于本文参考文献列表（未在 OpenAlex 收录）"]},{"title":"Varuna:scalable,low-costtrainingofmassivedeeplearningmodels","kind":"cited","origin":"pdf","year":2022,"cited_by":0,"relevance":0.15,"reasons":["仅见于本文参考文献列表（未在 OpenAlex 收录）"]}],"stats":{"reference_entries":320,"matched":38,"citing_available":0,"nodes":24,"openalex_reachable":true},"unavailable":""},"qa":null}</script>
+<script>
+(function () {
+  var D = JSON.parse(document.getElementById("paper-data").textContent);
+
+  // 每个分组一个色调，卡片左侧色条用它，视觉上能一眼分清「概览 / 框架 / 结论 / 判断」
+  var GROUP_COLORS = ["#2E6F8E", "#4A9BBF", "#7A9E7E", "#B8703F"];
+
+  document.getElementById("title").textContent = D.paper_title || "（未识别标题）";
+  document.title = (D.paper_title || "论文解剖") + " · paperatomy";
+
+  var meta = [];
+  if (D.template_name) { meta.push("<span>模板 <b>" + esc(D.template_name) + "</b></span>"); }
+  if (D.pages)        { meta.push("<span><b>" + D.pages + "</b> 页</span>"); }
+  if (D.blocks)       { meta.push("<span><b>" + D.blocks + "</b> 个板块</span>"); }
+  if (D.model)        { meta.push("<span>模型 <b>" + esc(D.model) + "</b></span>"); }
+  document.getElementById("meta").innerHTML = meta.join("");
+
+  var jump = [];
+  var main = [];
+  // 必须先声明：后面的 chainSection() 会用到，
+  // var 只有声明提升、赋值不提升（上一版踩过：整页空白）
+  var CHAIN = D.chain || null;
+
+  // 「一句话结论」单独抽出来做页首大卡：它是整篇最该被先看到的一句，
+  // 混在卡片堆里会被淹掉。
+  var hero = null;
+  D.groups.forEach(function (g) {
+    g.blocks = g.blocks.filter(function (b) {
+      if (!hero && b.id === "tl_dr") { hero = b; return false; }
+      return true;
+    });
+  });
+  D.groups = D.groups.filter(function (g) { return g.blocks.length; });
+
+  if (hero) {
+    var hh = ['<div class="hero"><div class="label">' + esc(hero.title) + "</div>"];
+    hh.push("<p>" + esc(hero.content || "论文未提及。") + "</p>");
+    if (hero.evidence && hero.evidence.length) {
+      hh.push(evHTML(hero.evidence));
+    }
+    hh.push("</div>");
+    main.push(hh.join(""));
+  }
+
+  // 论证链放在页首大卡之后：它比正文更值得先看，
+  // 但要排在「一句话结论」后面，否则读者没有上下文。
+  if (CHAIN && CHAIN.nodes && CHAIN.nodes.length) {
+    jump.push('<a href="#chain">论证链</a>');
+    main.push(chainSection());
+  }
+
+  // 文献网络跟在论证链后：先看推理线，再看它在领域里的位置。
+  // 无数据时也渲染占位板块（提示如何补跑），功能存在感不能只在文档里。
+  main.push(networkSection());
+  if (D.network && D.network.nodes && D.network.nodes.length) {
+    jump.push('<a href="#network">文献网络</a>');
+  }
+
+  D.groups.forEach(function (g, gi) {
+    var anchor = "g" + gi;
+    jump.push('<a href="#' + anchor + '">' + esc(g.name) + "</a>");
+
+    var gc = GROUP_COLORS[gi % GROUP_COLORS.length];
+    main.push('<section class="group" id="' + anchor + '" style="--gc:' + gc + '">');
+    main.push('<div class="g-head"><h2>' + esc(g.name) + "</h2>");
+    main.push('<span class="count">' + g.blocks.length + " 块</span></div>");
+
+    var single = g.blocks.length === 1;
+    main.push('<div class="cards' + (single ? " single" : "") + '">');
+
+    g.blocks.forEach(function (b, bi) {
+      // 默认全部展开：这是给人读的报告，不是目录。
+      // 折叠是「太长时收起来」的手段，不该是打开时的默认状态。
+      var open = " open";
+      main.push('<article class="card' + open + '">');
+      main.push('<div class="c-head">');
+      main.push('<h3>' + esc(b.title) + "</h3>");
+      if (b.confidence === "low") {
+        main.push('<span class="badge low">低置信</span>');
+      }
+      main.push(askBtn("b:" + b.id));
+      main.push('<svg class="chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" ' +
+                'stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">' +
+                '<path d="M6 4l4 4-4 4"/></svg>');
+      main.push("</div>");
+
+      main.push('<div class="c-body">');
+      if (b.empty) {
+        main.push('<div class="txt"><p class="empty">论文未提及，或材料不足未抽取到内容。</p></div>');
+      } else {
+        main.push('<div class="txt">' + formatText(b.content) + "</div>");
+      }
+      if (b.evidence && b.evidence.length) {
+        main.push(evHTML(b.evidence));
+      }
+      main.push('<div class="mod-figs" data-bid="' + esc(b.id || "") +
+        '"></div>');
+      main.push("</div></article>");
+    });
+
+    main.push("</div></section>");
+  });
+
+    main.push('<section style="margin-top:22px"><details id="figAnnex">' +
+      '<summary style="cursor:pointer;font-weight:600;color:var(--ink2)">' +
+      "附图 · 未归入上述模块的图表</summary>" +
+      '<div id="figAnnexBody" style="margin-top:12px"></div></details></section>');
+  document.getElementById("jump").innerHTML = jump.join("");
+  document.getElementById("main").innerHTML = main.join("");
+  initChain();
+  initNetwork();
+
+  // ---- 图进模块（v0.11.0）：/api/modfigs 分配 → 模块内懒加载 ----
+  var TD = [];
+  var FIG = {file: (window.__PA_SERVE__
+    ? encodeURIComponent(window.__PA_SERVE__.report) : ""), timer: null,
+             tdTimer: null, tdModules: {}};
+
+// ---- 数据动图：表格数据 → 动画条形图 ----
+  function renderBars(tables) {
+    TD = tables;
+    var th = "";
+    tables.forEach(function (tb, ti) {
+      var cands = tdPickCols(tb);
+      if (!cands.length) { return; }
+      var trend = tdIsTrend(tb);
+      th += '<div class="bar-cap">' + esc(tb.cap || ("表 " + (ti + 1))) + '</div>';
+      th += '<div class="td-chips">';
+      if (trend) {
+        th += '<span class="td-type on" data-ti="' + ti +
+          '" data-type="line">折线（看趋势）</span>' +
+          '<span class="td-type" data-ti="' + ti +
+          '" data-type="bar">柱状</span>';
+      }
+      cands.forEach(function (cd, ci) {
+        th += '<span class="td-chip' + (ci === 0 ? ' on' : '') +
+          '" data-ti="' + ti + '" data-c="' + cd.c + '">' +
+          esc(String(tb.columns[cd.c]).slice(0, 14)) + '</span>';
+      });
+      th += '</div>';
+      th += '<div class="td-svg" data-ti="' + ti + '">' +
+        (trend ? tdLine(tb, cands[0].c, ti)
+               : tdSvg(tb, cands[0].c, ti)) + '</div>' +
+        '<div class="bar-note">数据来自论文，点击列名/类型可切换</div>';
+    });
+    return th;
+  }
+  function tdPickCols(tb) {
+    var cols = tb.columns || [], rows = tb.rows || [];
+    var cands = [];
+    for (var c = 1; c < cols.length; c++) {
+      var ok = 0, sum = 0, sq = 0;
+      rows.forEach(function (r) {
+        var v = parseFloat(String(r[c]).replace(/[,%××\s]/g, ""));
+        if (isFinite(v)) { ok++; sum += Math.abs(v); sq += v * v; }
+      });
+      if (ok < Math.ceil(rows.length * 0.6) || sum === 0) { continue; }
+      var mean = sum / ok;
+      cands.push({ c: c, sum: sum, va: sq / ok - mean * mean });
+    }
+    cands.sort(function (a, b) { return b.va - a.va || b.sum - a.sum; });
+    return cands;
+  }
+  function tdIsTrend(tb) {
+    // 首列多数为数值/年份且整体递增 → 趋势型，可画折线
+    var rows = tb.rows || [];
+    if (rows.length < 3) { return false; }
+    var nums = rows.map(function (r) {
+      var s0 = String(r[0]).trim();
+      var v = parseFloat(s0);
+      if (isFinite(v) && /^\d{1,4}([.,]\d+)?$/.test(s0)) { return v; }
+      var m = s0.match(/(?:19|20)\d{2}/);
+      return m ? parseFloat(m[0]) : NaN;
+    });
+    var fin = nums.filter(function (v) { return isFinite(v); });
+    if (fin.length < Math.ceil(rows.length * 0.7)) { return false; }
+    var inc = 0;
+    for (var i = 1; i < nums.length; i++) {
+      if (isFinite(nums[i]) && isFinite(nums[i - 1])
+          && nums[i] >= nums[i - 1]) { inc++; }
+    }
+    return inc >= nums.length - 2;
+  }
+  function tdLine(tb, col, ti) {
+    var rows = tb.rows || [];
+    var pts = [];
+    rows.forEach(function (r, ri) {
+      var s0 = String(r[0]).trim();
+      var x = parseFloat(s0);
+      if (!isFinite(x)) {
+        var m = s0.match(/(?:19|20)\d{2}/);
+        x = m ? parseFloat(m[0]) : ri;
+      }
+      var y = parseFloat(String(r[col]).replace(/[,%××\s]/g, ""));
+      if (isFinite(y)) { pts.push([x, y, r]); }
+    });
+    if (pts.length < 2) { return tdSvg(tb, col, ti); }
+    var L = 150, R = 634, top = 14, H = 300, W = 660, bot = H - 40;
+    var xs = pts.map(function (p) { return p[0]; });
+    var ys = pts.map(function (p) { return p[1]; });
+    var x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs);
+    var y0 = Math.min(0, Math.min.apply(null, ys));
+    var y1 = Math.max.apply(null, ys);
+    if (x1 === x0) { x1 = x0 + 1; }
+    if (y1 === y0) { y1 = y0 + 1; }
+    function px(x) { return L + (x - x0) / (x1 - x0) * (R - L); }
+    function py(y) { return bot - (y - y0) / (y1 - y0) * (bot - top); }
+    var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%">';
+    for (var g = 0; g <= 4; g++) {
+      var gy = top + (bot - top) * g / 4;
+      s += '<line x1="' + L + '" y1="' + gy + '" x2="' + R +
+        '" y2="' + gy + '" stroke="rgba(120,130,140,.16)"/>';
+      s += '<text x="' + (L - 8) + '" y="' + (gy + 4) +
+        '" text-anchor="end" class="tdlab">' +
+        (y1 - (y1 - y0) * g / 4).toFixed(1) + '</text>';
+    }
+    var line = pts.map(function (p, i) {
+      return (i ? "L" : "M") + px(p[0]).toFixed(1) + " " +
+        py(p[1]).toFixed(1);
+    }).join(" ");
+    s += '<path d="' + line + '" fill="none" stroke="#2E6F8E" ' +
+      'stroke-width="2.5" stroke-dasharray="2000" ' +
+      'stroke-dashoffset="0" style="animation: tdDraw 1.8s ease backwards"/>';
+    s += '<polygon points="' + L + "," + bot + " " +
+      pts.map(function (p) {
+        return px(p[0]).toFixed(1) + "," + py(p[1]).toFixed(1);
+      }).join(" ") + " " + R + "," + bot +
+      '" fill="rgba(46,111,142,.10)"/>';
+    pts.forEach(function (p) {
+      s += '<circle cx="' + px(p[0]).toFixed(1) + '" cy="' +
+        py(p[1]).toFixed(1) + '" r="3.5" fill="#2E6F8E"/>';
+    });
+    s += '<text x="' + (L + (R - L) / 2) + '" y="' + (H - 8) +
+      '" text-anchor="middle" class="tdax">' +
+      esc(String(tb.columns[col]).slice(0, 26)) + '（随 ' +
+      esc(String(tb.columns[0]).slice(0, 14)) + ' 变化）</text>';
+    s += '</svg>';
+    return s;
+  }
+  function tdSvg(tb, col, ti) {
+    var rows = tb.rows || [];
+    var vals = rows.map(function (r) {
+      return parseFloat(String(r[col]).replace(/[,%××\s]/g, ""));
+    });
+    var mx = 0;
+    vals.forEach(function (v) {
+      if (isFinite(v) && Math.abs(v) > mx) { mx = Math.abs(v); }
+    });
+    if (!mx) { mx = 1; }
+    var L = 150, R = 634, top = 10, rowH = 34, W = 660;
+    var shown = rows.slice(0, 12);
+    var H = top + shown.length * rowH + 26;
+    var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%">';
+    s += '<defs><linearGradient id="tdg' + ti + '" x1="0" y1="0" x2="1" y2="0">' +
+      '<stop offset="0" stop-color="#2E6F8E"/><stop offset="1" stop-color="#63B3D2"/>' +
+      '</linearGradient></defs>';
+    for (var g = 0; g <= 4; g++) {
+      var gx = L + (R - L) * g / 4;
+      s += '<line x1="' + gx + '" y1="' + (top - 4) + '" x2="' + gx +
+        '" y2="' + (H - 22) + '" stroke="rgba(120,130,140,.16)" stroke-width="1"/>';
+    }
+    shown.forEach(function (r, ri) {
+      var v = vals[ri];
+      var w = isFinite(v) ? Math.max(2, Math.abs(v) / mx * (R - L)) : 2;
+      var y = top + ri * rowH;
+      s += '<text x="' + (L - 8) + '" y="' + (y + 14) +
+        '" text-anchor="end" class="tdlab">' +
+        esc(String(r[0]).slice(0, 16)) + '</text>';
+      s += '<rect class="tdbar" x="' + L + '" y="' + y +
+        '" width="' + w.toFixed(1) + '" height="20" rx="4" fill="url(#tdg' + ti + ')"/>';
+      s += '<text x="' + (L + w + 6) + '" y="' + (y + 14) +
+        '" class="tdval">' + esc(String(r[col])) + '</text>';
+    });
+    s += '<line x1="' + L + '" y1="' + (top - 4) + '" x2="' + L +
+      '" y2="' + (H - 22) + '" stroke="rgba(120,130,140,.45)" stroke-width="1"/>';
+    s += '<text x="' + (L + (R - L) / 2) + '" y="' + (H - 5) +
+      '" text-anchor="middle" class="tdax">' +
+      esc(String(tb.columns[col]).slice(0, 26)) + '</text>';
+    s += '</svg>';
+    return s;
+  }
+
+  
+
+  function mfigCard(f, i) {
+    var cap = f.cap ? esc(f.cap) : ("p." + (f.page || "?") + " · " +
+      (f.w || "?") + "×" + (f.h || "?"));
+    var ex = f.explain
+      ? '<div class="fig-explain"><b>解读</b> ' + esc(f.explain) + "</div>"
+      : "";
+    return '<figure class="mfig">' +
+      '<img loading="lazy" src="/api/figure?file=' + FIG.file +
+      '&idx=' + i + '" alt="p.' + (f.page || "?") + '">' +
+      '<figcaption><span class="fkind">' +
+      (f.kind === "table" ? "原表" : "原图") + "</span> " + cap +
+      "</figcaption>" + ex + "</figure>";
+  }
+
+  function bindTdChips(box, tables) {
+    box.querySelectorAll(".td-chip, .td-type").forEach(
+      function (chip) {
+        chip.addEventListener("click", function () {
+          var ti = Number(chip.getAttribute("data-ti"));
+          var type = chip.getAttribute("data-type");
+          var c = chip.getAttribute("data-c");
+          var host = box.querySelector('.td-svg[data-ti="' + ti + '"]');
+          if (!host || !tables[ti]) { return; }
+          var cur = host.dataset.col !== undefined
+            ? Number(host.dataset.col) : null;
+          var curType = host.dataset.type || "bar";
+          var pick = tdPickCols(tables[ti])[0] || {c: 1};
+          var newC = (c !== null && c !== undefined) ? Number(c)
+            : (cur !== null ? cur : pick.c);
+          var newType = type || curType;
+          host.dataset.col = newC;
+          host.dataset.type = newType;
+          host.innerHTML = (newType === "line")
+            ? tdLine(tables[ti], newC, ti)
+            : tdSvg(tables[ti], newC, ti);
+          box.querySelectorAll('[data-ti="' + ti + '"]').forEach(
+            function (x) {
+              if (x === chip) { x.classList.add("on"); }
+              else if (x.classList.contains("td-chip")
+                       || x.classList.contains("td-type")) {
+                x.classList.remove("on");
+              }
+            });
+        });
+      });
+  }
+
+  function renderModFigs(d) {
+    var figs = d.figures || [];
+    var assigned = {};
+    Object.keys(d.modules || {}).forEach(function (bid) {
+      (d.modules[bid] || []).forEach(function (i) { assigned[i] = true; });
+    });
+    document.querySelectorAll(".mod-figs").forEach(function (host) {
+      var bid = host.getAttribute("data-bid");
+      var list = (d.modules || {})[bid] || [];
+      host.innerHTML = list.map(function (i) {
+        return figs[i] ? mfigCard(figs[i], i) : "";
+      }).join("");
+    });
+    var annex = document.getElementById("figAnnexBody");
+    if (annex) {
+      var un = [];
+      figs.forEach(function (f, i) {
+        if (!assigned[i]) { un.push(mfigCard(f, i)); }
+      });
+      annex.innerHTML = un.length ? un.join("")
+        : "<p class='empty'>全部图表都已归入上面的模块。</p>";
+    }
+  }
+
+  function renderTdModules(d) {
+    var tds = d.td || [];
+    var byMod = d.td_modules || {};
+    document.querySelectorAll(".mod-td").forEach(function (el) { el.remove(); });
+    Object.keys(byMod).forEach(function (bid) {
+      var host = document.querySelector('.mod-figs[data-bid="' + bid + '"]');
+      if (!host) { return; }
+      var sub = (byMod[bid] || []).map(function (ti) {
+        return tds[ti];
+      }).filter(Boolean);
+      if (!sub.length) { return; }
+      var el = document.createElement("div");
+      el.className = "mod-td";
+      el.innerHTML = renderBars(sub);
+      host.appendChild(el);
+      bindTdChips(el, sub);
+    });
+  }
+
+  function loadTdModules() {
+    fetch("/api/tabledata?file=" + FIG.file)
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d.state === "running") {
+          if (!FIG.tdTimer) {
+            FIG.tdTimer = setTimeout(function () {
+              FIG.tdTimer = null;
+              loadTdModules();
+            }, 8000);
+          }
+          return;
+        }
+        if (d.tables && d.tables.length) {
+          renderTdModules({td: d.tables, td_modules: FIG.tdModules});
+        }
+      })
+      .catch(function () { });
+  }
+
+  function initModFigs() {
+    fetch("/api/modfigs?file=" + FIG.file)
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d.ok) { return; }
+        renderModFigs(d);
+        if ((d.explain_state || "") === "running" && !FIG.timer) {
+          FIG.timer = setInterval(function () {
+            fetch("/api/modfigs?file=" + FIG.file)
+              .then(function (r) { return r.json(); })
+              .then(function (d2) {
+                if (!d2.ok) { return; }
+                renderModFigs(d2);
+                if (d2.explain_state !== "running") {
+                  clearInterval(FIG.timer);
+                  FIG.timer = null;
+                }
+              }).catch(function () { });
+          }, 5000);
+        }
+        if ((d.td_state || "") === "done") {
+          renderTdModules(d);
+        } else {
+          FIG.tdModules = d.td_modules || {};
+          loadTdModules();
+        }
+      })
+      .catch(function () { });
+  }
+
+  // ---- 动态讲解（v0.14.0）：分镜播放器 ----
+  var DEMO = {idx: 0, beat: 0, playing: false, timer: null, script: null};
+
+  function demoColor(name) {
+    return {red: "#C0483B", teal: "#2E6F8E", amber: "#C98A2D",
+      gray: "#8FA5B1"}[name] || "#8FA5B1";
+  }
+
+  function demoSvg(sc) {
+    var v = sc.viz || {};
+    var t = v.type || "";
+    function G(ei, inner) {
+      return '<g data-ei="' + ei + '">' + inner + "</g>";
+    }
+    // ---- mindmap：全文导图，分支逐拍出现 ----
+    if (t === "mindmap") {
+      var brs = v.branches || [];
+      var nb = Math.max(brs.length, 1);
+      var head = '<defs><radialGradient id="dmgc" cx="35%" cy="30%">' +
+        '<stop offset="0" stop-color="#4A93BC"/><stop offset="1" stop-color="#2E6F8E"/>' +
+        "</radialGradient>" +
+        '<filter id="dmsh" x="-25%" y="-25%" width="150%" height="150%">' +
+        '<feDropShadow dx="0" dy="2.5" stdDeviation="3.2" flood-color="#24303B" flood-opacity=".14"/>' +
+        "</filter></defs>" +
+        '<circle cx="230" cy="62" r="30" fill="url(#dmgc)" filter="url(#dmsh)"></circle>' +
+        '<text x="230" y="59" text-anchor="middle" class="dm-ct">' +
+        esc((v.center || "").slice(0, 8)) + "</text>" +
+        '<text x="230" y="73" text-anchor="middle" class="dm-ct2">' +
+        esc((v.center || "").slice(8, 16)) + "</text>";
+      var tints = [["#FBEDEA", "#C0483B"], ["#E8F2EF", "#2E6F8E"],
+        ["#FBF1E6", "#C98A2D"], ["#EAF0EA", "#4E9A72"],
+        ["#F0EDE5", "#5F5E5A"]];
+      var o1 = "";
+      brs.forEach(function (b, i) {
+        var cx = (460 / nb) * (i + 0.5);
+        var tint = tints[i % tints.length];
+        var s1 = '<path class="dm-mm-line" d="M230 92 C 230 106, ' + cx +
+          ' 106, ' + cx + ' 120"></path>' +
+          '<rect x="' + (cx - 46) + '" y="120" width="92" height="116" rx="12" fill="' +
+          tint[0] + '" stroke="' + tint[1] + '" stroke-width="1.4" filter="url(#dmsh)"></rect>' +
+          '<rect x="' + (cx - 46) + '" y="120" width="92" height="5" rx="2.5" fill="' +
+          tint[1] + '"></rect>' +
+          '<text x="' + cx + '" y="141" text-anchor="middle" class="dm-mm-bt" fill="' +
+          tint[1] + '">' + esc((b.label || "").slice(0, 6)) + "</text>";
+        (b.nodes || []).slice(0, 4).forEach(function (nd, k) {
+          s1 += '<text x="' + cx + '" y="' + (163 + k * 18) +
+            '" text-anchor="middle" class="dm-nd">' +
+            esc(String(nd).slice(0, 7)) + "</text>";
+        });
+        o1 += G(i, s1);
+      });
+      return '<svg viewBox="0 0 460 248" class="dm-svg">' + head + o1 + "</svg>";
+    }
+    // ---- tokens：元素堆；move 拍时目标组的点从来源组滑过来 ----
+    if (t === "tokens") {
+      var o2 = "", yy = 46;
+      var mvs = {};
+      (sc.beats || []).forEach(function (b, bi) {
+        var a = b.act || {};
+        if (a.kind === "move" && isFinite(a.from) && isFinite(a.to) &&
+            a.from !== a.to) {
+          mvs[a.to | 0] = {dy: ((a.from | 0) - (a.to | 0)) * 34,
+            bi: bi, n: Math.min(a.n | 0 || 3, 9)};
+        }
+      });
+      (v.groups || []).forEach(function (g, gi) {
+        var s2 = "";
+        for (var i = 0; i < (g.count || 1); i++) {
+          var mv = mvs[gi];
+          var attr = "";
+          if (mv && i < mv.n) {
+            attr = ' data-mv="' + mv.bi + '" style="--mvdy:' + mv.dy + 'px"';
+          }
+          s2 += '<circle' + attr + ' cx="' + (34 + i * 26) + '" cy="' + yy +
+            '" r="9" fill="' + demoColor(g.color) + '" opacity=".85"></circle>';
+        }
+        s2 += '<text class="dm-lb" x="' + (34 + (g.count || 1) * 26 + 12) +
+          '" y="' + (yy + 4) + '">' + esc(g.label) + "</text>";
+        o2 += G(gi, s2);
+        yy += 34;
+      });
+      return '<svg viewBox="0 0 460 ' + (yy + 6) + '" class="dm-svg">' + o2 + "</svg>";
+    }
+    // ---- flow：流程逐步点亮 ----
+    if (t === "flow") {
+      var steps = v.steps || [];
+      var nn = Math.max(steps.length, 1);
+      var gap = 12, m2 = 14;
+      var bw = (460 - m2 * 2 - gap * (nn - 1)) / nn;
+      var h2 = "";
+      steps.forEach(function (st, i) {
+        var x = m2 + i * (bw + gap);
+        var lines = [];
+        for (var pp = 0; pp < st.length && lines.length < 3; pp += 6) {
+          lines.push(st.slice(pp, pp + 6));
+        }
+        var y0 = 74 - (lines.length - 1) * 13;
+        var s3 = "";
+        if (i > 0) {
+          s3 += '<path class="dm-arr" d="M' + (x - gap + 1) + ' 72 L' +
+            (x - 2) + ' 72"></path>';
+        }
+        s3 += '<rect class="dm-flow" x="' + x.toFixed(1) + '" y="36" width="' +
+          bw.toFixed(1) + '" height="72" rx="10"></rect>';
+        lines.forEach(function (ln, li) {
+          s3 += '<text class="dm-lb" x="' + (x + bw / 2).toFixed(1) +
+            '" y="' + (y0 + li * 26) + '" text-anchor="middle">' +
+            esc(ln) + "</text>";
+        });
+        h2 += G(i, s3);
+      });
+      return '<svg viewBox="0 0 460 150" class="dm-svg">' + h2 + "</svg>";
+    }
+    // ---- bars：柱状生长 ----
+    if (t === "bars") {
+      var its = v.items || [];
+      var mx = 0;
+      its.forEach(function (it) {
+        if (Math.abs(Number(it.value)) > mx) { mx = Math.abs(Number(it.value)); }
+      });
+      if (!mx) { mx = 1; }
+      var o4 = '<line x1="30" y1="216" x2="440" y2="216" stroke="#C9CFCF" stroke-width="1.5"></line>' +
+        (v.unit ? '<text x="440" y="24" text-anchor="end" class="dm-lb2">单位:' +
+          esc(v.unit) + "</text>" : "");
+      its.forEach(function (it, i) {
+        var bw2 = 380 / its.length - 16;
+        var x = 40 + i * (380 / its.length);
+        var hh = Math.max(8, (Math.abs(Number(it.value)) / mx) * 150);
+        var col = it.tag === "before" ? "#C0483B" :
+          (it.tag === "after" ? "#4E9A72" : "#8FA5B1");
+        var gid = "dmgb" + i;
+        o4 += '<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="0" y2="1">' +
+          '<stop offset="0" stop-color="' + col + '"/><stop offset="1" stop-color="' +
+          col + '" stop-opacity=".72"/></linearGradient></defs>';
+        o4 += G(i, '<rect class="dm-bar" x="' + x.toFixed(1) + '" y="' + (216 - hh).toFixed(1) +
+          '" width="' + bw2.toFixed(1) + '" height="' + hh.toFixed(1) +
+          '" rx="7" fill="url(#' + gid + ')" filter="url(#dmsh)"></rect>' +
+          '<text x="' + (x + bw2 / 2).toFixed(1) + '" y="' + (206 - hh).toFixed(1) +
+          '" text-anchor="middle" class="dm-lb2">' + it.value + "</text>" +
+          '<text x="' + (x + bw2 / 2).toFixed(1) + '" y="234" text-anchor="middle" class="dm-lb">' +
+          esc(String(it.label).slice(0, 8)) + "</text>");
+      });
+      return '<svg viewBox="0 0 460 246" class="dm-svg">' + o4 + "</svg>";
+    }
+    // ---- line：趋势折线，逐点画入 ----
+    if (t === "line") {
+      var xs = v.x || [], ys = v.y || [];
+      var mx2 = 0, mn2 = Infinity;
+      ys.forEach(function (yv) {
+        if (yv > mx2) { mx2 = yv; }
+        if (yv < mn2) { mn2 = yv; }
+      });
+      if (!isFinite(mn2)) { mn2 = 0; }
+      var span = (mx2 - mn2) || 1;
+      function px(i) { return 40 + i * (400 / Math.max(xs.length - 1, 1)); }
+      function py(yv) { return 200 - ((yv - mn2) / span) * 150; }
+      var o5 = '<line x1="30" y1="216" x2="440" y2="216" stroke="#C9CFCF"></line>';
+      xs.forEach(function (xl, i) {
+        var s5 = "";
+        if (i > 0) {
+          s5 += '<line class="dm-seg" x1="' + px(i - 1).toFixed(1) + '" y1="' +
+            py(ys[i - 1]).toFixed(1) + '" x2="' + px(i).toFixed(1) + '" y2="' +
+            py(ys[i]).toFixed(1) + '" stroke="#2E6F8E" stroke-width="2.4"></line>';
+        }
+        s5 += '<circle cx="' + px(i).toFixed(1) + '" cy="' + py(ys[i]).toFixed(1) +
+          '" r="4.5" fill="#2E6F8E"></circle>';
+        if (i === 0 || i === xs.length - 1 || i === Math.floor(xs.length / 2)) {
+          s5 += '<text x="' + px(i).toFixed(1) + '" y="' +
+            (py(ys[i]) - 12).toFixed(1) + '" text-anchor="middle" class="dm-lb2">' +
+            ys[i] + "</text>";
+        }
+        s5 += '<text x="' + px(i).toFixed(1) + '" y="234" text-anchor="middle" class="dm-lb">' +
+          esc(String(xl).slice(0, 6)) + "</text>";
+        o5 += G(i, s5);
+      });
+      return '<svg viewBox="0 0 460 246" class="dm-svg">' + o5 + "</svg>";
+    }
+    // ---- compare：左右对比卡 ----
+    if (t === "compare") {
+      function card(d, x, tint, ei) {
+        var s6 = '<rect x="' + x + '" y="30" width="200" height="176" rx="12" fill="' +
+          tint[0] + '" stroke="' + tint[1] + '" stroke-width="1.4" filter="url(#dmsh)"></rect>' +
+          '<text x="' + (x + 100) + '" y="56" text-anchor="middle" class="dm-hd" fill="' +
+          tint[1] + '">' + esc((d.title || "").slice(0, 8)) + "</text>";
+        (d.items || []).slice(0, 3).forEach(function (it, k) {
+          s6 += '<text x="' + (x + 14) + '" y="' + (90 + k * 38) +
+            '" class="dm-lb2">' + esc(String(it).slice(0, 11)) + "</text>";
+        });
+        return G(ei, s6);
+      }
+      return '<svg viewBox="0 0 460 220" class="dm-svg">' +
+        card(v.left || {}, 16, ["#FBEDEA", "#C0483B"], 0) +
+        card(v.right || {}, 244, ["#E8F2EF", "#2E6F8E"], 1) +
+        '<circle cx="230" cy="118" r="20" fill="#fff" stroke="#C9CFCF"></circle>' +
+        '<text x="230" y="124" text-anchor="middle" class="dm-vs">VS</text></svg>';
+    }
+    // ---- mapping：映射连线，逐条画入 ----
+    if (t === "mapping") {
+      var L = v.left || [], R = v.right || [], LK = v.links || [];
+      var o6 = "", ly = [], ry = [];
+      L.forEach(function (lb, i) {
+        var y = 36 + i * 44;
+        ly.push(y);
+        o6 += G(0, '<rect x="30" y="' + y + '" width="120" height="32" rx="8" fill="#E8F2EF" stroke="#2E6F8E" stroke-width="1.2"></rect>' +
+          '<text x="90" y="' + (y + 21) + '" text-anchor="middle" class="dm-lb2">' +
+          esc(String(lb).slice(0, 10)) + "</text>");
+      });
+      R.forEach(function (rb, i) {
+        var y = 36 + i * 44;
+        ry.push(y);
+        o6 += G(1, '<rect x="310" y="' + y + '" width="120" height="32" rx="8" fill="#EAF0EA" stroke="#4E9A72" stroke-width="1.2"></rect>' +
+          '<text x="370" y="' + (y + 21) + '" text-anchor="middle" class="dm-lb2">' +
+          esc(String(rb).slice(0, 10)) + "</text>");
+      });
+      LK.forEach(function (lk, k) {
+        var a = lk[0] | 0, b2 = lk[1] | 0;
+        if (a >= ly.length || b2 >= ry.length) { return; }
+        o6 += G(2 + k, '<path class="dm-lnk" d="M150 ' + (ly[a] + 16) +
+          ' C 225 ' + (ly[a] + 16) + ', 235 ' + (ry[b2] + 16) + ', 310 ' +
+          (ry[b2] + 16) + '"></path>');
+      });
+      return '<svg viewBox="0 0 460 ' +
+        (Math.max(ly.length, ry.length) * 44 + 44) +
+        '" class="dm-svg">' + o6 + "</svg>";
+    }
+    // ---- transform：结构替换（前 → 箭头 → 后） ----
+    if (t === "transform") {
+      var bf = (v.before || {}).blocks || [];
+      var af = (v.after || {}).blocks || [];
+      var o7 = '<text x="230" y="26" text-anchor="middle" class="dm-lb">改动前</text>';
+      bf.forEach(function (bk, i) {
+        var w = 380 / Math.max(bf.length, 1) - 12;
+        var x = 40 + i * (380 / Math.max(bf.length, 1));
+        o7 += G(0, '<rect x="' + x.toFixed(1) + '" y="36" width="' + w.toFixed(1) +
+          '" height="56" rx="9" fill="#FBEDEA" stroke="#C0483B" stroke-width="1.3" filter="url(#dmsh)"></rect>' +
+          '<text x="' + (x + w / 2).toFixed(1) + '" y="70" text-anchor="middle" class="dm-lb2">' +
+          esc(String(bk).slice(0, 12)) + "</text>");
+      });
+      o7 += G(1, '<path class="dm-bigarr" d="M230 100 L230 130 M221 122 L230 132 L239 122"></path>');
+      o7 += '<text x="230" y="164" text-anchor="middle" class="dm-lb">改动后</text>';
+      af.forEach(function (bk, i) {
+        var w = 380 / Math.max(af.length, 1) - 12;
+        var x = 40 + i * (380 / Math.max(af.length, 1));
+        o7 += G(2, '<rect x="' + x.toFixed(1) + '" y="172" width="' + w.toFixed(1) +
+          '" height="56" rx="9" fill="#E8F2EF" stroke="#2E6F8E" stroke-width="1.3" filter="url(#dmsh)"></rect>' +
+          '<text x="' + (x + w / 2).toFixed(1) + '" y="206" text-anchor="middle" class="dm-lb2">' +
+          esc(String(bk).slice(0, 12)) + "</text>");
+      });
+      var nt = v.note ? '<text x="230" y="252" text-anchor="middle" class="dm-lb">' +
+        esc(String(v.note).slice(0, 16)) + "</text>" : "";
+      return '<svg viewBox="0 0 460 260" class="dm-svg">' + o7 + nt + "</svg>";
+    }
+    // ---- pipeline：端到端流水线，粒子流动 ----
+    if (t === "pipeline") {
+      var st = v.stages || [];
+      var n9 = Math.max(st.length, 1);
+      var w9 = 420 / n9 - 12;
+      var o9 = '<line x1="20" y1="122" x2="440" y2="122" stroke="#C9CFCF" stroke-width="3" stroke-linecap="round"></line>';
+      for (var pi = 0; pi < 3; pi++) {
+        o9 += '<g class="dm-pp" style="animation-delay:' + (pi * 1.1) +
+          's"><circle r="5" fill="#2E6F8E" cy="122" cx="24"></circle></g>';
+      }
+      st.forEach(function (sg, i) {
+        var x = 20 + i * (420 / n9);
+        var last = i === st.length - 1;
+        o9 += G(i, '<rect x="' + x.toFixed(1) + '" y="90" width="' + w9.toFixed(1) +
+          '" height="64" rx="10" fill="' + (last ? "#EAF0EA" : "#E8F2EF") +
+          '" stroke="' + (last ? "#4E9A72" : "#2E6F8E") +
+          '" stroke-width="1.3"></rect>' +
+          '<text x="' + (x + w9 / 2).toFixed(1) + '" y="118" text-anchor="middle" class="dm-hd">' +
+          esc(String(sg.name || "").slice(0, 6)) + "</text>" +
+          '<text x="' + (x + w9 / 2).toFixed(1) + '" y="140" text-anchor="middle" class="dm-lb">' +
+          esc(String(sg.note || "").slice(0, 9)) + "</text>");
+      });
+      return '<svg viewBox="0 0 460 180" class="dm-svg">' + o9 + "</svg>";
+    }
+    return '<svg viewBox="0 0 460 120" class="dm-svg"></svg>';
+  }
+
+  function dmBeats(sc) {
+    return (sc.beats && sc.beats.length) ? sc.beats : null;
+  }
+
+  function applyBeat() {
+    var sc = DEMO.script.scenes[DEMO.idx];
+    var beats = dmBeats(sc);
+    var els = document.querySelectorAll("#spBody [data-ei]");
+    if (!beats) {
+      els.forEach(function (el) {
+        el.classList.add("dm-on");
+        el.classList.remove("dm-hl", "dm-pre");
+      });
+      return;
+    }
+    DEMO.beat = Math.max(0, Math.min(DEMO.beat, beats.length - 1));
+    var shown = [], hl = -1;
+    for (var i = 0; i <= DEMO.beat; i++) {
+      var a = (beats[i].act || {});
+      if (a.kind === "highlight") { hl = a.target | 0; }
+      else if (a.kind === "reveal") { shown.push(a.target | 0); }
+    }
+    els.forEach(function (el) {
+      var ei = Number(el.getAttribute("data-ei"));
+      var on = shown.indexOf(ei) >= 0;
+      el.classList.toggle("dm-on", on);
+      el.classList.toggle("dm-hl", ei === hl && on);
+    });
+    document.querySelectorAll("#spBody [data-mv]").forEach(function (d) {
+      d.classList.toggle("dm-pre",
+        DEMO.beat < Number(d.getAttribute("data-mv")));
+    });
+    var stage2 = document.querySelector("#spBody .dm-stage");
+    if (stage2) { stage2.classList.toggle("dm-zoom", hl >= 0); }
+    typeNarr(beats[DEMO.beat].say);
+    document.querySelectorAll(".dm-tick").forEach(function (tk, i) {
+      tk.classList.toggle("on", i <= DEMO.beat);
+    });
+  }
+
+  function dmBeatMs(sc, i) {
+    var beats = dmBeats(sc);
+    if (!beats) { return 4600; }
+    var say = beats[i].say || "";
+    return Math.max(3200, Math.min(8600, 2400 + say.length * 95));
+  }
+
+  function typeNarr(text) {
+    var narr = document.getElementById("dmNarr");
+    if (!narr) { return; }
+    if (DEMO.twTimer) { clearInterval(DEMO.twTimer); DEMO.twTimer = null; }
+    narr.textContent = "";
+    var i = 0;
+    DEMO.twTimer = setInterval(function () {
+      i += 1;
+      narr.textContent = text.slice(0, i);
+      if (i >= text.length && DEMO.twTimer) {
+        clearInterval(DEMO.twTimer);
+        DEMO.twTimer = null;
+      }
+    }, 52);
+  }
+
+  function demoAuto() {
+    if (DEMO.timer) { clearTimeout(DEMO.timer); DEMO.timer = null; }
+    if (!DEMO.playing || !DEMO.script) { return; }
+    var step = function () {
+      var sc = DEMO.script.scenes[DEMO.idx];
+      var beats = dmBeats(sc);
+      if (beats && DEMO.beat < beats.length - 1) {
+        DEMO.beat++;
+        applyBeat();
+        DEMO.timer = setTimeout(step, dmBeatMs(sc, DEMO.beat));
+      } else {
+        DEMO.idx = (DEMO.idx + 1) % DEMO.script.scenes.length;
+        DEMO.beat = 0;
+        renderDemoScene();
+      }
+    };
+    DEMO.timer = setTimeout(step,
+      dmBeatMs(DEMO.script.scenes[DEMO.idx], DEMO.beat));
+  }
+
+  function renderDemoScene() {
+    if (DEMO.twTimer) { clearInterval(DEMO.twTimer); DEMO.twTimer = null; }
+    var sc = DEMO.script.scenes[DEMO.idx];
+    var v = sc.viz || {};
+    var beats = dmBeats(sc);
+    var narr0 = beats ? beats[0].say : sc.narration;
+    var cap = v.caption ? '<div class="dm-cap">' + esc(v.caption) + "</div>"
+      : "";
+    var ticks = "";
+    if (beats) {
+      ticks = '<div class="dm-ticks">' + beats.map(function (_, i) {
+        return '<span class="dm-tick' + (i === 0 ? " on" : "") +
+          '" data-ti="' + i + '"></span>';
+      }).join("") + "</div>";
+    }
+    document.getElementById("spBody").innerHTML =
+      '<div class="dm-wrap"><div class="dm-title">' +
+      esc(DEMO.script.title) + "</div>" + cap +
+      '<div class="dm-stage">' + demoSvg(sc) + "</div>" +
+      '<div class="dm-narr" id="dmNarr"></div>' + ticks +
+      '<div class="dm-ctl">' +
+      '<button id="dmPrev" title="上一镜">‹</button>' +
+      '<button id="dmPlay">' + (DEMO.playing ? "暂停" : "播放") + "</button>" +
+      '<button id="dmNext" title="下一镜">›</button>' +
+      '<span class="dm-dots">' +
+      DEMO.script.scenes.map(function (_, i) {
+        return '<span class="dm-dot' + (i === DEMO.idx ? " on" : "") +
+          '" data-di="' + i + '"></span>';
+      }).join("") + "</span>" +
+      '<span class="dm-num">' + (DEMO.idx + 1) + "/" +
+      DEMO.script.scenes.length + "</span></div></div>";
+    document.getElementById("dmPrev").addEventListener("click", function () {
+      DEMO.idx = (DEMO.idx - 1 + DEMO.script.scenes.length) %
+        DEMO.script.scenes.length;
+      DEMO.beat = 0;
+      renderDemoScene();
+    });
+    document.getElementById("dmNext").addEventListener("click", function () {
+      DEMO.idx = (DEMO.idx + 1) % DEMO.script.scenes.length;
+      DEMO.beat = 0;
+      renderDemoScene();
+    });
+    document.getElementById("dmPlay").addEventListener("click", function () {
+      DEMO.playing = !DEMO.playing;
+      demoAuto();
+      renderDemoScene();
+    });
+    document.querySelectorAll("#spBody .dm-dot").forEach(function (d3) {
+      d3.addEventListener("click", function () {
+        DEMO.idx = Number(d3.getAttribute("data-di"));
+        DEMO.beat = 0;
+        renderDemoScene();
+      });
+    });
+    document.querySelectorAll("#spBody .dm-tick").forEach(function (tk) {
+      tk.addEventListener("click", function () {
+        DEMO.beat = Number(tk.getAttribute("data-ti"));
+        applyBeat();
+      });
+    });
+    typeNarr(narr0);
+    typeNarr(narr0);
+    applyBeat();
+    demoAuto();
+  }
+
+  function initDemo(body) {
+    body.innerHTML = '<p class="empty">正在准备动态讲解…</p>';
+    fetch("/api/demo?file=" + encodeURIComponent(__PA_SERVE__.report))
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d.script && d.script.scenes && d.script.scenes.length) {
+          DEMO.script = d.script;
+          DEMO.idx = 0;
+          DEMO.beat = 0;
+          DEMO.playing = true;
+          renderDemoScene();
+          return;
+        }
+        if (d.state === "running" || d.state === "none") {
+          body.innerHTML = '<p class="empty">模型正在为这篇论文生成分镜脚本…' +
+            "<br>约半分钟，生成后自动播放。</p>";
+          if (d.state === "none") {
+            fetch("/api/demo?file=" +
+                  encodeURIComponent(__PA_SERVE__.report),
+                  {method: "POST"});
+          }
+          setTimeout(function () { initDemo(body); }, 5000);
+          return;
+        }
+        body.innerHTML = '<p class="empty" style="cursor:pointer">' +
+          "生成失败：" + esc(d.error || "未知错误") + "<br>点击重试。</p>";
+        body.firstChild.addEventListener("click", function () {
+          initDemo(body);
+        });
+      })
+      .catch(function (e) { body.textContent = "加载失败：" + e; });
+  }
+
+  if (window.__PA_SERVE__) { initModFigs(); }
+
+  document.getElementById("stat").textContent =
+    (D.blocks || 0) + " 个板块 · 全部内容均来自原文抽取";
+
+  // 折叠交互
+  document.getElementById("main").addEventListener("click", function (e) {
+    var head = e.target.closest(".c-head");
+    if (!head) { return; }
+    head.parentElement.classList.toggle("open");
+  });
+
+  // 一键全部折叠 / 展开
+  document.getElementById("toggleAll").addEventListener("click", function () {
+    var cards = document.querySelectorAll("article.card");
+    var anyOpen = Array.prototype.some.call(cards, function (c) {
+      return c.classList.contains("open");
+    });
+    Array.prototype.forEach.call(cards, function (c) {
+      c.classList.toggle("open", !anyOpen);
+    });
+    this.textContent = anyOpen ? "全部展开" : "全部折叠";
+  });
+
+  // 把带缩进的纯文本转成层级列表，让「分类框架」这类内容能看出结构
+  // 行内 Markdown：**加粗** 与 `行内码`。在 esc 之后做替换，
+    // 不会引入注入面（** 与 ` 本身已被转义规则保留为普通字符）。
+  function inlineMd(s) {
+    return s
+      .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
+      .replace(/`([^`]+)`/g, '<code style="font-family:var(--mono);font-size:.92em">$1</code>');
+  }
+  function formatText(text) {
+    if (!text) { return ""; }
+    var lines = text.split(/\n/);
+    var hasList = lines.some(function (l) { return /^\s*(\d+[.)]|[-*•])\s+/.test(l); });
+    if (!hasList) {
+      return text.split(/\n{2,}/).map(function (p) {
+        return "<p>" + inlineMd(esc(p.trim())).replace(/\n/g, "<br>") + "</p>";
+      }).join("");
+    }
+
+    var html = [];
+    var stack = [];   // 每层的缩进宽度
+    lines.forEach(function (raw) {
+      if (!raw.trim()) { return; }
+      var m = raw.match(/^(\s*)(\d+[.)]|[-*•])\s+(.*)$/);
+      if (!m) {
+        if (html.length && stack.length) {
+          html[html.length - 1] = html[html.length - 1].replace(/<\/li>$/, " " + esc(raw.trim()) + "</li>");
+        } else {
+          html.push("<p>" + esc(raw.trim()) + "</p>");
+        }
+        return;
+      }
+      var indent = m[1].replace(/\t/g, "    ").length;
+      var body = esc(m[3]);
+      if (m[2].match(/^\d/)) { body = "<b>" + body + "</b>"; }
+
+      while (stack.length && indent < stack[stack.length - 1]) {
+        html.push("</li></ul>"); stack.pop();
+      }
+      if (!stack.length || indent > stack[stack.length - 1]) {
+        html.push("<ul>"); stack.push(indent);
+      } else {
+        html.push("</li>");
+      }
+      html.push("<li>" + body);
+    });
+    while (stack.length) { html.push("</li></ul>"); stack.pop(); }
+    return html.join("");
+  }
+
+  /* ==================== 论证链 ====================
+     固定的是这个渲染引擎：怎么排版、怎么动、怎么标注差异。
+     不固定的是链条本身——节点几个、什么类型、顺序如何，全由论文决定。
+  */
+  function chainSection() {
+    var nodes = CHAIN.nodes;
+    var h = ['<section class="group" id="chain">'];
+    h.push('<div class="g-head"><h2>论证链</h2>');
+    h.push('<span class="count">' + nodes.length + ' 个环节 · 可播放</span></div>');
+    h.push('<article class="chain-card">');
+
+    if (CHAIN.thesis) {
+      h.push('<p class="chain-thesis"><b>主张</b>' + esc(CHAIN.thesis) + "</p>");
+    }
+
+    h.push('<div class="chain-rail" data-rail>' + railHTML(nodes) + "</div>");
+    h.push('<div class="chain-detail" data-detail></div>');
+
+    h.push('<div class="chain-bar">');
+    h.push('<button class="cb-btn" data-act="play">▶ 播放</button>');
+    h.push('<button class="cb-btn ghost" data-act="prev" aria-label="上一步">←</button>');
+    h.push('<button class="cb-btn ghost" data-act="next" aria-label="下一步">→</button>');
+    h.push('<div class="cb-track" data-track><div class="cb-fill" data-fill></div></div>');
+    h.push('<span class="cb-count" data-count></span>');
+    h.push("</div>");
+
+    if (CHAIN.warnings && CHAIN.warnings.length) {
+      h.push('<div class="chain-warn">');
+      CHAIN.warnings.forEach(function (w) {
+        h.push("<span>" + esc(w) + "</span>");
+      });
+      h.push("</div>");
+    }
+
+    h.push("</article></section>");
+    return h.join("");
+  }
+
+  function railHTML(nodes) {
+    var h = [];
+    nodes.forEach(function (n, i) {
+      h.push('<div class="cc" data-i="' + i + '" style="--c:' + typeColor(n.type) + '">');
+      h.push('<div class="cc-t"><i></i>' + esc(typeLabel(n.type)) + "</div>");
+      h.push('<div class="cc-l">' + esc(n.label) + "</div>");
+      h.push("</div>");
+      if (i < nodes.length - 1) {
+        h.push('<div class="cl" data-link="' + i + '"><i></i></div>');
+      }
+    });
+    return h.join("");
+  }
+
+  function typeLabel(t) {
+    var meta = (CHAIN.types || {})[t];
+    return meta ? meta.label : t;
+  }
+
+  function typeColor(t) {
+    var meta = (CHAIN.types || {})[t];
+    return meta ? meta.color : "#8FD2F0";
+  }
+
+  function detailHTML(n) {
+    var h = ['<div class="cd-head">'];
+    h.push('<span class="cd-badge" style="color:' + typeColor(n.type) + '">' +
+           esc(typeLabel(n.type)) + "</span>");
+    h.push('<span class="cd-title">' + esc(n.label) + "</span>");
+    h.push(askBtn("n:" + n.id, true) + "</div>");
+
+    if (n.detail) { h.push('<p class="cd-text">' + esc(n.detail) + "</p>"); }
+
+    if (n.type === "change" && n.before && n.after) {
+      h.push('<div class="delta">');
+      h.push('<div class="delta-col before"><div class="delta-tag">改动前</div>' +
+             diagramHTML(n.before) + "</div>");
+      h.push('<div class="delta-arrow">→</div>');
+      h.push('<div class="delta-col after"><div class="delta-tag">改动后</div>' +
+             diagramHTML(n.after) + "</div>");
+      h.push("</div>");
+    } else if (n.type === "taxonomy" && n.root) {
+      h.push(taxHTML(n.root));
+    } else if (n.metric) {
+      h.push(metricHTML(n.metric));
+      if (n.before) { h.push(diagramHTML(n.before)); }
+    } else if (n.before) {
+      h.push(diagramHTML(n.before));
+    }
+
+    if (n.forks && n.forks.length) {
+      // 分叉：这个节点分出的并行方向——独立贡献各自成卡，不再压成一条线
+      h.push('<div class="forks"><div class="forks-cap">并行分支 ×' +
+        n.forks.length + "</div>");
+      n.forks.forEach(function (f) {
+        h.push('<div class="fork-card"><b>' + esc(f.label) + "</b>");
+        if (f.detail) { h.push('<span>' + esc(f.detail) + "</span>"); }
+        h.push("</div>");
+      });
+      h.push("</div>");
+    }
+
+    if (n.evidence && n.evidence.length) {
+      var ev = n.evidence[0];
+      h.push('<div class="cd-ev"><b>' + esc(locatorOf(ev)) + "</b>");
+      h.push("<span>" + esc(trunc(ev.quote, 170)) + "</span>");
+      if (ev.quote_zh && ev.quote_zh !== ev.quote) {
+        h.push('<span class="zh">' + esc(trunc(ev.quote_zh, 170)) + "</span>");
+      }
+      h.push("</div>");
+    }
+    return h.join("");
+  }
+
+  function diagramHTML(spec) {
+    if (!spec) { return ""; }
+    var cap = spec.label ? '<div class="dg-cap">' + esc(spec.label) + "</div>" : "";
+
+    if (spec.kind === "tokens") {
+      var n = Math.max(1, Math.min(12, Number(spec.n) || 4));
+      var cadence = Number(spec.cadence);
+      if (!isFinite(cadence) || cadence <= 0) { cadence = 1; }
+      var h = ['<div class="dg">'];
+      for (var i = 0; i < n; i++) {
+        // 用间隔象征节奏：cadence 越大，点亮越慢。速度差异因此「看得见」。
+        var delay = (i * cadence * 0.13).toFixed(2);
+        h.push('<span class="dg-tk" style="--d:' + delay + '"></span>');
+      }
+      h.push("</div>");
+      return cap + h.join("");
+    }
+
+    if (spec.kind === "bars") {
+      var items = spec.items || [];
+      var max = 0;
+      items.forEach(function (it) {
+        max = Math.max(max, Math.abs(Number(it.value) || 0));
+      });
+      max = max || 1;
+      var hb = ["<div class=\"dg-bars\">"];
+      items.forEach(function (it) {
+        var v = Number(it.value) || 0;
+        var pct = Math.round((Math.abs(v) / max) * 100);
+        hb.push('<div class="dg-bar"><span>' + esc(it.label || "") + "</span>");
+        hb.push('<span class="dg-track"><span class="dg-fill" style="--w:' +
+                pct + '%"></span></span>');
+        hb.push('<span class="dg-val">' + esc(String(it.value)) + "</span></div>");
+      });
+      hb.push("</div>");
+      return cap + hb.join("");
+    }
+
+    if (spec.kind === "blocks") {
+      var list = spec.items || [];
+      var hl = typeof spec.highlight === "number" ? spec.highlight : -1;
+      var hbl = ['<div class="dg-blocks">'];
+      list.forEach(function (it, k) {
+        hbl.push('<div class="dg-bl' + (k === hl ? " hl" : "") + '">' +
+                 esc(it) + "</div>");
+      });
+      hbl.push("</div>");
+      return cap + hbl.join("");
+    }
+
+    return cap + '<p class="dg-text">' + esc(spec.text || "") + "</p>";
+  }
+
+  function metricHTML(m) {
+    var raw = String(m.value == null ? "" : m.value);
+    var num = parseFloat(raw.replace(/[^0-9.\-]/g, ""));
+    var h = ['<div class="metric">'];
+    h.push('<span class="metric-n" data-to="' + (isFinite(num) ? num : "") +
+           '">' + esc(raw) + "</span>");
+    if (m.unit) { h.push('<span class="metric-u">' + esc(m.unit) + "</span>"); }
+    if (m.label) { h.push('<span class="metric-l">' + esc(m.label) + "</span>"); }
+    h.push("</div>");
+    return h.join("");
+  }
+
+  function taxHTML(root) {
+    var h = ['<div class="cd-tax">'];
+    (function walk(node, d) {
+      if (!node || !node.name) { return; }
+      h.push('<div class="ct" data-d="' + d + '"><span class="ct-dot"></span>');
+      h.push('<span class="ct-n">' + esc(node.name) + "</span>");
+      if (node.what) { h.push('<span class="ct-w">' + esc(node.what) + "</span>"); }
+      h.push("</div>");
+      var kids = node.children || [];
+      if (kids.length) {
+        h.push('<div class="ct-kids">');
+        kids.forEach(function (c) { walk(c, d + 1); });
+        h.push("</div>");
+      }
+    })(root, 0);
+    h.push("</div>");
+    return h.join("");
+  }
+
+  // 数字滚动：只有能解析成数字的才动，否则原样显示
+  function animateNumber(el) {
+    var finalText = el.textContent;
+    var target = parseFloat(el.getAttribute("data-to"));
+    if (!isFinite(target)) { return; }
+    // 先落盘正确值：万一 rAF 被节流（后台标签页、无头截图），
+    // 界面上也不能留一个错了的数字
+    el.textContent = finalText;
+    var dot = finalText.indexOf(".");
+    var decimals = dot >= 0 ? (finalText.length - dot - 1) : 0;
+    var t0 = null;
+    function frame(t) {
+      if (t0 === null) { t0 = t; }
+      var p = Math.min(1, (t - t0) / 700);
+      var eased = 1 - Math.pow(1 - p, 3);
+      el.textContent = (target * eased).toFixed(decimals);
+      if (p < 1) { requestAnimationFrame(frame); }
+    }
+    requestAnimationFrame(frame);
+    // 兜底：动画停摆也必须回到正确值
+    setTimeout(function () { el.textContent = finalText; }, 820);
+  }
+
+  function initChain() {
+    if (!CHAIN || !CHAIN.nodes || !CHAIN.nodes.length) { return; }
+    var card = document.querySelector(".chain-card");
+    if (!card) { return; }
+
+    var rail = card.querySelector("[data-rail]");
+    var detail = card.querySelector("[data-detail]");
+    var fill = card.querySelector("[data-fill]");
+    var count = card.querySelector("[data-count]");
+    var playBtn = card.querySelector('[data-act="play"]');
+    var track = card.querySelector("[data-track]");
+    var total = CHAIN.nodes.length;
+    var st = { i: 0, timer: null, auto: false };
+
+    function dwellFor(node) {
+      if (node.type === "change") { return 3200; }
+      if (node.type === "effect") { return 2400; }
+      if (node.type === "taxonomy") { return 2600; }
+      return 1800;
+    }
+
+    function paint(run) {
+      var idx = st.i;
+      Array.prototype.forEach.call(rail.querySelectorAll(".cc"), function (el) {
+        var k = Number(el.getAttribute("data-i"));
+        el.classList.toggle("is-active", k === idx);
+        el.classList.toggle("is-done", k < idx);
+      });
+      Array.prototype.forEach.call(rail.querySelectorAll(".cl"), function (el) {
+        var k = Number(el.getAttribute("data-link"));
+        el.classList.toggle("on", k < idx);
+        el.classList.toggle("flow", k === idx);
+      });
+
+      detail.innerHTML = detailHTML(CHAIN.nodes[idx]);
+      if (run) {
+        // 重跑 CSS 动画必须先把类摘掉并强制重排，否则浏览器认为没变化
+        detail.classList.remove("run");
+        void detail.offsetWidth;
+        detail.classList.add("run");
+      }
+
+      var num = detail.querySelector(".metric-n");
+      if (num) { animateNumber(num); }
+
+      fill.style.width = ((idx + 1) / total * 100) + "%";
+      count.textContent = (idx + 1) + " / " + total;
+      playBtn.textContent = st.timer
+        ? "⏸ 暂停"
+        : (idx >= total - 1 ? "↻ 重播" : "▶ 播放");
+    }
+
+    function stop() {
+      if (st.timer) { clearTimeout(st.timer); st.timer = null; }
+    }
+
+    function schedule() {
+      st.timer = setTimeout(function () {
+        if (st.i < total - 1) {
+          st.i += 1;
+          paint(true);
+          schedule();
+        } else {
+          stop();
+          paint(false);
+        }
+      }, dwellFor(CHAIN.nodes[st.i]));
+    }
+
+    function play() {
+      if (st.timer) { stop(); paint(false); return; }
+      if (st.i >= total - 1) { st.i = 0; }
+      paint(true);
+      schedule();
+    }
+
+    function go(n) {
+      stop();
+      st.i = Math.max(0, Math.min(total - 1, n));
+      paint(true);
+    }
+
+    card.addEventListener("click", function (e) {
+      var btn = e.target.closest("[data-act]");
+      if (btn) {
+        var act = btn.getAttribute("data-act");
+        if (act === "play") { play(); }
+        else if (act === "next") { go(st.i + 1); }
+        else if (act === "prev") { go(st.i - 1); }
+        return;
+      }
+      if (track && track.contains(e.target)) {
+        var rect = track.getBoundingClientRect();
+        var ratio = (e.clientX - rect.left) / Math.max(rect.width, 1);
+        go(Math.round(ratio * (total - 1)));
+        return;
+      }
+      var cc = e.target.closest(".cc");
+      if (cc) { go(Number(cc.getAttribute("data-i"))); }
+    });
+
+    paint(false);
+
+    // 第一次滚到这里时自动播一遍：动起来比一个静止的流程图有说服力得多。
+    // 只自动播一次，之后完全交给用户。
+    if (typeof IntersectionObserver === "function") {
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          if (en.isIntersecting && !st.auto) {
+            st.auto = true;
+            io.disconnect();
+            // 留一点时间让人先读到「主张」，再开始动
+            setTimeout(play, 900);
+          }
+        });
+      }, { threshold: 0.55 });
+      io.observe(card);
+    }
+  }
+
+  function esc(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  // 证据摘录在卡片里放不下全句，截断但要留出省略号，别让人以为是原文结尾
+  function trunc(s, n) {
+    s = String(s || "");
+    return s.length > n ? s.slice(0, n) + "…" : s;
+  }
+
+
+
+  // ======================= 文献网络 =======================
+  // 径向双叶图：中心=本文；左叶=它引用的（过去），右叶=引用它的（未来）。
+  // 不变式在数据层已守住：节点全部来自 PDF 参考文献与 OpenAlex，
+  // 相关度是计算值并带依据。这里只做呈现，不做任何"判断"。
+
+  function networkSection() {
+    var h = ['<section class="group" id="network" style="--gc:#4A9BBF">'];
+    h.push('<div class="g-head"><h2>文献网络</h2><span class="count">引用关系 · OpenAlex 实录</span></div>');
+    h.push('<div class="net-wrap">');
+
+    var N = D.network;
+    if (!N || !N.nodes || !N.nodes.length) {
+      var why = (N && N.unavailable) ? esc(N.unavailable)
+        : "还没有为这份报告生成文献网络。";
+      h.push('<div class="net-empty">' + why + "<br>" +
+        "生成或补跑：<code>paperatomy network " +
+        esc("out/" + (D.source ? String(D.source).split(/[\\\\/]/).pop().replace(/\\.pdf$/i, "") + ".json" : "报告.json")) +
+        "</code>（不调用模型；需联网访问 OpenAlex）</div>");
+      h.push("</div></section>");
+      return h.join("");
+    }
+
+    var st = N.stats || {};
+    h.push('<div class="net-head">');
+    h.push('<span class="net-title">' + esc(N.center && N.center.title || "本文") + "</span>");
+    h.push('<span class="net-stats">' +
+      (st.reference_entries || 0) + " 条参考文献 · " +
+      (st.matched || 0) + " 条命中 OpenAlex · 展示 " +
+      (N.nodes.length) + " 个节点</span>");
+    h.push("</div>");
+    var C = N.center || {};
+    if (C.venue || C.ccf || (C.topics && C.topics.length) ||
+        (C.search_terms && C.search_terms.length)) {
+      h.push('<div class="nc-info">');
+      var zh = D.paper_title_zh || "";
+      if (zh) {
+        h.push('<div class="nc-row"><span class="nc-label">标题</span>'
+          + esc(zh) + '<span class="nc-hint">原文：' +
+          esc(N.center && N.center.title || D.paper_title || "") + "</span></div>");
+      }
+      h.push('<div class="nc-row"><span class="nc-label">发表年份</span>');
+      h.push(C.year ? C.year : '<span class="nc-none">未收录</span>');
+      h.push("</div>");
+      h.push('<div class="nc-row"><span class="nc-label">发表场所</span>');
+      if (C.venue) {
+        h.push(esc(C.venue));
+        if (C.venue_preprint) {
+          h.push('<span class="nc-hint">（预印本 · OpenAlex 未见正式发表版本记录）</span>');
+        }
+      }
+      if (C.ccf) { h.push(' <span class="ccf-tag">CCF-' + esc(C.ccf) + "</span>"); }
+      if (!C.venue && !C.ccf) {
+        h.push('<span class="nc-none">数据库未收录（新论文常见，无法查证）</span>');
+      }
+      h.push("</div>");
+      if (C.topics && C.topics.length) {
+        h.push('<div class="nc-row"><span class="nc-label">研究领域</span>');
+        C.topics.forEach(function (tp) {
+          var parts = [tp.field_zh || tp.field,
+                       tp.subfield_zh || tp.subfield, tp.name];
+          h.push('<span class="topic-tag">' +
+                 esc(parts.filter(Boolean).join(" · ")) + "</span>");
+        });
+        h.push("</div>");
+      }
+      if (C.search_terms && C.search_terms.length) {
+        h.push('<div class="nc-row"><span class="nc-label">检索关键词</span>' +
+          '<span class="nc-hint">点一下即复制——找同方向工作，拿它去学术搜索最准</span></div>');
+        h.push('<div class="nc-kws" id="ncKws">');
+        C.search_terms.forEach(function (k) {
+          h.push('<button class="kw-chip" type="button" data-kw="' +
+                 esc(k) + '">' + esc(k) + "</button>");
+        });
+        h.push('<button class="kw-chip all" type="button" id="ncKwAll">复制全部</button>');
+        h.push("</div>");
+      }
+      h.push("</div>");
+    }
+    h.push('<div id="netViz"></div>');
+    h.push('<div class="net-legend">');
+    h.push('<span><i class="net-dot" style="background:#2E6F8E"></i>相关度高</span>');
+    h.push('<span><i class="net-dot" style="background:#C9D4DC"></i>相关度低</span>');
+    h.push("<span>节点大小 = 被引影响力</span>");
+    h.push("<span>右叶来自 OpenAlex 被引索引（谁引用了本文）</span>");
+    h.push("<span>点击节点查看领域、出处与 DOI</span>");
+    h.push("</div>");
+    h.push('<div class="net-detail" id="netDetail"></div>');
+    h.push("</div></section>");
+    return h.join("");
+  }
+
+  function initNetwork() {
+    var N = D.network;
+    var box = document.getElementById("netViz");
+    if (!box || !N || !N.nodes || !N.nodes.length) { return; }
+
+    var W = 940, H = 560, cx = W / 2, cy = H / 2;
+    var cited = N.nodes.filter(function (n) { return n.kind === "cited"; });
+    var citing = N.nodes.filter(function (n) { return n.kind === "citing"; });
+    // 右叶是时间线：早的靠近底部（过去侧），新的越靠上
+    citing.sort(function (x, y) { return (x.year || 0) - (y.year || 0); });
+    var maxC = 1;
+    N.nodes.forEach(function (n) { if (n.cited_by > maxC) { maxC = n.cited_by; } });
+
+    // 半径：相关度越高越靠近中心（92–240）
+    function ringR(n) { return 92 + 148 * (1 - Math.min(n.relevance, 1)); }
+    // 节点大小：被引数的对数缩放（4.5–15）
+    function dotR(n) {
+      return 4.5 + 10.5 * Math.log10(n.cited_by + 1) / Math.log10(maxC + 1);
+    }
+    // 颜色：相关度 0 → 浅灰蓝，1 → 深青
+    function color(rel) {
+      rel = Math.max(0, Math.min(rel, 1));
+      return "hsl(203," + Math.round(22 + 40 * rel) + "%," +
+             Math.round(78 - 40 * rel) + "%)";
+    }
+
+    function place(nodes, start, end) {
+      var n = nodes.length;
+      nodes.forEach(function (n2, i) {
+        var a = (n === 1) ? (start + end) / 2 : start + (end - start) * i / (n - 1);
+        var rad = a * Math.PI / 180;
+        n2._x = cx + ringR(n2) * Math.cos(rad);
+        n2._y = cy - ringR(n2) * Math.sin(rad);
+      });
+    }
+    place(cited, 105, 255);     // 左半圆（过去）；两端各留 10° 缝隙，
+    place(citing, -75, 75);     // 右半圆（未来）——否则高相关节点挤在中心正上/下
+
+    var s = ['<svg class="net-svg" viewBox="0 0 ' + W + " " + H + '">'];
+
+    s.push('<text class="net-leaf" x="' + (cx - 265) + '" y="' + (cy - 218) + '">\u2190 \u5b83\u5f15\u7528\u7684 \u00b7 \u8fc7\u53bb</text>');
+    s.push('<text class="net-leaf" x="' + (cx + 265) + '" y="' + (cy - 218) + '">\u5f15\u7528\u5b83\u7684 \u00b7 \u672a\u6765 \u2192</text>');
+
+    s.push('<g class="net-center">');
+    s.push('<circle cx="' + cx + '" cy="' + cy + '" r="34" fill="#2E6F8E" opacity=".12"/>');
+    s.push('<circle cx="' + cx + '" cy="' + cy + '" r="5" fill="#2E6F8E"/>');
+    var ct = esc(trunc((N.center && N.center.title) || "本文", 26));
+    s.push('<text x="' + cx + '" y="' + (cy + 52) + '">' + ct + "</text>");
+    s.push("</g>");
+
+    N.nodes.forEach(function (n, i) {
+      var mx = (cx + n._x) / 2, my = (cy + n._y) / 2;
+      var dx = n._x - cx, dy = n._y - cy, len = Math.sqrt(dx * dx + dy * dy) || 1;
+      var bow = 26;
+      var qx = mx - dy / len * bow, qy = my + dx / len * bow;
+      s.push('<path id="ne' + i + '" class="net-edge" d="M' + cx + " " + cy +
+             " Q" + qx + " " + qy + " " + n._x + " " + n._y + '"/>');
+    });
+
+    N.nodes.forEach(function (n, i) {
+      var r = dotR(n);
+      s.push('<g class="net-node" data-ni="' + i + '">');
+      s.push('<circle cx="' + n._x.toFixed(1) + '" cy="' + n._y.toFixed(1) +
+             '" r="' + r.toFixed(1) + '" fill="' + color(n.relevance) + '"/>');
+      var label = String(n.year || "");
+      if (label) {
+        // 年份放在节点**外侧**（沿半径外推），不压在圆上、不与邻点重叠
+        var wdx = n._x - cx, wdy = n._y - cy;
+        var wlen = Math.sqrt(wdx * wdx + wdy * wdy) || 1;
+        var tx = n._x + wdx / wlen * (r + 12);
+        var ty = n._y + wdy / wlen * (r + 12) + 3;
+        s.push("<text x=\"" + tx.toFixed(1) + "\" y=\"" + ty.toFixed(1) +
+               '" text-anchor="middle">' + esc(label) + "</text>");
+      }
+      s.push("<title>" + esc(trunc(n.title, 90)) + " · 相关度 " +
+             Math.round(n.relevance * 100) + "% · 被引 " + n.cited_by + "</title>");
+      s.push("</g>");
+    });
+
+    s.push("</svg>");
+    box.innerHTML = s.join("");
+
+    function show(n) {
+      var d = document.getElementById("netDetail");
+      var src = n.origin === "openalex" ? "OpenAlex" : "本文参考文献列表（PDF）";
+      var doi = n.doi
+        ? ' · <a href="https://doi.org/' + esc(n.doi) + '" target="_blank" rel="noopener">DOI: ' +
+          esc(n.doi) + "</a>"
+        : "";
+      var pct = Math.round(n.relevance * 100);
+      var h = ['<div class="net-d-top">'];
+      if (n.title_zh) {
+        // 中文是机翻（呈现层），节点身份与元数据仍全部来自数据库
+        h.push('<span class="net-d-title">' + esc(n.title_zh) + "</span>");
+        h.push('<span class="net-d-title-zh">' + esc(n.title) + "</span>");
+      } else {
+        h.push('<span class="net-d-title">' + esc(n.title) + "</span>");
+      }
+      h.push('<span class="net-badge ' + n.kind + '">' +
+             (n.kind === "cited" ? "本文引用" : "引用本文") + "</span>");
+      h.push("</div>");
+      h.push('<div class="net-d-meta">' +
+        [n.year || null, esc(n.venue || ""), "被引 " + n.cited_by + " 次", doi]
+          .filter(Boolean).join(" · ") + "</div>");
+
+      if (n.topics && n.topics.length) {
+        h.push('<div class="net-d-topics">');
+        n.topics.forEach(function (tp) {
+          var parts = [tp.field_zh || tp.field,
+                       tp.subfield_zh || tp.subfield, tp.name];
+          var label = parts.filter(Boolean).join(" · ");
+          h.push('<span class="topic-tag">' + esc(label) + "</span>");
+        });
+        h.push("</div>");
+      }
+
+      h.push('<div class="net-d-score"><span class="net-d-label">与本文相关度</span>' +
+        '<span class="net-d-bar"><i style="width:' + pct + '%"></i></span>' +
+        '<span class="net-d-pct">' + pct + "%</span></div>");
+      h.push('<div class="net-d-reasons">' + n.reasons.map(function (r) {
+        return "· " + esc(r);
+      }).join("<br>") + "</div>");
+      h.push('<div class="net-d-note"><b>✓ 数据来源：' + esc(src) +
+        '。</b>节点与被引数为数据库实录，非模型生成；' +
+        "相关度为基于共引与关键词的计算值，依据如上。</div>");
+      d.innerHTML = h.join("");
+      d.classList.add("show");
+    }
+
+    var svg = box.querySelector("svg");
+    svg.addEventListener("click", function (e) {
+      var g = e.target.closest(".net-node");
+      if (!g) { return; }
+      var i = Number(g.getAttribute("data-ni"));
+      show(N.nodes[i]);
+      Array.prototype.forEach.call(svg.querySelectorAll(".net-edge.hot"),
+        function (el) { el.classList.remove("hot"); });
+      var edge = svg.querySelector("#ne" + i);
+      if (edge) { edge.classList.add("hot"); }
+    });
+
+    // 检索关键词：点击复制。clipboard API 在 file:// 下可能受限，留 execCommand 兜底。
+    var kwBox = document.getElementById("ncKws");
+    if (kwBox) {
+      function fallbackCopy(txt) {
+        var ta = document.createElement("textarea");
+        ta.value = txt; document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand("copy"); } catch (e2) {}
+        document.body.removeChild(ta);
+      }
+      function copyText(txt, el) {
+        var done = function () {
+          var old = el.textContent;
+          el.textContent = "已复制 ✓";
+          setTimeout(function () { el.textContent = old; }, 1400);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(txt).then(done,
+            function () { fallbackCopy(txt); done(); });
+        } else { fallbackCopy(txt); done(); }
+      }
+      kwBox.addEventListener("click", function (e) {
+        var b = e.target.closest(".kw-chip");
+        if (!b) { return; }
+        if (b.id === "ncKwAll") {
+          var all = Array.prototype.map.call(
+            kwBox.querySelectorAll(".kw-chip:not(.all)"),
+            function (x) { return x.getAttribute("data-kw"); }
+          ).join(", ");
+          copyText(all, b);
+        } else {
+          copyText(b.getAttribute("data-kw") || "", b);
+        }
+      });
+    }
+  }
+
+  // ======================= 追问这篇论文 =======================
+  // 静态打开时 window.__PA_SERVE__ 是 null，按钮会显示「未连接」并给出命令；
+  // 由 paperatomy serve 提供页面时，服务端会把它替换成实际端口。
+  var ASK_CFG = window.__PA_SERVE__ || null;
+  var ASK = { ctx: [], history: [], busy: false, live: false };
+
+  var askPanel = document.getElementById("askPanel");
+  var askLog = document.getElementById("askLog");
+  var askText = document.getElementById("askText");
+  var askSend = document.getElementById("askSend");
+  var askSub = document.getElementById("askSub");
+  var askCtx = document.getElementById("askCtx");
+  var askFab = document.getElementById("askFab");
+
+  // 出处坐标：和 Markdown、命令行完全一致（这里必须是同一套规则，
+  // 否则同一份报告换个地方看就对不上了）
+  function locatorOf(e) {
+    var parts = [];
+    if (e.section_no) { parts.push("§" + e.section_no); }
+    if (e.para) { parts.push("第 " + e.para + " 段"); }
+    if (e.page) { parts.push("p." + e.page); }
+    return parts.join(" · ") || "出处未标注";
+  }
+
+  function evHTML(list) {
+    var ok = list.filter(function (e) { return e.verified !== false; });
+    var bad = list.filter(function (e) { return e.verified === false; });
+    var h = ['<div class="ev"><div class="ev-title">原文依据</div>'];
+    ok.forEach(function (e) {
+      h.push('<div class="ev-item"><div class="ev-loc">');
+      h.push('<span class="chip">' + esc(locatorOf(e)) + "</span>");
+      if (e.section) {
+        // 章节标题去掉编号前缀，否则和左边的 §4 重复
+        h.push('<span class="sec">' +
+          esc(e.section.replace(/^\s*\d{1,2}(?:\.\d{1,2}){0,2}[\s.]+/, "")) +
+          "</span>");
+      }
+      h.push("</div>");
+      h.push('<div class="ev-src">' + esc(e.quote) + "</div>");
+      if (e.quote_zh && e.quote_zh !== e.quote) {
+        h.push('<div class="ev-zh">' + esc(e.quote_zh) + "</div>");
+      }
+      h.push("</div>");
+    });
+    if (bad.length) {
+      // 定位失败的条目不是原文——如实降级为「模型转述」，
+      // 不再显示 §坐标（那本来就是模型自报、程序无法背书的）
+      h.push('<div class="ev-title" style="color:var(--warn)">'
+        + '⚠ 以下 ' + bad.length + ' 条未能定位到原文原话——是模型转述，不是原文，不可作为引用</div>');
+      bad.forEach(function (e) {
+        h.push('<div class="ev-item"><div class="ev-loc">'
+          + '<span class="raw">模型转述 · 未经原文核实</span></div>');
+        h.push('<div class="ev-src" style="opacity:.75">' + esc(e.quote) + "</div>");
+        if (e.quote_zh && e.quote_zh !== e.quote) {
+          h.push('<div class="ev-zh" style="opacity:.75">' + esc(e.quote_zh) + "</div>");
+        }
+        h.push("</div>");
+      });
+    }
+    h.push("</div>");
+    return h.join("");
+  }
+
+  function askBtn(key, dark) {
+    return '<button class="ask-btn' + (dark ? " dark" : "") + '" type="button" data-ask="' +
+      esc(key) + '" title="把这块内容加入追问"><svg viewBox="0 0 24 24" fill="none" ' +
+      'stroke="currentColor" stroke-width="2.4" stroke-linecap="round">' +
+      '<path d="M12 5v14M5 12h14"/></svg>追问</button>';
+  }
+
+  // 把一块内容压成纯文本交给模型。带上是哪一段、原文怎么说的，
+  // 模型才知道「这个」指什么。
+  function askPayload(key) {
+    if (key.indexOf("b:") === 0) {
+      var bid = key.slice(2);
+      var found = null;
+      D.groups.forEach(function (g) {
+        g.blocks.forEach(function (b) { if (b.id === bid) { found = b; } });
+      });
+      if (!found && hero && hero.id === bid) { found = hero; }
+      if (!found) { return null; }
+      var text = found.content || "";
+      (found.evidence || []).forEach(function (e) {
+        text += "\n依据［" + locatorOf(e) + "］" + e.quote +
+                (e.quote_zh && e.quote_zh !== e.quote ? "\n译文：" + e.quote_zh : "");
+      });
+      return { key: key, title: found.title, text: text };
+    }
+    if (key.indexOf("n:") === 0 && CHAIN) {
+      var nid = key.slice(2);
+      var node = null;
+      (CHAIN.nodes || []).forEach(function (n) { if (n.id === nid) { node = n; } });
+      if (!node) { return null; }
+      var t = "［" + typeLabel(node.type) + "］" + node.label;
+      if (node.detail) { t += "\n" + node.detail; }
+      if (node.metric) {
+        t += "\n指标：" + node.metric.value + (node.metric.unit || "") +
+             "（" + (node.metric.label || "") + "）";
+      }
+      (node.evidence || []).forEach(function (e) {
+        t += "\n依据［" + locatorOf(e) + "］" + e.quote +
+             (e.quote_zh && e.quote_zh !== e.quote ? "\n译文：" + e.quote_zh : "");
+      });
+      return { key: key, title: node.label, text: t };
+    }
+    return null;
+  }
+
+  function renderChips() {
+    askCtx.innerHTML = ASK.ctx.map(function (c, i) {
+      return '<span class="ctx-chip"><span>' + esc(c.title) + "</span>" +
+        '<button type="button" data-drop="' + i + '" aria-label="移除">×</button></span>';
+    }).join("");
+    askFab.classList.toggle("has-ctx", ASK.ctx.length > 0);
+  }
+
+  function openAsk() {
+    askPanel.classList.add("open");
+    askPanel.setAttribute("aria-hidden", "false");
+    if (ASK.live) { setTimeout(function () { askText.focus(); }, 120); }
+  }
+  function closeAsk() {
+    askPanel.classList.remove("open");
+    askPanel.setAttribute("aria-hidden", "true");
+  }
+
+  function addContext(key) {
+    var item = askPayload(key);
+    if (!item) { openAsk(); return; }
+    var dup = false;
+    ASK.ctx.forEach(function (c) { if (c.key === key) { dup = true; } });
+    if (!dup) { ASK.ctx.push(item); }
+    renderChips();
+    openAsk();
+  }
+
+  function hideHint() {
+    var h = askLog.querySelector(".ask-hint");
+    if (h) { h.remove(); }
+  }
+
+  function pushMsg(role, text) {
+    var node = document.createElement("div");
+    node.className = "msg " + (role === "user" ? "user" : "bot");
+    if (role === "user") {
+      node.textContent = text;
+    } else {
+      node.innerHTML = '<div class="who">paperatomy</div><div class="body"></div>';
+      node.querySelector(".body").innerHTML = formatText(text);
+    }
+    askLog.appendChild(node);
+    askLog.scrollTop = askLog.scrollHeight;
+    return node;
+  }
+
+  function showError(msg) {
+    var node = document.createElement("div");
+    node.className = "msg err";
+    node.textContent = msg;
+    askLog.appendChild(node);
+    askLog.scrollTop = askLog.scrollHeight;
+  }
+
+  function send(question) {
+    if (ASK.busy || !ASK.live) { return; }
+    var q = (question || askText.value || "").trim();
+    if (!q) { return; }
+
+    askText.value = "";
+    askText.style.height = "auto";
+    hideHint();
+
+    pushMsg("user", q);
+    ASK.history.push({ role: "user", content: q });
+
+    var ctx = ASK.ctx.map(function (c) { return { title: c.title, text: c.text }; });
+    ASK.ctx = [];
+    renderChips();
+
+    var bubble = pushMsg("bot", "").querySelector(".body");
+    var caret = document.createElement("span");
+    caret.className = "caret";
+    bubble.appendChild(caret);
+
+    ASK.busy = true;
+    askSend.disabled = true;
+
+    var answer = "";
+    var painted = Date.now();
+
+    fetch("/api/ask", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        question: q,
+        context: ctx,
+        history: ASK.history.slice(-8, -1)
+      })
+    }).then(function (res) {
+      if (!res.ok || !res.body) { throw new Error("HTTP " + res.status); }
+      var reader = res.body.getReader();
+      var decoder = new TextDecoder();
+      var buffer = "";
+
+      // 增量是逐 token 来的，每来一个就重排会卡。
+      // 攒到 70ms 才画一次，结束时无论如何再画一遍——
+      // 「最终值必须由确定的一步给出」，这条上一版在数字滚动上踩过。
+      function pump() {
+        return reader.read().then(function (chunk) {
+          if (chunk.done) { return; }
+          buffer += decoder.decode(chunk.value, { stream: true });
+          var blocks = buffer.split("\n\n");
+          buffer = blocks.pop();
+          blocks.forEach(function (raw) {
+            raw.split("\n").forEach(function (line) {
+              if (line.indexOf("data:") !== 0) { return; }
+              var obj;
+              try { obj = JSON.parse(line.slice(5).trim()); } catch (err) { return; }
+              if (obj.delta) {
+                answer += obj.delta;
+                if (Date.now() - painted > 70) {
+                  painted = Date.now();
+                  bubble.innerHTML = formatText(answer);
+                }
+              }
+              if (obj.error) { showError(obj.error); }
+            });
+          });
+          return pump();
+        });
+      }
+      return pump();
+    }).catch(function (err) {
+      showError("连不上本地服务：" + (err && err.message ? err.message : err));
+    }).then(function () {
+      if (caret.parentNode) { caret.remove(); }
+      if (answer) {
+        bubble.innerHTML = formatText(answer);
+        ASK.history.push({ role: "assistant", content: answer });
+      }
+      ASK.busy = false;
+      askSend.disabled = false;
+      askLog.scrollTop = askLog.scrollHeight;
+    });
+  }
+
+  function initAsk() {
+    if (!ASK_CFG) {
+      askFab.classList.add("offline");
+      askSub.textContent = "未连接本地服务";
+      askText.disabled = true;
+      askSend.disabled = true;
+      askText.placeholder = "需要在本地运行 paperatomy serve";
+      // offline 先渲染历史（若有），再补「怎么连服务」的提示——
+      // 历史是报告里的数据，静态打开也该能看到
+      if (renderQaHistory()) {
+        var off = document.createElement("div");
+        off.className = "ask-hint";
+        off.innerHTML = "<br><b>继续追问需要本地服务。</b><br>" +
+          "在终端里跑 paperatomy serve out/报告.json 后刷新本页。";
+        askLog.appendChild(off);
+        return;
+      }
+      askLog.innerHTML =
+        '<div class="ask-hint"><b>提问需要本地服务。</b><br>' +
+        "这份报告是静态文件：它没有模型凭据，也不会替你花钱。在终端里跑——" +
+        '<div style="font-family:var(--mono);font-size:12px;background:#fff;' +
+        'border:1px solid var(--line);border-radius:6px;padding:7px 10px;margin-top:9px">' +
+        "paperatomy serve out/报告.json" + "</div>" +
+        "然后打开它给出的地址，这个按钮就能用了。报告里的证据定位、中英对照不用服务也能看。</div>";
+      return;
+    }
+    ASK.live = true;
+    askSub.innerHTML = "<b>●</b> 已连接 · 只依据这篇论文";
+    askText.disabled = false;
+    askSend.disabled = false;
+    askLog.scrollTop = askLog.scrollHeight;
+  }
+
+  // 历史问答回放：数据在报告 JSON 里，serve 保存，重开不丢。
+  // 只读展示，不依赖服务——静态打开也能看。
+  function renderQaHistory() {
+    if (!D.qa || !D.qa.length) { return false; }
+    askLog.innerHTML =
+      '<div class="ask-hint">以下是之前的 ' + D.qa.length +
+      " 条问答（存在报告里，换次打开还在）：</div>";
+    D.qa.forEach(function (m) {
+      pushMsg("user", m.question);
+      var b = pushMsg("bot", "");
+      b.querySelector(".body").innerHTML = formatText(m.answer || "");
+    });
+    var tip = document.createElement("div");
+    tip.className = "ask-hint";
+    tip.innerHTML = "<br><b>报告先回答了「一般读者会问什么」。</b><br>" +
+      "剩下的疑问在这里问。答案只从这篇论文的材料里来，找不到它会说找不到。" +
+      '<a class="ask-eg" data-q="这篇论文最核心的贡献是什么？用三句话说清。">' +
+      "试试：核心贡献是什么</a>";
+    askLog.appendChild(tip);
+    return true;
+  }
+  renderQaHistory();
+
+  askFab.addEventListener("click", function () {
+    if (askPanel.classList.contains("open")) { closeAsk(); } else { openAsk(); }
+  });
+  askClose.addEventListener("click", closeAsk);
+  askSend.addEventListener("click", function () { send(); });
+
+  askText.addEventListener("keydown", function (e) {
+    // Enter 发送、Shift+Enter 换行——聊天框的通用约定
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      send();
+    }
+  });
+  askText.addEventListener("input", function () {
+    askText.style.height = "auto";
+    askText.style.height = Math.min(askText.scrollHeight, 132) + "px";
+  });
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && askPanel.classList.contains("open")) { closeAsk(); }
+  });
+
+  // 全部走委托：卡片是 innerHTML 生成的，逐个绑定会漏
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest("[data-ask]");
+    if (btn) {
+      e.preventDefault();
+      e.stopPropagation();   // 否则会触发卡片折叠
+      addContext(btn.getAttribute("data-ask"));
+      return;
+    }
+    var drop = e.target.closest("[data-drop]");
+    if (drop) {
+      e.stopPropagation();
+      ASK.ctx.splice(Number(drop.getAttribute("data-drop")), 1);
+      renderChips();
+      return;
+    }
+    var eg = e.target.closest("[data-q]");
+    if (eg) {
+      e.preventDefault();
+      send(eg.getAttribute("data-q"));
+    }
+  });
+
+  initAsk();
+
+  // 工作台打开的报告：顶部显眼返回 + 左下角备用入口
+  if (window.__PA_SERVE__ && window.__PA_SERVE__.mode === "workbench") {
+    var backFab = document.getElementById("backFab");
+    backFab.classList.add("show");
+    backFab.addEventListener("click", function () {
+      location.href = "/";
+    });
+    var backTop = document.createElement("a");
+    backTop.className = "back-top";
+    backTop.href = "/";
+    backTop.textContent = "← 返回工作台";
+    backTop.classList.add("show");
+    document.body.appendChild(backTop);
+
+    // 对照原文 / 图表速览：报告对应 PDF 存在时才提供
+    var PDF = window.__PA_SERVE__ ? window.__PA_SERVE__.pdf : null;
+    if (PDF) {
+      var btns = document.createElement("div");
+      btns.className = "side-btns";
+      btns.innerHTML = '<button id="btnOrig">对照原文</button>' +
+        '<button id="btnDemo">动态讲解</button>';
+      document.body.appendChild(btns);
+      btns.classList.add("show");
+
+      var panel = document.createElement("div");
+      panel.className = "side-panel";
+      panel.innerHTML = '<div class="sp-head"><span id="spCap"></span>' +
+        '<button id="spClose" style="border:none;background:none;cursor:pointer;' +
+        'font-size:16px;color:inherit">×</button></div>' +
+        '<div class="sp-body" id="spBody"></div>';
+      document.body.appendChild(panel);
+      // 按钮绑定（v0.9.6 图表 v3 拼接时被误删，导致面板点不开——回归测试已锁）
+      document.getElementById("btnOrig").addEventListener("click",
+        function () { toggle("orig"); });
+      document.getElementById("btnDemo").addEventListener("click",
+        function () { toggle("demo"); });
+      document.getElementById("spClose").addEventListener("click",
+        function () { closePanel(); });
+      panel.dataset.bound = "3";   // 诊断用：3 个按钮绑定完成
+
+      var cur = "";
+      // 深链：#orig 直达对照原文；#td/#figs 落到附图区（v0.11.0）
+      if (location.hash === "#td" || location.hash === "#figs") {
+        // v0.11.0 图已进模块，老深链落到文末附图区
+        setTimeout(function () {
+          var a = document.getElementById("figAnnex");
+          if (a) { a.open = true; a.scrollIntoView({behavior: "smooth"}); }
+        }, 1500);
+      }
+      if (location.hash === "#demo") {
+        setTimeout(function () {
+          var b = document.getElementById("btnDemo");
+          if (b) { b.click(); }
+        }, 300);
+      }
+      if (location.hash === "#orig") {
+        setTimeout(function () {
+          var b = document.getElementById("btnOrig");
+          if (b) { b.click(); }
+        }, 300);
+      }
+      function closePanel() {
+        panel.classList.remove("open");
+        panel.classList.remove("wide");
+        panel.classList.remove("wide");
+        document.body.classList.remove("with-side");
+        document.getElementById("btnOrig").classList.remove("on");
+        document.getElementById("btnDemo").classList.remove("on");
+        DEMO.playing = false;
+        if (DEMO.timer) { clearInterval(DEMO.timer); DEMO.timer = null; }
+        cur = "";
+      }
+      function toggle(which) {  // orig | demo
+        if (which !== "orig" && which !== "demo") { return; }
+        panel.classList.toggle("wide", which === "demo");
+        panel.classList.toggle("wide", which === "demo");
+        if (cur === which) { closePanel(); return; }
+        cur = which;
+        panel.classList.add("open");
+        document.body.classList.add("with-side");
+        document.getElementById("btnOrig").classList.toggle("on",
+          which === "orig");
+        document.getElementById("btnDemo").classList.toggle("on",
+          which === "demo");
+        var body = document.getElementById("spBody");
+        var cap = document.getElementById("spCap");
+        if (which === "orig") {
+          cap.textContent = "论文原文（渲染自 PDF）";
+          fetch("/api/pdfinfo?file=" + encodeURIComponent(__PA_SERVE__.report))
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+              if (!d.available) { body.textContent = "找不到对应 PDF。"; return; }
+              var h = [];
+              for (var i = 1; i <= d.pages; i++) {
+                h.push('<img loading="lazy" src="/pageimg/' +
+                  encodeURIComponent(PDF.replace(/\.pdf$/, "")) + "/" + i +
+                  '.png" alt="第 ' + i + ' 页">');
+                h.push('<div class="pno">第 ' + i + " 页 / 共 " + d.pages + " 页</div>");
+              }
+              body.innerHTML = h.join("");
+            })
+            .catch(function (e) { body.textContent = "加载失败：" + e; });
+        } else {
+          cap.textContent = "动态讲解（模型生成分镜）";
+          initDemo(body);
+        }
+      }
+    }
+  }
+
+  // 打开 http://127.0.0.1:8770/#ask 直接展开面板，省一次点击
+  if (location.hash === "#ask" && ASK.live) { openAsk(); }
+
+})();
+</script>
+<script>
+  window.__PA_ERR_SHOW = function () {
+    var b = document.getElementById("pa-err-badge");
+    if (!b) {
+      b = document.createElement("div");
+      b.id = "pa-err-badge";
+      b.style.cssText = "position:fixed;left:10px;bottom:64px;z-index:999;" +
+        "max-width:420px;background:#B4432A;color:#fff;font-size:12px;" +
+        "padding:8px 12px;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.3)";
+      document.body.appendChild(b);
+    }
+    b.textContent = "⚠ 页面脚本出错：" + window.__PA_ERR +
+      "（可截图反馈，或点工作台「诊断与修复」）";
+  };
+  if (window.__PA_ERR) { window.__PA_ERR_SHOW(); }
+  </script>
+  </body>
+</html>
