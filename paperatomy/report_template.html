@@ -952,6 +952,50 @@
   .dm-tick { width: 26px; height: 5px; border-radius: 3px;
     background: #D8DFE4; cursor: pointer; }
   .dm-tick.on { background: #C98A2D; }
+  /* ---- v0.17 动效层：转场 / 打字 / 持续运动 / 镜头 ---- */
+  .dm-stage { transition: transform .65s cubic-bezier(.22, .9, .34, 1);
+    background-image: radial-gradient(#E6EBEF 1px, transparent 1px);
+    background-size: 20px 20px; }
+  .dm-stage.dm-zoom { transform: scale(1.035); }
+  .dm-stage .dm-svg { animation: dmSceneIn .6s cubic-bezier(.22, .9, .34, 1) backwards; }
+  @keyframes dmSceneIn { from { opacity: 0; transform: translateY(16px) scale(.982); }
+    to { opacity: 1; transform: none; } }
+  [data-ei] { transform: translateY(9px); transition: opacity .5s ease,
+    transform .6s cubic-bezier(.22, .9, .34, 1); }
+  [data-ei].dm-on { transform: none; }
+  .dm-svg circle { transform-box: fill-box; transform-origin: center;
+    animation: dmPulse 3.4s ease-in-out infinite; }
+  @keyframes dmPulse { 0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.09); } }
+  .dm-bar { transform-box: fill-box; transform-origin: bottom;
+    animation: dmGrow .75s cubic-bezier(.22, .9, .34, 1) backwards; }
+  @keyframes dmGrow { from { transform: scaleY(0); } }
+  .dm-seg { stroke-dasharray: 420; stroke-dashoffset: 420;
+    animation: dmDraw .85s ease forwards; }
+  .dm-narr { border-left: 3px solid #C98A2D; padding-left: 12px;
+    animation: dmSceneIn .5s ease backwards; }
+  /* ---- v0.17 动效层：转场 / 打字 / 持续运动 / 镜头 ---- */
+  .dm-stage { transition: transform .65s cubic-bezier(.22, .9, .34, 1);
+    background-image: radial-gradient(#E6EBEF 1px, transparent 1px);
+    background-size: 20px 20px; }
+  .dm-stage.dm-zoom { transform: scale(1.035); }
+  .dm-stage .dm-svg { animation: dmSceneIn .6s cubic-bezier(.22, .9, .34, 1) backwards; }
+  @keyframes dmSceneIn { from { opacity: 0; transform: translateY(16px) scale(.982); }
+    to { opacity: 1; transform: none; } }
+  [data-ei] { transform: translateY(9px); transition: opacity .5s ease,
+    transform .6s cubic-bezier(.22, .9, .34, 1); }
+  [data-ei].dm-on { transform: none; }
+  .dm-svg circle { transform-box: fill-box; transform-origin: center;
+    animation: dmPulse 3.4s ease-in-out infinite; }
+  @keyframes dmPulse { 0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.09); } }
+  .dm-bar { transform-box: fill-box; transform-origin: bottom;
+    animation: dmGrow .75s cubic-bezier(.22, .9, .34, 1) backwards; }
+  @keyframes dmGrow { from { transform: scaleY(0); } }
+  .dm-seg { stroke-dasharray: 420; stroke-dashoffset: 420;
+    animation: dmDraw .85s ease forwards; }
+  .dm-narr { border-left: 3px solid #C98A2D; padding-left: 12px;
+    animation: dmSceneIn .5s ease backwards; }
   .dm-num { font-size: 12px; color: var(--ink3, #8A94A2); }
   .dm-pop { animation: dmPop .5s ease backwards; }
   @keyframes dmPop { from { opacity: 0; } }
@@ -1519,7 +1563,13 @@
     if (t === "mindmap") {
       var brs = v.branches || [];
       var nb = Math.max(brs.length, 1);
-      var head = '<circle cx="230" cy="62" r="30" fill="#2E6F8E"></circle>' +
+      var head = '<defs><radialGradient id="dmgc" cx="35%" cy="30%">' +
+        '<stop offset="0" stop-color="#4A93BC"/><stop offset="1" stop-color="#2E6F8E"/>' +
+        "</radialGradient>" +
+        '<filter id="dmsh" x="-25%" y="-25%" width="150%" height="150%">' +
+        '<feDropShadow dx="0" dy="2.5" stdDeviation="3.2" flood-color="#24303B" flood-opacity=".14"/>' +
+        "</filter></defs>" +
+        '<circle cx="230" cy="62" r="30" fill="url(#dmgc)" filter="url(#dmsh)"></circle>' +
         '<text x="230" y="59" text-anchor="middle" class="dm-ct">' +
         esc((v.center || "").slice(0, 8)) + "</text>" +
         '<text x="230" y="73" text-anchor="middle" class="dm-ct2">' +
@@ -1533,8 +1583,10 @@
         var tint = tints[i % tints.length];
         var s1 = '<path class="dm-mm-line" d="M230 92 C 230 106, ' + cx +
           ' 106, ' + cx + ' 120"></path>' +
-          '<rect x="' + (cx - 46) + '" y="120" width="92" height="116" rx="10" fill="' +
-          tint[0] + '" stroke="' + tint[1] + '" stroke-width="1.3"></rect>' +
+          '<rect x="' + (cx - 46) + '" y="120" width="92" height="116" rx="12" fill="' +
+          tint[0] + '" stroke="' + tint[1] + '" stroke-width="1.4" filter="url(#dmsh)"></rect>' +
+          '<rect x="' + (cx - 46) + '" y="120" width="92" height="5" rx="2.5" fill="' +
+          tint[1] + '"></rect>' +
           '<text x="' + cx + '" y="141" text-anchor="middle" class="dm-mm-bt" fill="' +
           tint[1] + '">' + esc((b.label || "").slice(0, 6)) + "</text>";
         (b.nodes || []).slice(0, 4).forEach(function (nd, k) {
@@ -1623,9 +1675,13 @@
         var hh = Math.max(8, (Math.abs(Number(it.value)) / mx) * 150);
         var col = it.tag === "before" ? "#C0483B" :
           (it.tag === "after" ? "#4E9A72" : "#8FA5B1");
-        o4 += G(i, '<rect x="' + x.toFixed(1) + '" y="' + (216 - hh).toFixed(1) +
+        var gid = "dmgb" + i;
+        o4 += '<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="0" y2="1">' +
+          '<stop offset="0" stop-color="' + col + '"/><stop offset="1" stop-color="' +
+          col + '" stop-opacity=".72"/></linearGradient></defs>';
+        o4 += G(i, '<rect class="dm-bar" x="' + x.toFixed(1) + '" y="' + (216 - hh).toFixed(1) +
           '" width="' + bw2.toFixed(1) + '" height="' + hh.toFixed(1) +
-          '" rx="6" fill="' + col + '" opacity=".88"></rect>' +
+          '" rx="7" fill="url(#' + gid + ')" filter="url(#dmsh)"></rect>' +
           '<text x="' + (x + bw2 / 2).toFixed(1) + '" y="' + (206 - hh).toFixed(1) +
           '" text-anchor="middle" class="dm-lb2">' + it.value + "</text>" +
           '<text x="' + (x + bw2 / 2).toFixed(1) + '" y="234" text-anchor="middle" class="dm-lb">' +
@@ -1649,7 +1705,7 @@
       xs.forEach(function (xl, i) {
         var s5 = "";
         if (i > 0) {
-          s5 += '<line x1="' + px(i - 1).toFixed(1) + '" y1="' +
+          s5 += '<line class="dm-seg" x1="' + px(i - 1).toFixed(1) + '" y1="' +
             py(ys[i - 1]).toFixed(1) + '" x2="' + px(i).toFixed(1) + '" y2="' +
             py(ys[i]).toFixed(1) + '" stroke="#2E6F8E" stroke-width="2.4"></line>';
         }
@@ -1670,7 +1726,7 @@
     if (t === "compare") {
       function card(d, x, tint, ei) {
         var s6 = '<rect x="' + x + '" y="30" width="200" height="176" rx="12" fill="' +
-          tint[0] + '" stroke="' + tint[1] + '" stroke-width="1.4"></rect>' +
+          tint[0] + '" stroke="' + tint[1] + '" stroke-width="1.4" filter="url(#dmsh)"></rect>' +
           '<text x="' + (x + 100) + '" y="56" text-anchor="middle" class="dm-hd" fill="' +
           tint[1] + '">' + esc((d.title || "").slice(0, 8)) + "</text>";
         (d.items || []).slice(0, 3).forEach(function (it, k) {
@@ -1723,7 +1779,7 @@
         var w = 380 / Math.max(bf.length, 1) - 12;
         var x = 40 + i * (380 / Math.max(bf.length, 1));
         o7 += G(0, '<rect x="' + x.toFixed(1) + '" y="36" width="' + w.toFixed(1) +
-          '" height="56" rx="9" fill="#FBEDEA" stroke="#C0483B" stroke-width="1.3"></rect>' +
+          '" height="56" rx="9" fill="#FBEDEA" stroke="#C0483B" stroke-width="1.3" filter="url(#dmsh)"></rect>' +
           '<text x="' + (x + w / 2).toFixed(1) + '" y="70" text-anchor="middle" class="dm-lb2">' +
           esc(String(bk).slice(0, 12)) + "</text>");
       });
@@ -1733,7 +1789,7 @@
         var w = 380 / Math.max(af.length, 1) - 12;
         var x = 40 + i * (380 / Math.max(af.length, 1));
         o7 += G(2, '<rect x="' + x.toFixed(1) + '" y="172" width="' + w.toFixed(1) +
-          '" height="56" rx="9" fill="#E8F2EF" stroke="#2E6F8E" stroke-width="1.3"></rect>' +
+          '" height="56" rx="9" fill="#E8F2EF" stroke="#2E6F8E" stroke-width="1.3" filter="url(#dmsh)"></rect>' +
           '<text x="' + (x + w / 2).toFixed(1) + '" y="206" text-anchor="middle" class="dm-lb2">' +
           esc(String(bk).slice(0, 12)) + "</text>");
       });
@@ -1800,31 +1856,59 @@
       d.classList.toggle("dm-pre",
         DEMO.beat < Number(d.getAttribute("data-mv")));
     });
-    var narr = document.getElementById("dmNarr");
-    if (narr) { narr.textContent = beats[DEMO.beat].say; }
+    var stage2 = document.querySelector("#spBody .dm-stage");
+    if (stage2) { stage2.classList.toggle("dm-zoom", hl >= 0); }
+    typeNarr(beats[DEMO.beat].say);
     document.querySelectorAll(".dm-tick").forEach(function (tk, i) {
       tk.classList.toggle("on", i <= DEMO.beat);
     });
   }
 
+  function dmBeatMs(sc, i) {
+    var beats = dmBeats(sc);
+    if (!beats) { return 4600; }
+    var say = beats[i].say || "";
+    return Math.max(3200, Math.min(8600, 2400 + say.length * 95));
+  }
+
+  function typeNarr(text) {
+    var narr = document.getElementById("dmNarr");
+    if (!narr) { return; }
+    if (DEMO.twTimer) { clearInterval(DEMO.twTimer); DEMO.twTimer = null; }
+    narr.textContent = "";
+    var i = 0;
+    DEMO.twTimer = setInterval(function () {
+      i += 1;
+      narr.textContent = text.slice(0, i);
+      if (i >= text.length && DEMO.twTimer) {
+        clearInterval(DEMO.twTimer);
+        DEMO.twTimer = null;
+      }
+    }, 52);
+  }
+
   function demoAuto() {
-    if (DEMO.timer) { clearInterval(DEMO.timer); DEMO.timer = null; }
+    if (DEMO.timer) { clearTimeout(DEMO.timer); DEMO.timer = null; }
     if (!DEMO.playing || !DEMO.script) { return; }
-    DEMO.timer = setInterval(function () {
+    var step = function () {
       var sc = DEMO.script.scenes[DEMO.idx];
       var beats = dmBeats(sc);
       if (beats && DEMO.beat < beats.length - 1) {
         DEMO.beat++;
         applyBeat();
+        DEMO.timer = setTimeout(step, dmBeatMs(sc, DEMO.beat));
       } else {
         DEMO.idx = (DEMO.idx + 1) % DEMO.script.scenes.length;
         DEMO.beat = 0;
         renderDemoScene();
       }
-    }, 4200);
+    };
+    DEMO.timer = setTimeout(step,
+      dmBeatMs(DEMO.script.scenes[DEMO.idx], DEMO.beat));
   }
 
   function renderDemoScene() {
+    if (DEMO.twTimer) { clearInterval(DEMO.twTimer); DEMO.twTimer = null; }
     var sc = DEMO.script.scenes[DEMO.idx];
     var v = sc.viz || {};
     var beats = dmBeats(sc);
@@ -1842,7 +1926,7 @@
       '<div class="dm-wrap"><div class="dm-title">' +
       esc(DEMO.script.title) + "</div>" + cap +
       '<div class="dm-stage">' + demoSvg(sc) + "</div>" +
-      '<div class="dm-narr" id="dmNarr">' + esc(narr0) + "</div>" + ticks +
+      '<div class="dm-narr" id="dmNarr"></div>' + ticks +
       '<div class="dm-ctl">' +
       '<button id="dmPrev" title="上一镜">‹</button>' +
       '<button id="dmPlay">' + (DEMO.playing ? "暂停" : "播放") + "</button>" +
@@ -1883,6 +1967,8 @@
         applyBeat();
       });
     });
+    typeNarr(narr0);
+    typeNarr(narr0);
     applyBeat();
     demoAuto();
   }
