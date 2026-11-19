@@ -1067,6 +1067,14 @@
       })
       .catch(function () {});
   });
+  // ---- 跨脚本块桥接（v0.17.2）----
+  // 确认框 / 诊断面板 / 对比选择在下一个 <script> 块里，那里拿不到本 IIFE 的
+  // 私有变量与函数；一律经 window.PA 取用，避免点击时 ReferenceError 静默失效。
+  window.PA = {state: state, esc: esc, loadReports: loadReports,
+    confirmStart: confirmStart, confirmCancel: confirmCancel,
+    confirmBatchStart: confirmBatchStart, clearSel: clearSel,
+    runCompare: runCompare};
+
   loadReports();
 })();
 </script>
@@ -1101,12 +1109,15 @@
 </div>
 <script>
   document.getElementById("cfGo").addEventListener("click", function () {
-    if (state.batchPending && state.batchPending.length) { confirmBatchStart(); }
-    else { confirmStart(); }
+    if (PA.state.batchPending && PA.state.batchPending.length) {
+      PA.confirmBatchStart();
+    } else {
+      PA.confirmStart();
+    }
   });
-  document.getElementById("cfCancel").addEventListener("click", confirmCancel);
-  document.getElementById("cmpCancel").addEventListener("click", clearSel);
-  document.getElementById("cmpGo").addEventListener("click", runCompare);
+  document.getElementById("cfCancel").addEventListener("click", PA.confirmCancel);
+  document.getElementById("cmpCancel").addEventListener("click", PA.clearSel);
+  document.getElementById("cmpGo").addEventListener("click", PA.runCompare);
 
   // ---- 诊断与修复 ----
   var DIAG_LABELS = [
@@ -1133,7 +1144,7 @@
     ]).then(function (rs) {
       var d = rs[0], tr = rs[1] || {items: []};
         var h = '<div style="margin-bottom:10px;color:var(--ink2)">' +
-          '服务版本 v' + esc(d.version || "?") +
+          '服务版本 v' + PA.esc(d.version || "?") +
           ' · 出问题先点对应「修复」，修不好的再截图问 AI</div>' +
           '<table><tr><th>报告</th><th>体检项</th><th>操作</th></tr>';
         (d.reports || []).forEach(function (rp) {
@@ -1148,12 +1159,12 @@
           Object.keys(FIX_MAP).forEach(function (k) {
             if (rp.checks[k] === false && FIX_MAP[k]) {
               fixes.push('<button class="fixbtn" data-file="' +
-                esc(rp.file) + '" data-action="' + FIX_MAP[k] + '">' +
+                PA.esc(rp.file) + '" data-action="' + FIX_MAP[k] + '">' +
                 (FIX_MAP[k] === "network" ? "补文献网络" : "重建页面") +
                 "</button>");
             }
           });
-          h += '<tr><td class="file-cell">' + esc(rp.file.replace(".json", "")) +
+          h += '<tr><td class="file-cell">' + PA.esc(rp.file.replace(".json", "")) +
             '</td><td>' + bads.join("<br>") + '</td><td>' +
             (fixes.join("<br>") || '<span style="color:var(--ink3)">无需修复</span>') +
             "</td></tr>";
@@ -1165,8 +1176,8 @@
             '上次上传后没点「开始分析」——重启工作台也会丢失待确认任务。</div>';
           d.pending.forEach(function (pf) {
             h += '<div style="display:flex;align-items:center;gap:10px;' +
-              'margin-bottom:6px"><span>' + esc(pf) + '</span>' +
-              '<button class="fixbtn" data-file="' + esc(pf) +
+              'margin-bottom:6px"><span>' + PA.esc(pf) + '</span>' +
+              '<button class="fixbtn" data-file="' + PA.esc(pf) +
               '" data-action="start">一键开跑</button></div>';
           });
         }
@@ -1175,8 +1186,8 @@
             '（误删可恢复）</div>';
           tr.items.forEach(function (it) {
             h += '<div style="display:flex;align-items:center;gap:10px;' +
-              'margin-bottom:6px"><span>' + esc(it.file) + '</span>' +
-              '<button class="fixbtn" data-restore="' + esc(it.file) +
+              'margin-bottom:6px"><span>' + PA.esc(it.file) + '</span>' +
+              '<button class="fixbtn" data-restore="' + PA.esc(it.file) +
               '">恢复</button></div>';
           });
         }
@@ -1188,7 +1199,7 @@
               fetch("/api/restore?file=" +
                     encodeURIComponent(b.getAttribute("data-restore")),
                     {method: "POST"})
-                .then(function () { loadReports(); runDiag(); });
+                .then(function () { PA.loadReports(); runDiag(); });
             });
           });
         document.querySelectorAll("#diagBody .fixbtn").forEach(
@@ -1201,7 +1212,7 @@
                 .then(function (d) {
                   if (b.dataset.action === "start" && d.ok) {
                     b.textContent = "已开跑（" + (d.template || "") + "）";
-                    if (typeof loadReports === "function") { loadReports(); }
+                    if (typeof PA.loadReports === "function") { PA.loadReports(); }
                   } else if (b.dataset.action === "start") {
                     b.textContent = d.error || "启动失败";
                   }
