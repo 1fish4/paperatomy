@@ -157,6 +157,8 @@ def inspect(candidate: dict, title: str) -> dict:
             result["revision"] = revision
     except (OSError, ValueError):
         pass
+    if "revision" not in result and (head := _public_git_head(candidate["url"])):
+        result["revision"] = head[0]
 
     def normalize(value):
         return " ".join(re.findall(r"\w+", value.casefold()))
