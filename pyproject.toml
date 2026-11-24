@@ -47,7 +47,7 @@ Repository = "https://github.com/1fish4/paperatomy"
 include = ["paperatomy*"]
 
 [tool.setuptools.package-data]
-paperatomy = ["templates/*.yaml", "data/*.json", "report_template.html", "workbench.html"]
+paperatomy = ["templates/*.yaml", "data/*.json", "report_template.html", "workbench.html", "method_lab.html"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>方法工作台 · Paperatomy</title>
+<style>
+  :root { color-scheme: light; --ink: #152738; --sub: #455d70; --line: #d9e3ec;
+    --brand: #195d70; --soft: #eef5f7; font: 15px/1.55 "Segoe UI", "Microsoft YaHei", sans-serif; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #f2f5f8; color: var(--ink); }
+  header { background: #183046; color: white; padding: 15px max(20px, calc((100vw - 1180px) / 2));
+    display: flex; gap: 24px; align-items: center; flex-wrap: wrap; }
+  header a { color: #cdeaf3; }
+  main { max-width: 1220px; padding: 24px 20px 60px; margin: auto; }
+  h1 { font-size: clamp(28px, 5vw, 42px); margin: 0 0 12px; }
+  h2, h3 { margin: 0 0 10px; }
+  h2 { font-size: 1.3rem; }
+  h3 { font-size: 1rem; }
+  p { margin: 0 0 10px; }
+  .card { background: white; border: 1px solid var(--line); border-radius: 16px; padding: 20px; margin-bottom: 16px; }
+  .hero { background: #e8f2f4; }
+  .muted { color: var(--sub); }
+  .controls, .choices { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; }
+  .choices label { flex: 1 1 270px; min-width: 0; font-weight: 600; }
+  select { display: block; width: 100%; margin: 4px 0 8px; }
+  button, select, .action { border: 1px solid #afc3cf; background: white; color: var(--ink);
+    border-radius: 8px; padding: 7px 11px; font: inherit; text-decoration: none; }
+  button { cursor: pointer; }
+  button:hover, .action:hover { background: var(--soft); }
+  button:disabled { opacity: .5; cursor: default; }
+  :focus-visible { outline: 3px solid #27899d; outline-offset: 2px; }
+  button.primary { background: var(--brand); color: white; border-color: var(--brand); }
+  a { color: #155d77; }
+  .comparison { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  th, td { text-align: left; vertical-align: top; padding: 12px; border-bottom: 1px solid var(--line);
+    overflow-wrap: anywhere; }
+  th:first-child { width: 145px; }
+  thead { background: var(--soft); }
+  td .material { white-space: pre-wrap; }
+  details { margin: 8px 0; }
+  summary { cursor: pointer; font-weight: 600; }
+  .report-link, .evidence-links { display: flex; flex-wrap: wrap; gap: 8px; margin: 7px 0 0; font-size: .9rem; }
+  figure { margin: 16px 0 0; }
+  figure img { width: min(100%, 550px); border: 1px solid var(--line); border-radius: 8px; }
+  .lane-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(360px,100%),1fr)); gap: 14px; }
+  .lane { border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+  .tasks { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+  .task-pill { border: 1px solid #c5d4df; border-radius: 7px; color: #385167; padding: 4px 8px; }
+  .task-pill.ready { background: #edf4ff; border-color: #759dce; }
+  .task-pill.done { background: #e4f4ee; border-color: #6ba791; }
+  .task-pill.current { background: #f8eaca; border-color: #ad781f; color: #663a08; }
+  .tracks { margin: 14px 0; }
+  .track { display: grid; grid-template-columns: 36px minmax(0, 1fr); align-items: center; gap: 7px; margin-bottom: 6px; }
+  .time-track { position: relative; min-height: 34px; background: #edf2f7; border-radius: 5px; overflow: hidden; }
+  .ticks { display: flex; justify-content: space-between; margin-left: 43px; font-size: 12px; color: var(--sub); }
+  .slot, .green { position: absolute; inset-block: 1px; }
+  .green { background: #caeadb; }
+  .slot { inset-block: 4px; background: #2d647b; color: white; text-align: center; border-radius: 5px; white-space: nowrap; }
+  .slot.current { background: #82561b; animation: place .32s ease-out both; }
+  @keyframes place { from { opacity: .45; transform: translateY(-7px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .slot.current { animation: none; } }
+  .label, .status { margin-top: 10px; }
+  .code-result { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 12px; }
+  code { overflow-wrap: anywhere; }
+  @media (max-width: 650px) {
+    main { padding: 14px 10px; }
+    .card { padding: 14px; }
+    table { min-width: 550px; }
+  }
+</style>
+</head>
+<body>
+<header><a href="/">← 返回论文工作台</a><strong>Paperatomy</strong></header>
+<main>
+  <section class="card hero">
+    <h1>方法工作台</h1>
+    <div class="choices">
+      <label>论文 A<select id="paperA"><option value="">选择已分析的论文</option></select></label>
+      <label>论文 B（可选）<select id="paperB"><option value="">选择第二篇做对比</option></select></label>
+    </div>
+    <div class="controls">
+      <button class="primary" id="load" type="button">打开方法材料</button>
+      <button id="compare" type="button" disabled>生成 AI 方法对比</button>
+      <a href="#playback">看调度演示</a>
+    </div>
+    <p class="status muted" id="status" role="status"></p>
+  </section>
+
+  <section class="card" id="methods" hidden>
+    <h2>方法与实验</h2>
+    <div class="comparison" id="matrix"></div>
+    <figure id="source" hidden><figcaption id="sourceCaption"></figcaption><img id="sourceImage" alt="论文原文页"></figure>
+  </section>
+
+  <section class="card" id="playback">
+    <h2>调度过程回放</h2>
+    <p class="muted" id="playSource"></p>
+    <p class="report-link" id="playPapers"></p>
+    <p class="muted">两路使用同一任务依赖、处理器映射和截止时间。时间线的绿色背景表示绿电时段。</p>
+    <div class="controls">
+      <button id="prev" type="button" disabled>上一步</button>
+      <button id="next" type="button" disabled>下一步</button>
+      <button id="play" type="button" disabled>播放</button>
+      <button id="diverge" type="button" disabled>跳到第一次分叉</button>
+      <output id="round" aria-live="polite"></output>
+    </div>
+    <div id="lanes" class="lane-grid label"></div>
+  </section>
+
+  <section class="card" id="artifacts" hidden>
+    <h2>作者代码与复现</h2>
+    <p class="muted">先查论文中的仓库链接，再核对公开访问状态、当前提交和 README。找不到明确的代码链接时，可将论文标题发送给 GitHub 搜索。</p>
+    <div id="artifactPapers"></div>
+  </section>
+</main>
+
+<script>
+(function () {
+  "use strict";
+  const byId = id => document.getElementById(id);
+  const select = [byId("paperA"), byId("paperB")];
+  const status = byId("status");
+  const params = new URLSearchParams(location.search);
+  let selected = [];
+  let loadGeneration = 0;
+  let demo;
+  let round = 0;
+  let timer = null;
+
+  function element(tag, content, className) {
+    const node = document.createElement(tag);
+    if (content) node.textContent = content;
+    if (className) node.className = className;
+    return node;
+  }
+
+  function link(label, url) {
+    const a = element("a", label);
+    a.href = url;
+    return a;
+  }
+
+  async function api(url, options) {
+    const response = await fetch(url, options);
+    const data = await response.json();
+    if (!response.ok || !data.ok) throw new Error(data.error || "请求失败");
+    return data;
+  }
+
+  function showSource(pdf, page, title) {
+    byId("sourceCaption").textContent = title + " · 原文第 " + page + " 页";
+    byId("source").hidden = false;
+    byId("sourceImage").src = "/pageimg/" + encodeURIComponent(pdf) + "/" + page + ".png";
+    byId("source").scrollIntoView({block: "nearest"});
+  }
+
+  function renderMethods(papers) {
+    const table = element("table");
+    const header = table.createTHead().insertRow();
+    header.append(element("th", "对比维度"));
+    for (const paper of papers) {
+      const cell = element("th", paper.title);
+      const row = element("div", "", "report-link");
+      row.append(link("打开原报告", "/report?" + new URLSearchParams({file: paper.file})));
+      cell.append(row);
+      header.append(cell);
+    }
+    const body = table.createTBody();
+    papers[0].sections.forEach((section, index) => {
+      const row = body.insertRow();
+      row.append(element("th", section.label));
+      for (const paper of papers) {
+        const part = paper.sections[index];
+        const cell = row.insertCell();
+        cell.append(element("div", part.text || "当前报告未抽取，可用精读模板补充。", "material"));
+        if (paper.pdf && part.pages.length) {
+          const pages = element("div", "", "evidence-links");
+          for (const page of part.pages.slice(0, 6)) {
+            const button = element("button", "原文第 " + page + " 页");
+            button.type = "button";
+            button.addEventListener("click", () => showSource(paper.pdf, page, paper.title));
+            pages.append(button);
+          }
+          cell.append(pages);
+        }
+      }
+    });
+    byId("source").hidden = true;
+    byId("matrix").replaceChildren(table);
+    byId("methods").hidden = false;
+    byId("playPapers").replaceChildren(...papers.filter(paper => paper.asap_page).map(paper => {
+      const button = element("button", paper.title + " · 查看 ASAP 基线的原文规则");
+      button.type = "button";
+      button.addEventListener("click", () => showSource(paper.pdf, paper.asap_page, paper.title));
+      return button;
+    }));
+  }
+
+  function artifactControls(paper, index) {
+    const section = element("details");
+    section.open = index === 0;
+    section.append(element("summary", paper.title));
+    const buttons = element("div", "", "controls");
+    const result = element("div", "", "code-result");
+    result.setAttribute("role", "status");
+    for (const [text, search] of [["检查论文链接", false], ["搜索其他代码候选", true]]) {
+      const button = element("button", text);
+      button.type = "button";
+      button.addEventListener("click", async () => {
+        for (const b of buttons.children) b.disabled = true;
+        result.textContent = "正在核对公开仓库及 README…";
+        try {
+          const query = new URLSearchParams({file: paper.file, search: search ? "1" : "0"});
+          const data = await api("/api/artifacts?" + query, {method: "POST"});
+          renderArtifacts(result, data, search);
+        } catch (error) {
+          result.textContent = error.message;
+        } finally {
+          for (const b of buttons.children) b.disabled = false;
+        }
+      });
+      buttons.append(button);
+    }
+    section.append(buttons, result);
+    return section;
+  }
+
+  function renderArtifacts(result, data, search) {
+    result.replaceChildren();
+    if (data.notice) result.append(element("p", data.notice, "muted"));
+    if (!data.items.length) {
+      if (!data.notice) {
+        result.textContent = !data.pdf && !search ? "工作台找不到原文 PDF，可用标题搜索。"
+          : "这次没有找到仓库候选。可检查论文附录、项目主页或作者的 artifact 页面。";
+      }
+      return;
+    }
+    const access = {public: "公开可访问", unavailable: "无法公开访问", unknown: "访问状态待确认"};
+    for (const item of data.items) {
+      const card = element("article", "", "code-result");
+      const a = link(item.repo, item.url);
+      a.target = "_blank";
+      a.rel = "noopener";
+      const identity = item.paper_code ? "论文代码声明中的链接"
+        : item.page ? "论文含此链接，作者归属待核对" : "标题搜索候选，作者归属待核对";
+      card.append(a, element("p", [access[item.access], identity,
+        item.page ? "论文第 " + item.page + " 页" : "", item.title_match ? "仓库标题与论文一致" : "",
+        item.fork ? "派生仓库" : ""].filter(Boolean).join(" · ")));
+      if (item.detail) card.append(element("p", item.detail, "muted"));
+      if (item.access === "public") {
+        card.append(element("p", "默认分支 " + item.branch + " · 许可证 " + (item.license || "待核对")));
+        if (item.revision) card.append(element("code", "当前提交 " + item.revision));
+        if (item.sample_note) card.append(element("p", "文档提到示例 · " + item.sample_note));
+        const checklist = element("ul");
+        for (const check of item.checks) {
+          checklist.append(element("li", check.label + " · " + (check.snippet || "README 未找到线索，需人工确认")));
+        }
+        card.append(checklist, element("p", "复现前核对论文版本、样例输入与评估方法，再按仓库文档固定提交并记录运行结果。当前为文档评估。", "muted"));
+      }
+      result.append(card);
+    }
+  }
+
+  async function loadMethods() {
+    const generation = ++loadGeneration;
+    const files = [...new Set(select.map(input => input.value).filter(Boolean))];
+    byId("compare").disabled = true;
+    selected = [];
+    byId("playPapers").replaceChildren();
+    byId("methods").hidden = byId("artifacts").hidden = true;
+    if (!files.length) {
+      status.textContent = "请先选择论文。报告库为空时，可返回上传 PDF 或先体验下方演示。";
+      return;
+    }
+    status.textContent = "正在读取报告中的方法和实验材料…";
+    try {
+      const papers = await Promise.all(files.map(async file =>
+        ({...(await api("/api/lab?" + new URLSearchParams({file}))), file})));
+      if (generation !== loadGeneration) return;
+      selected = files;
+      const query = new URLSearchParams();
+      files.forEach(file => query.append("file", file));
+      history.replaceState(null, "", "/lab?" + query + location.hash);
+      renderMethods(papers);
+      byId("artifactPapers").replaceChildren(...papers.map(artifactControls));
+      byId("artifacts").hidden = false;
+      if (location.hash === "#artifacts") byId("artifacts").scrollIntoView();
+      byId("compare").disabled = files.length < 2;
+      status.textContent = files.length === 2 ? "两篇论文已对齐。可进一步生成 AI 方法对比。"
+        : "已打开单篇方法材料。需要对比时再选择论文 B。";
+    } catch (error) {
+      if (generation === loadGeneration) status.textContent = error.message;
+    }
+  }
+
+  async function compareMethods() {
+    const generation = loadGeneration;
+    const query = new URLSearchParams();
+    selected.forEach(file => query.append("file", file));
+    const url = "/api/compare?" + query;
+    const button = byId("compare");
+    button.disabled = true;
+    status.textContent = "AI 正在对齐决策规则、适用条件和实验口径…";
+    try {
+      await api(url, {method: "POST"});
+      for (let poll = 0; poll < 150 && loadGeneration === generation; poll++) {
+        const data = await api(url);
+        if (data.state === "done") {
+          status.replaceChildren(link("打开 AI 方法对比报告", data.url));
+          return;
+        }
+        if (data.state === "error") throw new Error(data.error || "模型对比失败");
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+      if (loadGeneration === generation) status.textContent = "对比仍在运行，稍后可再点开查看。";
+    } catch (error) {
+      if (loadGeneration === generation) status.textContent = error.message;
+    } finally {
+      if (loadGeneration === generation) button.disabled = false;
+    }
+  }
+
+  function addTimeline(article, slots, current) {
+    const tracks = element("div", "", "tracks");
+    for (const machine of [...new Set(demo.tasks.map(task => task.machine))]) {
+      const row = element("div", "", "track");
+      const line = element("div", "", "time-track");
+      const green = element("div", "", "green");
+      green.style.left = (100 * demo.green[0] / demo.deadline) + "%";
+      green.style.width = (100 * (demo.green[1] - demo.green[0]) / demo.deadline) + "%";
+      line.append(green);
+      for (const slot of slots.filter(item => item.machine === machine)) {
+        const block = element("div", slot.task, "slot" + (slot.task === current ? " current" : ""));
+        block.style.left = (100 * slot.start / demo.deadline) + "%";
+        block.style.width = (100 * (slot.end - slot.start) / demo.deadline) + "%";
+        block.title = slot.task + " · " + slot.start + "–" + slot.end;
+        line.append(block);
+      }
+      row.append(element("span", machine), line);
+      tracks.append(row);
+    }
+    const ticks = element("div", "", "ticks");
+    for (let t = 0; t <= demo.deadline; t += demo.deadline / 4) ticks.append(element("span", String(t)));
+    tracks.append(ticks);
+    article.append(tracks);
+  }
+
+  function draw() {
+    const max = demo.lanes[0].rounds.length;
+    byId("round").textContent = round === 0 ? "初始状态" : "第 " + round + " / " + max + " 轮";
+    byId("prev").disabled = round === 0;
+    byId("next").disabled = round === max;
+    byId("diverge").disabled = !demo.first_difference;
+    const lanes = demo.lanes.map(lane => {
+      const step = lane.rounds[round - 1];
+      const slots = step ? step.slots : [];
+      const ready = step ? step.ready : demo.tasks.filter(task => !task.predecessors.length).map(task => task.name);
+      const article = element("article", "", "lane");
+      article.append(element("h3", lane.name), element("p", "本轮待安排队列 · " + (ready.join("、") || "无"), "muted"));
+      const taskList = element("div", "", "tasks");
+      for (const task of demo.tasks) {
+        const state = task.name === step?.task ? " current" : slots.some(slot => slot.task === task.name)
+          ? " done" : ready.includes(task.name) ? " ready" : "";
+        const dependency = task.predecessors.length ? "（等 " + task.predecessors.join("、") + "）" : "";
+        taskList.append(element("span", task.name + dependency, "task-pill" + state));
+      }
+      article.append(taskList);
+      addTimeline(article, slots, step?.task);
+      if (step) {
+        const slot = slots[slots.length - 1];
+        article.append(element("p", slot.task + " → " + slot.machine + " · " + slot.start + "–" + slot.end +
+          "（可行开始范围 " + step.earliest + "–" + step.latest + "）"));
+        article.append(element("p", step.reason, "muted"));
+        article.append(element("p", "已安排 " + slots.length + " 项 · 与绿电时段重叠 " +
+          slots.reduce((sum, item) => sum + item.green, 0) + " 个任务时间单位", "muted"));
+      }
+      return article;
+    });
+    byId("lanes").replaceChildren(...lanes);
+  }
+
+  function stop() {
+    clearInterval(timer);
+    timer = null;
+    byId("play").textContent = "播放";
+  }
+
+  byId("prev").onclick = () => { stop(); round--; draw(); };
+  byId("next").onclick = () => { stop(); round++; draw(); };
+  byId("diverge").onclick = () => { stop(); round = demo.first_difference; draw(); };
+  byId("play").onclick = () => {
+    if (timer) { stop(); return; }
+    const max = demo.lanes[0].rounds.length;
+    if (round === max) { round = 0; draw(); }
+    byId("play").textContent = "暂停";
+    timer = setInterval(() => {
+      round++;
+      draw();
+      if (round === max) stop();
+    }, 950);
+  };
+  byId("load").addEventListener("click", loadMethods);
+  byId("compare").addEventListener("click", compareMethods);
+  api("/api/lab").then(data => {
+    demo = data.demo;
+    byId("playSource").textContent = demo.source;
+    byId("play").disabled = false;
+    draw();
+    for (const [index, input] of select.entries()) {
+      for (const paper of data.reports) input.add(new Option(paper.title, paper.file));
+      input.value = params.getAll("file")[index] || "";
+    }
+    if (select[0].value || select[1].value) loadMethods();
+    else if (!data.reports.length) status.textContent = "报告库为空。下方的教学演示可直接体验。";
+  }).catch(error => { status.textContent = "无法加载方法工作台 · " + error.message; });
+})();
+</script>
+</body>
+</html>

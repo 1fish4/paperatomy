@@ -510,7 +510,7 @@ class _State:
 
     def _start_compare(self, files: list) -> str:
         """多篇对比：结构对齐 + LLM 综合分析，产单文件 HTML。"""
-        key = ",".join(sorted(files))
+        key = json.dumps(sorted(files), ensure_ascii=False)
         job = self.compare_jobs.get(key)
         if job and job.get("state") == "running":
             return key
@@ -532,23 +532,10 @@ class _State:
                 raise ValueError("至少选两份报告")
             from .compare import (compare_many_payload,
                                   to_compare_html_many)
+            from .method_lab import method_digest
             payload = compare_many_payload(dicts)
-            digest = []
-            for i, d in enumerate(dicts):
-                blocks = {b.get("block_id"): str(b.get("content") or "")
-                          for b in (d.get("findings") or [])}
-                digest.append(
-                    "【论文%d】%s（模板：%s）\n一句话：%s\n问题：%s\n"
-                    "方法：%s\n结果：%s\n局限：%s"
-                    % (i + 1, d.get("paper_title"),
-                       (d.get("template") or {}).get("id", ""),
-                       blocks.get("tl_dr", "")[:200],
-                       blocks.get("problem", "")[:280],
-                       blocks.get("method_overview",
-                                  blocks.get("method", ""))[:280],
-                       blocks.get("result",
-                                  blocks.get("consensus", ""))[:280],
-                       blocks.get("limits", "")[:200]))
+            digest = [f"【论文 {i}】\n{method_digest(data)}"
+                      for i, data in enumerate(dicts, 1)]
             prompt = (
                 "以下是同一研究领域、不同方法/侧重的 %d 篇论文的分析摘要。"
                 "请输出一个 JSON 对象："
@@ -557,7 +544,10 @@ class _State:
                 '适用场景）", "cells": ["论文1在该维度的具体对比", "论文2…", '
                 "…]}], "
                 '"verdict": "2~3 句给读者的选读建议与整体评价"}。'
-                "对比要具体、有信息量，不要空话；cells 顺序与论文编号一致。"
+                "必须对比决策依据、操作步骤、约束和代价；指出在什么输入或条件下"
+                "会做出不同决策，以及为什么。解释每篇读者可以如何采用该方法。"
+                "只在数据集、指标、基线和实验条件相容时比较数字。"
+                "材料没有的信息写未说明；cells 顺序与论文编号一致。"
                 "\n\n" + "\n\n".join(digest))
             from .llm import chat, load_config
             raw = chat([{"role": "user", "content": prompt}], load_config())
@@ -567,7 +557,7 @@ class _State:
             title = "对比分析：%s" % " vs ".join(
                 str(d.get("paper_title"))[:24] for d in dicts)
             html = to_compare_html_many(payload, title)
-            name = "compare_%d.html" % int(time.time())
+            name = f"compare_{uuid.uuid4().hex}.html"
             (self.out_dir / name).write_text(html, encoding="utf-8")
             job["state"] = "done"
             job["url"] = "/comparefile/" + name
@@ -1168,6 +1158,36 @@ class _Handler(BaseHTTPRequestHandler):
 
     # -- GET -------------------------------------------------------------
 
+    def _lab_profile(self, file: str) -> tuple[Path, dict]:
+        path = self.state.report_path(file)
+        if path is None:
+            raise ValueError("找不到所选报告")
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            raise ValueError("报告数据格式无效")
+        return path, data
+
+    def _compare_request(self, query: str, params: dict, *, retry: bool = False) -> None:
+        repeated = urllib.parse.parse_qs(query).get("file")
+        values = repeated or (params.get("files") or "").split(",")
+        files = list(dict.fromkeys(file for file in values if file))
+        if not 2 <= len(files) <= 4:
+            self._json({"ok": False, "error": "请选择两到四份不同的报告"}, 400)
+            return
+        if any(self.state.report_path(file) is None for file in files):
+            self._json({"ok": False, "error": "所选报告不存在，请刷新报告列表"}, 404)
+            return
+        key = json.dumps(sorted(files), ensure_ascii=False)
+        job = self.state.compare_jobs.get(key)
+        if not job or (retry and job.get("state") == "error"):
+            if not self._model_settings()["ready"]:
+                self._json({"ok": False, "error": "请先在工作台的「模型设置」中配置 API Key"}, 400)
+                return
+            self.state._start_compare(files)
+            job = self.state.compare_jobs[key]
+        self._json({"ok": True, "state": job.get("state"),
+                    "url": job.get("url"), "error": job.get("error")})
+
     def do_GET(self) -> None:  # noqa: N802
         path, _, query = self.path.partition("?")
         params = {urllib.parse.unquote(k): urllib.parse.unquote(v)
@@ -1178,6 +1198,31 @@ class _Handler(BaseHTTPRequestHandler):
             page = self.workbench_html if self.workbench else self.html
             self._send(200, self._inject(page).encode("utf-8"),
                        "text/html; charset=utf-8; cache-control: no-cache")
+            return
+
+        if path == "/lab" and self.workbench:
+            html = Path(__file__).with_name("method_lab.html").read_bytes()
+            self._send(200, html, "text/html; charset=utf-8")
+            return
+
+        if path == "/api/lab" and self.workbench:
+            from .method_lab import asap_source, method_profile
+            from .scheduling import teaching_case
+
+            if not params.get("file"):
+                reports = [{"file": r["file"], "title": r["title"]}
+                           for r in self.state.reports()]
+                self._json({"ok": True, "reports": reports, "demo": teaching_case()})
+                return
+            try:
+                rp, data = self._lab_profile(params["file"])
+                pdf = self.state.pdf_dir / (rp.stem + ".pdf")
+                self._json({"ok": True, "title": data.get("paper_title") or rp.stem,
+                            "sections": method_profile(data),
+                            "pdf": rp.stem if pdf.is_file() else None,
+                            "asap_page": asap_source(pdf) if pdf.is_file() else None})
+            except (OSError, ValueError) as exc:
+                self._json({"ok": False, "error": str(exc)}, 400)
             return
 
         if path == "/report" and self.workbench:
@@ -1245,8 +1290,9 @@ class _Handler(BaseHTTPRequestHandler):
 
         if path.startswith("/pageimg/") and self.workbench:
             # /pageimg/<stem>/<n>.png —— 懒渲染 + 磁盘缓存
-            m = re.match(r"^/pageimg/([\w\-.]+)/([0-9]{1,3})\.png$", path)
-            if not m:
+            m = re.match(r'^/pageimg/([^<>:"/\\|?*\x00-\x1f]+)/([0-9]{1,3})\.png$',
+                         urllib.parse.unquote(path))
+            if not m or not m.group(1).strip(" ."):
                 self._json({"ok": False, "error": "路径不合法"}, 404)
                 return
             stem, no = m.group(1), int(m.group(2))
@@ -1305,24 +1351,12 @@ class _Handler(BaseHTTPRequestHandler):
             return
 
         if path == "/api/compare" and self.workbench:
-            files = [x for x in str(params.get("files") or "").split(",")
-                     if x]
-            if len(files) < 2:
-                self._json({"ok": False, "error": "至少选两份报告"}, 400)
-                return
-            key = ",".join(sorted(files))
-            job = self.state.compare_jobs.get(key)
-            if not job:
-                self.state._start_compare(files)
-                self._json({"ok": True, "state": "running"})
-                return
-            self._json({"ok": True, "state": job.get("state"),
-                        "url": job.get("url"), "error": job.get("error")})
+            self._compare_request(query, params)
             return
 
         if path.startswith("/comparefile/") and self.workbench:
             name = path.split("/", 2)[2]
-            if not re.match(r"^compare_\d+\.html$", name):
+            if not re.fullmatch(r"compare_(?:\d+|[0-9a-f]{32})\.html", name):
                 self._json({"ok": False, "error": "非法文件名"}, 404)
                 return
             _cf = self.state.out_dir / name
@@ -1440,6 +1474,37 @@ class _Handler(BaseHTTPRequestHandler):
                   for k, v in (kv.split("=", 1) for kv in query.split("&")
                                if "=" in kv)}
 
+        if path == "/api/artifacts" and self.workbench:
+            if not self._same_origin():
+                self._json({"ok": False, "error": "拒绝跨站请求"}, 403)
+                return
+            from .artifacts import discover, inspect, search_title
+            try:
+                rp, data = self._lab_profile(params.get("file", ""))
+                pdf = self.state.pdf_dir / (rp.stem + ".pdf")
+                if not pdf.is_file():
+                    pdf = _resolve(str(data.get("source") or ""), rp)
+                title = str(data.get("paper_title") or "")
+                candidates = discover(pdf)
+                notice = ""
+                if params.get("search") == "1" and not any(
+                    item["paper_code"] for item in candidates
+                ):
+                    try:
+                        matches = search_title(title)
+                    except (OSError, ValueError):
+                        matches = []
+                        notice = "GitHub 标题搜索未完成，可能是网络或限流。仍可查看论文里的链接。"
+                    by_url = {item["url"].lower(): item for item in matches}
+                    by_url.update({item["url"].lower(): item for item in candidates})
+                    candidates = list(by_url.values())
+                items = [inspect(candidate, title) for candidate in candidates[:3]]
+                self._json({"ok": True, "items": items, "pdf": pdf is not None,
+                            "notice": notice})
+            except (OSError, ValueError, RuntimeError):
+                self._json({"ok": False, "error": "无法完成代码检查。请确认原文 PDF 可打开，或稍后重试平台搜索。"}, 502)
+            return
+
         if path == "/api/model" and self.workbench:
             self._configure_model()
             return
@@ -1454,15 +1519,7 @@ class _Handler(BaseHTTPRequestHandler):
             if not self._same_origin():
                 self._json({"ok": False, "error": "拒绝跨站请求"}, 403)
                 return
-            files = [x for x in str(params.get("files") or "").split(",")
-                     if x]
-            if len(files) < 2:
-                self._json({"ok": False, "error": "至少选两份报告"}, 400)
-                return
-            key = ",".join(sorted(files))
-            if not self.state.compare_jobs.get(key):
-                self.state._start_compare(files)
-            self._json({"ok": True, "state": "running"})
+            self._compare_request(query, params, retry=True)
             return
 
         if path == "/api/demo" and self.workbench:

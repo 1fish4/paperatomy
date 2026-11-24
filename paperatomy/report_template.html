@@ -3078,6 +3078,13 @@
     backTop.classList.add("show");
     document.body.appendChild(backTop);
 
+    var labTop = document.createElement("a");
+    labTop.className = "back-top show";
+    labTop.style.left = "9rem";
+    labTop.href = "/lab?file=" + encodeURIComponent(__PA_SERVE__.report) + "#artifacts";
+    labTop.textContent = "方法与作者代码";
+    backTop.after(labTop);
+
     // 对照原文 / 图表速览：报告对应 PDF 存在时才提供
     var PDF = window.__PA_SERVE__ ? window.__PA_SERVE__.pdf : null;
     if (PDF) {
