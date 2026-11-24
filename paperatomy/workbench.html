@@ -296,15 +296,84 @@
   }
   .pager button:disabled { opacity: .4; cursor: default; }
   .pager button:not(:disabled):hover { border-color: var(--accent); color: var(--accent); }
+  :focus-visible { outline: 3px solid #3081b2; outline-offset: 3px; }
+  .welcome {
+    max-width: 1312px; margin: 24px auto 0; padding: 28px 32px;
+    width: calc(100% - 48px); border-radius: 18px;
+    background: linear-gradient(110deg, #e8f2f2, #f9f5e9);
+    border: 1px solid #d5e3df; display: flex; align-items: center;
+    justify-content: space-between; gap: 20px; flex-wrap: wrap;
+  }
+  .welcome h1 { margin-bottom: 4px; font-size: clamp(24px, 4vw, 36px); }
+  .welcome p { margin: 0; color: #465d61; }
+  .welcome-actions, .model-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .action {
+    display: inline-block; border: 1px solid #adc3c6; border-radius: 9px;
+    background: #fff; color: #21485a; font: inherit; font-weight: 600;
+    padding: 7px 13px; text-decoration: none; cursor: pointer;
+  }
+  .action:hover { background: #e6f0f3; }
+  .action.primary { background: #22596b; color: white; border-color: #22596b; }
+  .action.primary:hover { background: #194655; }
+  .action:disabled { opacity: .6; cursor: wait; }
+  #modelDialog {
+    width: min(500px, 92vw); border: 1px solid #d5e3df; border-radius: 15px;
+    padding: 24px; color: var(--ink); box-shadow: 0 16px 60px #172b3b40;
+  }
+  #modelDialog::backdrop { background: #172b3b80; }
+  #modelDialog h2 { margin-top: 0; font-size: 20px; }
+  #modelDialog label { display: block; margin: 12px 0; font-weight: 600; }
+  #modelDialog input {
+    display: block; width: 100%; margin-top: 4px; border: 1px solid #adc3c6;
+    padding: 8px 10px; border-radius: 8px; font: inherit;
+  }
+  #modelResult { min-height: 1.75em; margin: 8px 0; color: #8a3a23; overflow-wrap: anywhere; }
+  .task.err .task-detail { white-space: pre-wrap; overflow-wrap: anywhere; }
+  #taskRecovery { margin-top: 10px; }
+  #taskRecovery[hidden] { display: none; }
+  @media (max-width: 980px) { .side { position: static; } }
+  @media (max-width: 560px) {
+    .app { padding: 0 12px; }
+    .welcome { width: calc(100% - 24px); padding: 20px; margin-top: 12px; }
+    .topbar { padding: 0 12px; }
+    .topbar .brand span, .topbar .topstat span { display: none; }
+    .grid { grid-template-columns: minmax(0, 1fr); }
+  }
 </style>
 </head>
 <body>
 <header class="topbar">
   <div class="brand"><b>PAPERATOMY</b><span>论文工作台</span></div>
-  <div class="topstat"><i></i>本地服务运行中 · 论文与报告不出本机
+  <div class="topstat"><span id="serviceStatus">正在连接本地服务</span>
     <button id="diagBtn" class="diag-btn">诊断与修复</button></div>
 </header>
 
+<section class="welcome" aria-labelledby="welcomeTitle">
+  <div>
+    <h1 id="welcomeTitle">论文工作台</h1>
+    <p id="modelStatus" role="status">正在读取模型设置…</p>
+  </div>
+  <div class="welcome-actions">
+    <button id="modelOpen" class="action primary" type="button">模型设置</button>
+    <a class="action" href="https://1fish4.github.io/paperatomy/" target="_blank" rel="noopener">打开免 Key 示例</a>
+  </div>
+</section>
+
+<dialog id="modelDialog" aria-labelledby="modelTitle">
+  <form id="modelForm">
+    <h2 id="modelTitle">模型设置</h2>
+    <p class="hint">填写服务商提供的 OpenAI 兼容 API 地址和模型名称。测试只发送一条短消息，分析时会将论文摘录发送给该服务商。</p>
+    <label>基础地址<input id="modelBase" type="url" placeholder="https://api.deepseek.com/v1" required></label>
+    <label>模型名称<input id="modelName" type="text" placeholder="deepseek-chat" required></label>
+    <label>API Key<input id="modelKey" type="password" autocomplete="off" spellcheck="false"></label>
+    <p id="modelKeyHint" class="hint"></p>
+    <p id="modelResult" role="status"></p>
+    <div class="model-actions">
+      <button id="modelSave" class="action primary" type="submit">测试并保存</button>
+      <button id="modelClose" class="action" type="button">关闭</button>
+    </div>
+  </form>
+</dialog>
 
 <div class="diag-mask" id="diagMask" style="display:none">
   <div class="diag-panel">
@@ -354,7 +423,7 @@
   <aside class="side">
     <section class="panel">
       <div class="panel-t">上传论文</div>
-      <div class="drop" id="drop">
+      <div class="drop" id="drop" role="button" tabindex="0" aria-label="选择 PDF 文件">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
              stroke-linecap="round" stroke-linejoin="round">
           <path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>
@@ -376,8 +445,7 @@
           <div class="opt" data-lang="en">English</div>
         </div>
       </div>
-      <p class="hint">上传后先做<b>类型检测</b>（本地、秒级），确认模板后才开跑。
-模型 key 只在本机。</p>
+      <p class="hint">上传后在本机检测论文类型。确认模板后，模型才会读取用于分析的文本。</p>
     </section>
 
     <section class="panel">
@@ -388,7 +456,11 @@
           <span class="task-time" id="taskTime"></span>
         </div>
         <div class="stages" id="stages"></div>
-        <div class="task-detail" id="taskDetail"></div>
+        <div class="task-detail" id="taskDetail" role="status"></div>
+        <div class="model-actions" id="taskRecovery" hidden>
+          <button class="action" id="taskModel" type="button">检查模型设置</button>
+          <button class="action" id="taskDiagnose" type="button">打开诊断与修复</button>
+        </div>
         <button class="task-done-btn" id="taskOpen">打开报告 →</button>
       </div>
     </section>
@@ -437,6 +509,75 @@
 <script>
 (function () {
   var CFG = window.__PA_SERVE__ || {port: location.port};
+  var modelDialog = document.getElementById("modelDialog");
+  var modelBase = document.getElementById("modelBase");
+  var modelName = document.getElementById("modelName");
+  var modelKey = document.getElementById("modelKey");
+  var modelSave = document.getElementById("modelSave");
+  var modelResult = document.getElementById("modelResult");
+  var modelStatus = document.getElementById("modelStatus");
+  var serviceStatus = document.getElementById("serviceStatus");
+
+  function applyModelSettings(settings) {
+    serviceStatus.textContent = "本地服务已连接";
+    modelStatus.textContent = settings.ready
+      ? "当前模型  " + settings.model
+      : "先配置模型再分析新论文，也可以直接打开示例报告。";
+    modelBase.value = settings.base_url;
+    modelName.value = settings.model;
+    document.getElementById("modelKeyHint").textContent = settings.has_key
+      ? "同一地址可留空保留已保存的 Key。切换服务商时，请填写新 Key。"
+      : "云模型需要 API Key。本地 Ollama 等服务可留空。";
+  }
+
+  function openModelSettings() {
+    modelResult.textContent = "";
+    modelDialog.showModal();
+  }
+
+  document.getElementById("modelOpen").addEventListener("click", openModelSettings);
+  document.getElementById("taskModel").addEventListener("click", openModelSettings);
+  document.getElementById("taskDiagnose").addEventListener("click", function () {
+    document.getElementById("diagBtn").click();
+  });
+  document.getElementById("modelClose").addEventListener("click", function () {
+    modelDialog.close();
+  });
+  modelDialog.addEventListener("close", function () { modelKey.value = ""; });
+  document.getElementById("modelForm").addEventListener("submit", async function (event) {
+    event.preventDefault();
+    modelSave.disabled = true;
+    modelResult.textContent = "正在测试模型连接…";
+    try {
+      var response = await fetch("/api/model", {
+        method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          base_url: modelBase.value, model: modelName.value, api_key: modelKey.value
+        })
+      });
+      var settings = await response.json();
+      if (!settings.ok) {
+        modelResult.textContent = settings.error || "测试失败，请检查服务地址和模型名称。";
+        return;
+      }
+      applyModelSettings(settings);
+      modelDialog.close();
+      modelStatus.textContent = "模型已通过连接测试  " + settings.model;
+    } catch (error) {
+      modelResult.textContent = "无法连接本地工作台。请确认启动窗口仍在运行。";
+    } finally {
+      modelSave.disabled = false;
+    }
+  });
+  fetch("/api/model").then(function (response) { return response.json(); })
+    .then(function (settings) {
+      if (!settings.ok) { throw new Error("model settings unavailable"); }
+      applyModelSettings(settings);
+    }).catch(function () {
+      serviceStatus.textContent = "本地服务未连接";
+      modelStatus.textContent = "无法读取模型设置。请确认启动窗口仍在运行，然后刷新。";
+    });
+
   var state = {tpl: "deep", lang: "zh", file: null, timer: null, openWhenDone: "", pendingFile: null};
 
   var drop = document.getElementById("drop");
@@ -661,7 +802,15 @@
     var fs = e.dataTransfer && e.dataTransfer.files;
     if (fs && fs.length) { uploadAll(fs); }
   });
-  drop.addEventListener("click", function () { fileInput.click(); });
+  drop.addEventListener("click", function (event) {
+    if (event.target !== fileInput) { fileInput.click(); }
+  });
+  drop.addEventListener("keydown", function (event) {
+    if (event.target === drop && (event.key === "Enter" || event.key === " ")) {
+      event.preventDefault();
+      fileInput.click();
+    }
+  });
   fileInput.addEventListener("change", function () {
     if (fileInput.files && fileInput.files.length) { uploadAll(fileInput.files); }
     fileInput.value = "";
@@ -904,6 +1053,7 @@
   function showTask(t) {
     taskBox.classList.add("show");
     taskBox.classList.toggle("err", t.status === "error");
+    document.getElementById("taskRecovery").hidden = t.status !== "error";
     taskName.textContent = t.name || "";
     taskTime.textContent = t.elapsed != null ? t.elapsed + "s" : "";
     taskDetail.textContent = t.status === "error" ? (t.error || "失败")
@@ -1073,7 +1223,7 @@
   window.PA = {state: state, esc: esc, loadReports: loadReports,
     confirmStart: confirmStart, confirmCancel: confirmCancel,
     confirmBatchStart: confirmBatchStart, clearSel: clearSel,
-    runCompare: runCompare};
+    runCompare: runCompare, poll: poll};
 
   loadReports();
 })();
@@ -1145,7 +1295,7 @@
       var d = rs[0], tr = rs[1] || {items: []};
         var h = '<div style="margin-bottom:10px;color:var(--ink2)">' +
           '服务版本 v' + PA.esc(d.version || "?") +
-          ' · 出问题先点对应「修复」，修不好的再截图问 AI</div>' +
+          ' · 模型请求失败时，请检查模型设置。报告缺失时可重跑或重新渲染。</div>' +
           '<table><tr><th>报告</th><th>体检项</th><th>操作</th></tr>';
         (d.reports || []).forEach(function (rp) {
           var bads = [];
@@ -1211,12 +1361,17 @@
                 .then(function (r) { return r.json(); })
                 .then(function (d) {
                   if (b.dataset.action === "start" && d.ok) {
-                    b.textContent = "已开跑（" + (d.template || "") + "）";
-                    if (typeof PA.loadReports === "function") { PA.loadReports(); }
-                  } else if (b.dataset.action === "start") {
-                    b.textContent = d.error || "启动失败";
+                    document.getElementById("diagMask").style.display = "none";
+                    PA.poll(d.task.id);
+                  } else if (!d.ok) {
+                    b.disabled = false;
+                    b.textContent = d.error || "操作失败，请重试";
+                  } else {
+                    setTimeout(runDiag, 4000);
                   }
-                  setTimeout(runDiag, 4000);
+                }).catch(function () {
+                  b.disabled = false;
+                  b.textContent = "本地服务未连接，点击重试";
                 });
             });
           });

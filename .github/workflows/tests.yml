@@ -33,16 +33,18 @@ jobs:
       - name: Install
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          pip install ".[dev]"
 
       - name: Run tests
         run: pytest -q
 
       - name: CLI smoke test
+        working-directory: ${{ runner.temp }}
         run: |
           paperatomy --help
           paperatomy templates
           paperatomy config show
+          python -c "from paperatomy.serve import _read_workbench; from paperatomy.refnet import ccf_lookup; assert 'modelForm' in _read_workbench(); assert ccf_lookup('ICPP')"
 
       - name: 校验内置模板可加载
         run: python -c "from paperatomy import list_templates; ts=list_templates(); assert len(ts)>=3; print([t.id for t in ts])"

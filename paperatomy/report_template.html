@@ -1991,20 +1991,33 @@
           body.innerHTML = '<p class="empty">模型正在为这篇论文生成分镜脚本…' +
             "<br>约半分钟，生成后自动播放。</p>";
           if (d.state === "none") {
-            fetch("/api/demo?file=" +
-                  encodeURIComponent(__PA_SERVE__.report),
-                  {method: "POST"});
+            requestDemo(body);
+          } else {
+            setTimeout(function () { initDemo(body); }, 5000);
           }
-          setTimeout(function () { initDemo(body); }, 5000);
           return;
         }
-        body.innerHTML = '<p class="empty" style="cursor:pointer">' +
-          "生成失败：" + esc(d.error || "未知错误") + "<br>点击重试。</p>";
-        body.firstChild.addEventListener("click", function () {
-          initDemo(body);
-        });
+        demoFailure(body, d.error || "未知错误");
       })
-      .catch(function (e) { body.textContent = "加载失败：" + e; });
+      .catch(function () { demoFailure(body, "无法连接本地工作台"); });
+  }
+
+  function demoFailure(body, error) {
+    body.innerHTML = '<p class="empty">' + esc(error) +
+      '</p><button type="button">重新生成分镜</button>';
+    body.querySelector("button").addEventListener("click", function () {
+      requestDemo(body);
+    });
+  }
+
+  function requestDemo(body) {
+    body.textContent = "正在提交分镜生成请求…";
+    fetch("/api/demo?file=" + encodeURIComponent(__PA_SERVE__.report), {method: "POST"})
+      .then(function (response) { return response.json(); })
+      .then(function (data) {
+        if (!data.ok) { demoFailure(body, data.error || "无法开始生成"); return; }
+        initDemo(body);
+      }).catch(function () { demoFailure(body, "无法连接本地工作台"); });
   }
 
   if (window.__PA_SERVE__) { initModFigs(); }

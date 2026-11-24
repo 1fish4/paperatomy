@@ -34,6 +34,7 @@ _RE_SURVEY_HINT = __import__("re").compile(
     __import__("re").I)
 import threading
 import time
+import os
 import urllib.parse
 import glob
 import logging
@@ -45,7 +46,7 @@ from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from .llm import LLMConfig, LLMError, chat_stream, load_config
+from .llm import LLMConfig, LLMError, chat, chat_stream, load_config, save_config
 
 __all__ = ["serve", "build_messages", "SYSTEM_PROMPT", "Task"]
 
@@ -650,12 +651,13 @@ class _State:
                 "按『全文结构（板块顺序）』展开分支——每个分支是一篇论文的一个部分"
                 "（如研究问题/方法模块/实验/结论），节点写该部分的关键词；"
                 "这一镜是全文导图，让观众先看到整篇论文的骨架和研究问题所在。"
-                "②接着 1~2 镜把问题讲透——展示现状的混乱或浪费（tokens），"
-                "再展示关键矛盾或约束冲突（tokens/bars）；"
-                "②中间 1~2 镜讲已有方法是怎么做的、哪里不够好"
+                "②接着用一个贯穿后续镜头的具体场景解释研究问题与约束，"
+                "保持对象名称一致；材料没有例子时直接讲机制，不虚构数据。"
+                "③讲已有方法实际怎么做、哪个环节受限"
                 "（优先用 compare：左列=已有方法要点，右列=本文对应改进）；"
-                "③再用 2~4 镜把本文方法逐步拆开讲（flow/tokens，每镜只讲一步）；"
-                "④最后 1~2 镜展示效果（bars/line，用真实数字）。"
+                "④把本文方法逐步拆开，说明每步的输入、操作、输出，以及为什么有效；"
+                "⑤说明效果的基线、指标单位和实验条件，最后指出材料支持的局限。"
+                "综述按分类依据、各路线的取舍和开放问题组织，避免虚构作者提出的方法。"
                 "输出 JSON：{\"title\": \"讲解标题\", \"scenes\": ["
                 '{"narration": "本镜旁白（80字内，口语化，讲清楚这一镜在说什么）", '
                 '"viz": {"type": '
@@ -697,7 +699,7 @@ class _State:
                 "说『任务在哪台机器上跑早就定死了』；"
                 "③每镜之间要有承接，像讲故事一样推进："
                 "『现在你看到的…』『问题就出在这』『于是作者想到…』『结果呢？』『更妙的是』；"
-                "④给出感受和对比（『看着就头疼』『差了整整一倍』），不要干巴巴罗列事实；"
+                "④用直白的因果解释和准确的对比。材料不足时注明，勿补编结论；"
                 "⑤长度 50~90 字，宁短勿长。"
                 "旁白好坏示例（差=学术腔，好=讲解员）：\n"
                 "差：针对给定映射与顺序的工作流调度，本文提出碳感知方法优化碳排放。\n"
@@ -1084,6 +1086,71 @@ class _Handler(BaseHTTPRequestHandler):
             f"http://localhost:{self.port}",
         }
 
+    def _model_settings(self) -> dict:
+        cfg = self.cfg or load_config()
+        return {"ok": True, "base_url": cfg.base_url, "model": cfg.model,
+                "has_key": bool(cfg.api_key), "ready": bool(cfg.api_key or cfg.is_local())}
+
+    def _configure_model(self) -> None:
+        origin = self.headers.get("Origin")
+        host = self.headers.get("Host")
+        if not origin or not self._same_origin() or origin != f"http://{host}":
+            self._json({"ok": False, "error": "请从本机工作台修改模型设置"}, 403)
+            return
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+            if not 0 < length <= 8192 or self.headers.get_content_type() != "application/json":
+                raise ValueError("模型设置格式有误")
+            payload = json.loads(self.rfile.read(length))
+            if not isinstance(payload, dict):
+                raise ValueError("模型设置格式有误")
+            base = str(payload.get("base_url") or "").strip().rstrip("/")
+            model = str(payload.get("model") or "").strip()
+            key = str(payload.get("api_key") or "").strip()
+            parsed = urllib.parse.urlsplit(base)
+            local = parsed.hostname in {"127.0.0.1", "localhost", "::1"}
+            if (not parsed.hostname or parsed.username or parsed.password
+                    or parsed.query or parsed.fragment
+                    or not (parsed.scheme == "https" or (parsed.scheme == "http" and local))):
+                raise ValueError("云模型请填写 HTTPS 基础地址，本地模型可使用 HTTP")
+            if not model:
+                raise ValueError("请填写服务商提供的模型名称")
+            previous = self.cfg or load_config()
+            if not key and base == previous.base_url.rstrip("/"):
+                key = previous.api_key
+            if not key and not local:
+                raise ValueError("请填写该服务商的 API Key")
+            for name, value in (("BASE_URL", base), ("MODEL", model), ("API_KEY", key)):
+                override = os.environ.get("PAPERATOMY_" + name)
+                if override is not None and override != value:
+                    self._json({
+                        "ok": False,
+                        "error": f"环境变量 PAPERATOMY_{name} 优先，请在启动终端修改或移除它",
+                    }, 409)
+                    return
+            candidate = LLMConfig(api_key=key, base_url=base, model=model,
+                                  temperature=previous.temperature)
+        except (ValueError, UnicodeError):
+            # JSON 解析错误可能包含用户输入，避免把请求内容回显。
+            self._json({"ok": False, "error": "请检查基础地址、模型名称与 API Key，切换服务商时需填写新 Key"}, 400)
+            return
+        try:
+            probe = LLMConfig(api_key=key, base_url=base, model=model,
+                              max_tokens=32, timeout=15, retries=1)
+            chat([{"role": "user", "content": "Reply with OK."}], probe, json_mode=False)
+            save_config(candidate)
+        except LLMError as exc:
+            message = str(exc).split("\n", 1)[0]
+            if key:
+                message = message.replace(key, "[已隐藏]")
+            self._json({"ok": False, "error": message}, 502)
+            return
+        except OSError:
+            self._json({"ok": False, "error": "模型已连通，但无法写入用户配置目录"}, 500)
+            return
+        type(self).cfg = load_config()
+        self._json(self._model_settings())
+
     def _inject(self, html: str, report: str | None = None) -> str:
         payload = {"port": self.port,
                    "mode": "workbench" if self.workbench else "report"}
@@ -1155,6 +1222,10 @@ class _Handler(BaseHTTPRequestHandler):
                 "model": self.cfg.model if self.cfg else "",
                 "title": self._title(),
             })
+            return
+
+        if path == "/api/model" and self.workbench:
+            self._json(self._model_settings())
             return
 
         if path.startswith("/api/pdfinfo") and self.workbench:
@@ -1369,6 +1440,10 @@ class _Handler(BaseHTTPRequestHandler):
                   for k, v in (kv.split("=", 1) for kv in query.split("&")
                                if "=" in kv)}
 
+        if path == "/api/model" and self.workbench:
+            self._configure_model()
+            return
+
         if path == "/api/upload":
             self._upload(params)
             return
@@ -1393,6 +1468,9 @@ class _Handler(BaseHTTPRequestHandler):
         if path == "/api/demo" and self.workbench:
             if not self._same_origin():
                 self._json({"ok": False, "error": "拒绝跨站请求"}, 403)
+                return
+            if not self._model_settings()["ready"]:
+                self._json({"ok": False, "error": "请先在工作台的「模型设置」中测试并保存配置"}, 400)
                 return
             file = str(params.get("file") or "")
             if not self.state.report_path(file):
@@ -1506,6 +1584,9 @@ class _Handler(BaseHTTPRequestHandler):
             return
         if self.state.running is not None:
             self._json({"ok": False, "error": "已有任务在跑，请等它完成"}, 409)
+            return
+        if not self._model_settings()["ready"]:
+            self._json({"ok": False, "error": "请先在工作台的「模型设置」中测试并保存配置"}, 400)
             return
         try:
             file = str(params.get("file") or "")
@@ -1664,6 +1745,9 @@ class _Handler(BaseHTTPRequestHandler):
             return
         if action == "start":
             # 一键开跑：papers/ 里已上传但没跑过的 PDF
+            if not self._model_settings()["ready"]:
+                self._json({"ok": False, "error": "请先在「模型设置」中测试并保存配置"}, 400)
+                return
             pdf = self.state.pdf_dir / Path(file).name
             if not pdf.is_file():
                 self._json({"ok": False, "error": "找不到这份 PDF"}, 404)
@@ -2238,7 +2322,7 @@ def serve(
     _LOG.addHandler(_rh)
 
     cfg = cfg or load_config()
-    if not cfg.api_key and not cfg.is_local():
+    if json_path is not None and not cfg.api_key and not cfg.is_local():
         print("✗ 没有配置 API key。先跑 paperatomy config set --api-key sk-xxx")
         return 1
 

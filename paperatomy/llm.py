@@ -15,10 +15,12 @@ from __future__ import annotations
 
 import json
 import os
+import tempfile
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterator
+from urllib.parse import urlsplit
 
 __all__ = [
     "LLMConfig",
@@ -68,7 +70,10 @@ class LLMConfig:
         return base + "/chat/completions"
 
     def is_local(self) -> bool:
-        return "127.0.0.1" in self.base_url or "localhost" in self.base_url
+        try:
+            return urlsplit(self.base_url).hostname in {"127.0.0.1", "localhost", "::1"}
+        except ValueError:
+            return False
 
 
 def load_config(**overrides) -> LLMConfig:
@@ -110,23 +115,26 @@ def save_config(cfg: LLMConfig) -> Path:
     import yaml
 
     CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
-    CONFIG_PATH.write_text(
-        yaml.safe_dump(
-            {
-                "api_key": cfg.api_key,
-                "base_url": cfg.base_url,
-                "model": cfg.model,
-                "temperature": cfg.temperature,
-            },
-            allow_unicode=True,
-            sort_keys=False,
-        ),
-        encoding="utf-8",
+    stream = tempfile.NamedTemporaryFile(
+        mode="w", encoding="utf-8", dir=CONFIG_PATH.parent, delete=False
     )
+    temporary_path = Path(stream.name)
     try:
-        CONFIG_PATH.chmod(0o600)
-    except Exception:
-        pass
+        with stream:
+            yaml.safe_dump(
+                {
+                    "api_key": cfg.api_key,
+                    "base_url": cfg.base_url,
+                    "model": cfg.model,
+                    "temperature": cfg.temperature,
+                },
+                stream,
+                allow_unicode=True,
+                sort_keys=False,
+            )
+        temporary_path.replace(CONFIG_PATH)
+    finally:
+        temporary_path.unlink(missing_ok=True)
     return CONFIG_PATH
 
 
