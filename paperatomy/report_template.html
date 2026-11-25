@@ -1043,7 +1043,8 @@
   // 文献网络跟在论证链后：先看推理线，再看它在领域里的位置。
   // 无数据时也渲染占位板块（提示如何补跑），功能存在感不能只在文档里。
   main.push(networkSection());
-  if (D.network && D.network.nodes && D.network.nodes.length) {
+  if ((D.network && D.network.nodes && D.network.nodes.length) ||
+      (window.__PA_SERVE__ && window.__PA_SERVE__.mode === "workbench")) {
     jump.push('<a href="#network">文献网络</a>');
   }
 
@@ -1100,6 +1101,7 @@
   document.getElementById("main").innerHTML = main.join("");
   initChain();
   initNetwork();
+  followNetwork();
 
   // ---- 图进模块（v0.11.0）：/api/modfigs 分配 → 模块内懒加载 ----
   var TD = [];
@@ -1851,7 +1853,16 @@
     h.push('<div class="net-wrap">');
 
     var N = D.network;
+    var local = window.__PA_SERVE__ && window.__PA_SERVE__.mode === "workbench";
+    if (local) {
+      h.push('<div class="net-empty" id="netBackground" role="status">' +
+        '<span></span> <button id="netRetry" type="button" hidden>重试补充</button></div>');
+    }
     if (!N || !N.nodes || !N.nodes.length) {
+      if (local) {
+        h.push("</div></section>");
+        return h.join("");
+      }
       var why = (N && N.unavailable) ? esc(N.unavailable)
         : "还没有为这份报告生成文献网络。";
       h.push('<div class="net-empty">' + why + "<br>" +
@@ -1929,6 +1940,55 @@
     h.push('<div class="net-detail" id="netDetail"></div>');
     h.push("</div></section>");
     return h.join("");
+  }
+
+  function followNetwork() {
+    var setup = window.__PA_SERVE__;
+    if (!setup || setup.mode !== "workbench" || !setup.report) return;
+    var url = "/api/network?file=" + encodeURIComponent(setup.report);
+    var timer;
+
+    function message(text, retry, show) {
+      var row = document.getElementById("netBackground");
+      if (!row) return;
+      row.hidden = !show;
+      row.querySelector("span").textContent = text;
+      var button = row.querySelector("button");
+      button.hidden = !retry;
+      button.onclick = retry ? function () { check("POST"); } : null;
+    }
+
+    async function check(method) {
+      clearTimeout(timer);
+      if (method === "POST") message("正在提交文献网络补充任务…", false, true);
+      try {
+        var response = await fetch(url, {method: method || "GET"});
+        var data = await response.json();
+        if (!response.ok || !data.ok) throw new Error(data.error || "无法查询文献网络");
+        var active = data.state === "running" || data.state === "queued";
+        if (!active && data.network && JSON.stringify(data.network) !== JSON.stringify(D.network)) {
+          D.network = data.network;
+          document.getElementById("network").outerHTML = networkSection();
+          initNetwork();
+        }
+        if (active) {
+          message(data.detail || "正在后台补充文献网络…", false, true);
+          timer = setTimeout(check, 2000);
+        } else if (data.state === "done") {
+          var nodes = data.network && data.network.nodes;
+          message("已完成匹配，当前没有可展示的文献节点。", false, !nodes || !nodes.length);
+        } else if (data.state === "failed") {
+          message(data.detail || "文献网络补充失败。", true, true);
+        } else {
+          message("这份报告尚未补充文献网络。", true, true);
+        }
+      } catch (error) {
+        message(error.message || "暂时无法连接本地服务。", method === "POST", true);
+        if (method !== "POST") timer = setTimeout(check, 5000);
+      }
+    }
+
+    check();
   }
 
   function initNetwork() {

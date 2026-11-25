@@ -651,7 +651,9 @@ def build_network(
     kw_center = _keywords(center_title)
     cited: list[RefNode] = []
     matched = 0
-    for entry in entries:
+    for index, entry in enumerate(entries, 1):
+        if index == 1 or index % 5 == 0:
+            say(f"正在匹配参考文献 {index}/{len(entries)} 条 · 已命中 {matched} 条")
         title = extract_title(entry)
         if len(title) < 12:
             continue

@@ -11,8 +11,9 @@ chain / locate / render）不应该被入口的差异绑住。
 
 from __future__ import annotations
 
+from contextlib import nullcontext
 from pathlib import Path
-from typing import Callable
+from typing import Callable, ContextManager
 
 from .llm import LLMConfig
 from .locate import LocateReport, annotate_extraction
@@ -52,6 +53,8 @@ def analyze_pdf(
     out_prefix: str | Path | None = None,
     repair_rounds: int = 2,
     skip_chain: bool = False,
+    defer_network: bool = False,
+    output_lock: ContextManager | None = None,
     on_progress: Callable[[str], None] | None = None,
 ) -> AnalyzeResult:
     """跑完整流程，落盘 JSON / Markdown / HTML。
@@ -111,29 +114,30 @@ def analyze_pdf(
     prefix = Path(out_prefix) if out_prefix else pdf.with_suffix("")
     prefix.parent.mkdir(parents=True, exist_ok=True)
 
-    say("文献网络（OpenAlex 引用匹配，约 1–2 分钟）…")
-    network = None
-    try:
-        from .refnet import build_network
+    network = {"background": "pending", "nodes": []} if defer_network else None
+    if not defer_network:
+        say("文献网络（OpenAlex 引用匹配，约 1–2 分钟）…")
+        try:
+            from .refnet import build_network
 
-        network = build_network(paper, on_progress=say, cfg=cfg)
-    except Exception as exc:  # 网络是增强项，失败不拦报告
-        say(f"  ⚠ 文献网络失败（不影响报告）：{exc}")
+            network = build_network(paper, on_progress=say, cfg=cfg)
+        except Exception as exc:  # 网络是增强项，失败不拦报告
+            say(f"  ⚠ 文献网络失败（不影响报告）：{exc}")
 
     say("渲染报告 …")
     json_path = prefix.with_suffix(".json")
-    json_path.write_text(
-        to_json(result, template, paper=paper, chain=chain, network=network),
-        encoding="utf-8")
     md_path = prefix.with_suffix(".md")
-    md_path.write_text(
-        to_markdown(result, template, lang=lang, chain=chain, network=network),
-        encoding="utf-8")
     html_path = prefix.with_suffix(".html")
-    html_path.write_text(
-        to_html(result, template, lang=lang, paper=paper, chain=chain,
-                network=network),
-        encoding="utf-8")
+    with output_lock if output_lock is not None else nullcontext():
+        md_path.write_text(
+            to_markdown(result, template, lang=lang, chain=chain, network=network),
+            encoding="utf-8")
+        html_path.write_text(
+            to_html(result, template, lang=lang, paper=paper, chain=chain, network=network),
+            encoding="utf-8")
+        json_path.write_text(
+            to_json(result, template, paper=paper, chain=chain, network=network),
+            encoding="utf-8")
 
     return AnalyzeResult(
         json_path=json_path, md_path=md_path, html_path=html_path,

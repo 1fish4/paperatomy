@@ -624,7 +624,7 @@
   var grid = document.getElementById("grid");
   var empty = document.getElementById("empty");
 
-  var STAGES = ["解析 PDF", "抽取正文", "抽取论证链", "证据定位", "文献网络", "渲染报告"];
+  var STAGES = ["解析 PDF", "抽取正文", "抽取论证链", "证据定位", "渲染报告"];
 
   function esc(s) {
     return String(s == null ? "" : s)
@@ -1335,11 +1335,16 @@
           DIAG_LABELS.forEach(function (p) {
             var v = rp.checks[p[0]];
             if (v === undefined) { return; }
+            if (p[0] === "network_ok" && (rp.network_state === "running" || rp.network_state === "queued")) {
+              bads.push("<span>文献网络正在后台补充</span>");
+              return;
+            }
             bads.push('<span class="' + (v ? "ok" : "bad") + '">' +
               (v ? "✓" : "✗") + " " + p[1] + "</span>");
           });
           var fixes = [];
           Object.keys(FIX_MAP).forEach(function (k) {
+            if (k === "network_ok" && ["running", "queued", "done"].indexOf(rp.network_state) >= 0) return;
             if (rp.checks[k] === false && FIX_MAP[k]) {
               fixes.push('<button class="fixbtn" data-file="' +
                 PA.esc(rp.file) + '" data-action="' + FIX_MAP[k] + '">' +

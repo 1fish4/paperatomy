@@ -29,6 +29,8 @@ from __future__ import annotations
 import json
 import re
 import sqlite3
+import tempfile
+from collections import deque
 
 _RE_SURVEY_HINT = __import__("re").compile(
     r"\b(a\s+)?(survey|systematic\s+review|literature\s+review)\b",
@@ -206,6 +208,11 @@ class _State:
         # report 文件名 -> (标题, 材料, 错误)；解析一次，之后提问直接用
         self.materials: dict[str, tuple[str, str, str]] = {}
         self.running: str | None = None
+        self.report_updates = threading.RLock()
+        self._network_lock = threading.Lock()
+        self._network_queue = deque()
+        self._network_active = False
+        self._network_jobs: dict[str, dict] = {}
         # 图表解读任务状态：file -> none/running/done
         self.explain_jobs: dict[str, str] = {}
 
@@ -442,6 +449,126 @@ class _State:
             return None
         return path
 
+    def update_report(self, file: str, change, *, render: bool = False) -> dict:
+        """Merge a background update into the latest report without replacing other fields."""
+        with self.report_updates:
+            path = self.report_path(file)
+            if path is None:
+                raise ValueError("报告不存在")
+            data = json.loads(path.read_text(encoding="utf-8"))
+            if change(data) is False:
+                return data
+            if render:
+                from .cli import _render_from_data
+                if _render_from_data(path, data):
+                    raise ValueError("无法重建报告")
+            stream = tempfile.NamedTemporaryFile(mode="w", dir=path.parent,
+                                                 encoding="utf-8", delete=False)
+            staged = Path(stream.name)
+            try:
+                with stream:
+                    json.dump(data, stream, ensure_ascii=False, indent=2)
+                staged.replace(path)
+            finally:
+                staged.unlink(missing_ok=True)
+            return data
+
+    def update_report_fields(self, file: str, **fields) -> dict:
+        def merge(data):
+            if all(data.get(key) == value for key, value in fields.items()):
+                return False
+            data.update(fields)
+        return self.update_report(file, merge)
+
+    def network_status(self, file: str, data: dict) -> dict:
+        network = data.get("network")
+        if not isinstance(network, dict):
+            network = None
+        with self._network_lock:
+            job = self._network_jobs.get(file)
+            if job:
+                return {**job, "network": network}
+        if not network:
+            return {"state": "idle", "detail": "", "network": None}
+        background = network.get("background")
+        if background == "pending":
+            state, detail = "queued", "等待后台匹配参考文献"
+        elif background == "failed" or network.get("unavailable"):
+            state = "failed"
+            detail = network.get("unavailable") or "文献网络补充失败"
+        else:
+            state, detail = "done", ""
+        return {"state": state, "detail": detail, "network": network}
+
+    def start_network(self, file: str, cfg: LLMConfig) -> None:
+        with self._network_lock:
+            if self._network_jobs.get(file, {}).get("state") in ("queued", "running"):
+                return
+            self._network_jobs[file] = {"state": "queued", "detail": "等待后台匹配参考文献"}
+            self._network_queue.append((file, cfg))
+            if not self._network_active:
+                self._network_active = True
+                try:
+                    threading.Thread(target=self._run_network_queue, daemon=True).start()
+                except RuntimeError:
+                    self._network_active = False
+                    self._network_queue.pop()
+                    self._network_jobs.pop(file, None)
+                    raise
+
+    def resume_networks(self, cfg: LLMConfig) -> None:
+        for report in self.out_dir.glob("*.json"):
+            try:
+                data = json.loads(report.read_text(encoding="utf-8"))
+                if (data.get("network") or {}).get("background") == "pending":
+                    self.start_network(report.name, cfg)
+            except (OSError, ValueError, AttributeError):
+                continue
+
+    def _run_network_queue(self) -> None:
+        while True:
+            with self._network_lock:
+                if not self._network_queue:
+                    self._network_active = False
+                    return
+                file, cfg = self._network_queue.popleft()
+                self._network_jobs[file] = {"state": "running", "detail": "正在读取参考文献"}
+            self._enrich_network(file, cfg)
+
+    def _enrich_network(self, file: str, cfg: LLMConfig) -> None:
+        def progress(detail):
+            with self._network_lock:
+                self._network_jobs[file]["detail"] = detail
+
+        try:
+            from .parse import parse
+            from .refnet import build_network
+
+            pdf = self.pdf_dir / (Path(file).stem + ".pdf")
+            if not self.report_path(file) or not pdf.is_file():
+                raise FileNotFoundError
+            paper = parse(pdf)
+            network = build_network(paper, on_progress=progress,
+                                    cfg=cfg if cfg.api_key or cfg.is_local() else None)
+            detail = network.get("unavailable") or ""
+            state = "failed" if detail else "done"
+            network["background"] = state
+            self.update_report(file, lambda data: data.update(network=network), render=True)
+        except Exception:
+            state = "failed"
+            detail = "文献网络补充失败，请检查 OpenAlex 连接和原文 PDF 后重试。"
+            _LOG.exception("network update failed: %s", file)
+            try:
+                def mark_failed(data):
+                    network = dict(data.get("network") or {})
+                    network.update(background="failed", unavailable=detail)
+                    data["network"] = network
+                self.update_report(file, mark_failed)
+            except (OSError, ValueError, TypeError, AttributeError):
+                pass
+        with self._network_lock:
+            self._network_jobs[file] = {"state": state, "detail": detail}
+
     # -- 材料缓存 ----------------------------------------------------------
 
     def material_for(self, file: str) -> tuple[str, str]:
@@ -596,8 +723,7 @@ class _State:
                 task.detail = msg
                 for key, stage in (("解析", "解析 PDF"), ("抽取正文", "抽取正文"),
                                    ("论证链", "抽取论证链"), ("证据定位", "证据定位"),
-                                   ("参考文献", "文献网络"), ("节点标题", "文献网络"),
-                                   ("文献网络", "文献网络"), ("渲染", "渲染报告")):
+                                   ("渲染", "渲染报告")):
                     if msg.startswith(key):
                         task.stage = stage
 
@@ -605,12 +731,18 @@ class _State:
                 pdf, template, cfg,
                 lang=task.lang,
                 out_prefix=self.out_dir / pdf.stem,
+                defer_network=True,
+                output_lock=self.report_updates,
                 on_progress=say,
             )
             task.stage = "完成"
-            task.detail = f"{result.locate.summary()}；报告已生成"
-            task.status = "done"
             task.report = result.json_path.name
+            task.detail = f"{result.locate.summary()}；报告已生成，文献网络在后台补充"
+            task.status = "done"
+            try:
+                self.start_network(task.report, cfg)
+            except RuntimeError:
+                _LOG.exception("could not schedule network for %s", task.report)
         except Exception as exc:  # noqa: BLE001 —— 失败原因要给前端可读
             task.status = "error"
             task.stage = "失败"
@@ -858,6 +990,27 @@ class _Handler(BaseHTTPRequestHandler):
             raise ValueError("报告数据格式无效")
         return path, data
 
+    def _network_request(self, file: str, *, start: bool = False) -> None:
+        try:
+            with self.state.report_updates:
+                path, data = self._lab_profile(file)
+                if start:
+                    if not (self.state.pdf_dir / (path.stem + ".pdf")).is_file():
+                        self._json({"ok": False, "error": "找不到该报告对应的原文 PDF"}, 404)
+                        return
+                    status = self.state.network_status(file, data)["state"]
+                    if status in ("idle", "failed"):
+                        network = dict(data.get("network") or {})
+                        network["background"] = "pending"
+                        data = self.state.update_report_fields(file, network=network)
+                    self.state.start_network(file, self.cfg or load_config())
+                status = self.state.network_status(file, data)
+            self._json({"ok": True, **status})
+        except (OSError, ValueError):
+            self._json({"ok": False, "error": "找不到报告，或报告数据无法读取"}, 404)
+        except RuntimeError:
+            self._json({"ok": False, "error": "无法启动后台任务，请稍后重试"}, 500)
+
     def _note_source(self, params: dict) -> dict:
         from .notes import evidence_snapshot
 
@@ -989,6 +1142,10 @@ class _Handler(BaseHTTPRequestHandler):
             self._get_notes()
             return
 
+        if path == "/api/network" and self.workbench:
+            self._network_request(params.get("file", ""))
+            return
+
         if path == "/translation" and self.workbench:
             html = Path(__file__).with_name("translation.html").read_bytes()
             self._send(200, html, "text/html; charset=utf-8")
@@ -1023,16 +1180,17 @@ class _Handler(BaseHTTPRequestHandler):
 
         if path == "/report" and self.workbench:
             file = params.get("file", "")
-            rp = self.state.report_path(file) if self.state else None
-            if rp is None:
-                self._json({"ok": False, "error": "没有这份报告"}, 404)
-                return
-            html_path = rp.with_suffix(".html")
-            if not html_path.is_file():
-                self._json({"ok": False,
-                            "error": "报告页面还没生成，等任务完成"}, 404)
-                return
-            page = self._inject(html_path.read_text(encoding="utf-8"), report=file)
+            with self.state.report_updates:
+                rp = self.state.report_path(file)
+                if rp is None:
+                    self._json({"ok": False, "error": "没有这份报告"}, 404)
+                    return
+                html_path = rp.with_suffix(".html")
+                if not html_path.is_file():
+                    self._json({"ok": False,
+                                "error": "报告页面还没生成，等任务完成"}, 404)
+                    return
+                page = self._inject(html_path.read_text(encoding="utf-8"), report=file)
             self._send(200, page.encode("utf-8"), "text/html; charset=utf-8; cache-control: no-cache")
             return
 
@@ -1255,6 +1413,13 @@ class _Handler(BaseHTTPRequestHandler):
                   for k, v in (kv.split("=", 1) for kv in query.split("&")
                                if "=" in kv)}
 
+        if path == "/api/network" and self.workbench:
+            if not self._same_origin() or not self.headers.get("Origin"):
+                self._json({"ok": False, "error": "请从本机报告发起补充"}, 403)
+                return
+            self._network_request(params.get("file", ""), start=True)
+            return
+
         if path == "/api/notes" and self.workbench:
             self._save_note()
             return
@@ -1320,7 +1485,8 @@ class _Handler(BaseHTTPRequestHandler):
                 return
             file = str(params.get("file") or "")
             try:
-                n = self.state.restore_report(file)
+                with self.state.report_updates:
+                    n = self.state.restore_report(file)
             except Exception as exc:  # noqa: BLE001
                 self._json({"ok": False, "error": str(exc)}, 400)
                 return
@@ -1403,7 +1569,8 @@ class _Handler(BaseHTTPRequestHandler):
             return
         try:
             file = str(params.get("file") or "")
-            n = self.state.delete_report(file)
+            with self.state.report_updates:
+                n = self.state.delete_report(file)
             self._json({"ok": True, "deleted": n})
         except Exception as exc:  # noqa: BLE001
             self._json({"ok": False, "error": str(exc)}, 400)
@@ -1528,8 +1695,8 @@ class _Handler(BaseHTTPRequestHandler):
                     "insert your" not in title.lower())
                 c["blocks_ok"] = bool(data.get("findings"))
                 c["chain_ok"] = bool((data.get("chain") or {}).get("nodes"))
-                net = data.get("network") or {}
-                c["network_ok"] = bool(net.get("nodes"))
+                item["network_state"] = self.state.network_status(jf.name, data)["state"]
+                c["network_ok"] = item["network_state"] == "done"
                 c["explain_ok"] = bool(data.get("figures_explain"))
                 c["tabledata_ok"] = bool(data.get("figures_tabledata"))
                 stem = jf.stem
@@ -1614,42 +1781,15 @@ class _Handler(BaseHTTPRequestHandler):
         if action == "render":
             try:
                 from .cli import _render_from_data
-                _render_from_data(rp, json.loads(
-                    rp.read_text(encoding="utf-8")))
+                with self.state.report_updates:
+                    _render_from_data(rp, json.loads(rp.read_text(encoding="utf-8")))
                 self._json({"ok": True})
             except Exception as exc:  # noqa: BLE001
                 self._json({"ok": False, "error": str(exc)}, 500)
             return
 
         if action == "network":
-            if self.state.explain_jobs.get("net:" + file) == "running":
-                self._json({"ok": True, "state": "running"})
-                return
-            self.state.explain_jobs["net:" + file] = "running"
-
-            def run() -> None:
-                try:
-                    from .refnet import build_network
-                    from .parse import parse
-                    data = json.loads(rp.read_text(encoding="utf-8"))
-                    src = (self.state.pdf_dir
-                           / (Path(file).stem + ".pdf"))
-                    paper = parse(src)
-                    net = build_network(
-                        paper, on_progress=lambda m: None)
-                    data = json.loads(rp.read_text(encoding="utf-8"))
-                    data["network"] = net
-                    rp.write_text(
-                        json.dumps(data, ensure_ascii=False, indent=2),
-                        encoding="utf-8")
-                    from .cli import _render_from_data
-                    _render_from_data(rp, data)
-                    self.state.explain_jobs["net:" + file] = "done"
-                except Exception:  # noqa: BLE001
-                    self.state.explain_jobs["net:" + file] = "failed"
-
-            threading.Thread(target=run, daemon=True).start()
-            self._json({"ok": True, "state": "running"})
+            self._network_request(file, start=True)
             return
 
         self._json({"ok": False, "error": "未知修复项 " + action}, 400)
@@ -1860,14 +2000,9 @@ class _Handler(BaseHTTPRequestHandler):
             try:
                 rp = self.state.report_path(file)
                 if rp and rp.is_file():
-                    data = json.loads(rp.read_text(encoding="utf-8"))
                     slim = [{"page": f["page"], "cap": f.get("cap", "")}
                             for f in out]
-                    if data.get("figures_extract") != slim:
-                        data["figures_extract"] = slim
-                        rp.write_text(
-                            json.dumps(data, ensure_ascii=False, indent=2),
-                            encoding="utf-8")
+                    data = self.state.update_report_fields(file, figures_extract=slim)
                     has_explain = bool(data.get("figures_explain2")) or \
                         bool(data.get("figures_explain"))
                     if (not has_explain
@@ -1936,7 +2071,7 @@ class _Handler(BaseHTTPRequestHandler):
                 if isinstance(arr, list) and arr:
                     data = json.loads(rp.read_text(encoding="utf-8"))
                     allowed = set(mods)
-                    data["figures_explain2"] = [
+                    explanations = [
                         ({"explain": str(x.get("explain") or "")[:400],
                           "module": (str(x.get("module") or "none")
                                      if str(x.get("module") or "none")
@@ -1944,9 +2079,7 @@ class _Handler(BaseHTTPRequestHandler):
                          if isinstance(x, dict)
                          else {"explain": str(x)[:400], "module": "none"})
                         for x in arr]
-                    rp.write_text(
-                        json.dumps(data, ensure_ascii=False, indent=2),
-                        encoding="utf-8")
+                    self.state.update_report_fields(file, figures_explain2=explanations)
                 self.state.explain_jobs[file] = "done"
             except Exception:  # noqa: BLE001
                 try:
@@ -2028,12 +2161,7 @@ class _Handler(BaseHTTPRequestHandler):
                 if not tables:
                     self.state.set_tabledata_state(file, "none")
                     return
-                rp = self.state.report_path(file)
-                data = json.loads(rp.read_text(encoding="utf-8"))
-                data["figures_tabledata"] = tables
-                rp.write_text(
-                    json.dumps(data, ensure_ascii=False, indent=2),
-                    encoding="utf-8")
+                self.state.update_report_fields(file, figures_tabledata=tables)
                 self.state.set_tabledata_state(file, "done")
             except Exception:  # noqa: BLE001
                 try:
@@ -2049,25 +2177,22 @@ class _Handler(BaseHTTPRequestHandler):
         失败静默：历史保存不了不该影响已经送到屏幕上的回答。
         """
         try:
-            if self.workbench and self.state is not None and file:
-                path = self.state.report_path(file)
-            elif self.single_json is not None:
-                path = Path(self.single_json)
-            else:
-                return
-            data = json.loads(path.read_text(encoding="utf-8"))
-            qa = data.setdefault("qa", [])
             module = "、".join(
                 str(c.get("title") or "") for c in (context or [])
                 if isinstance(c, dict) and c.get("title"))
-            qa.append({
+            entry = {
                 "module": module[:80],
                 "question": str(question)[:500],
                 "answer": answer[:8000],
                 "ts": time.strftime("%Y-%m-%d %H:%M"),
-            })
-            path.write_text(json.dumps(data, ensure_ascii=False, indent=2),
-                            encoding="utf-8")
+            }
+            if self.workbench and self.state is not None and file:
+                self.state.update_report(file, lambda data: data.setdefault("qa", []).append(entry))
+            elif self.single_json is not None:
+                path = Path(self.single_json)
+                data = json.loads(path.read_text(encoding="utf-8"))
+                data.setdefault("qa", []).append(entry)
+                path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
         except Exception:  # noqa: BLE001
             pass
 
@@ -2219,6 +2344,8 @@ def serve(
     _Handler.workbench = state is not None
 
     server, actual = _bind(_Handler, port)
+    if state is not None:
+        state.resume_networks(cfg)
     _Handler.port = actual
     url = f"http://127.0.0.1:{actual}/"
 
