@@ -629,12 +629,6 @@
     display: none; flex-direction: column;
   }
   .side-panel.open { display: flex; }
-  .side-panel.wide { width: min(88vw, 1120px); }
-  .side-panel.wide .dm-stage { padding: 18px 14px; }
-  .side-panel.wide .dm-narr { font-size: 16px; }
-  .side-panel.wide { width: min(88vw, 1120px); }
-  .side-panel.wide .dm-stage { padding: 18px 14px; }
-  .side-panel.wide .dm-narr { font-size: 16px; }
   .side-panel .sp-head {
     display: flex; align-items: center; justify-content: space-between;
     padding: 10px 16px; border-bottom: 1px solid var(--line);
@@ -912,138 +906,6 @@
     border-radius: 6px; background: rgba(46,111,142,.1); color: #2E6F8E;
     margin-right: 5px; }
   .mod-td { margin-top: 12px; }
-  .dm-wrap { padding: 4px 2px; }
-  .dm-title { font-weight: 600; margin-bottom: 6px; }
-  .dm-cap { font-size: 13px; color: var(--ink2, #56616F); margin: 8px 0 2px; }
-  .dm-stage { background: #fff; border: 1px solid var(--line);
-    border-radius: 12px; padding: 10px 8px; }
-  .dm-svg { width: 100%; display: block; }
-  .dm-narr { margin: 12px 0; font-size: 14.5px; line-height: 1.7;
-    background: #fff; border-left: 3px solid #2E6F8E;
-    padding: 10px 14px; border-radius: 0 10px 10px 0; }
-  .dm-ctl { display: flex; align-items: center; gap: 10px; }
-  .dm-ctl button { min-width: 40px; height: 40px; border-radius: 20px;
-    border: 1px solid var(--line); background: #fff; cursor: pointer;
-    font-size: 16px; }
-  #dmPlay { padding: 0 18px; background: #2E6F8E; color: #fff;
-    border-color: #2E6F8E; font-size: 13.5px; }
-  .dm-dots { display: flex; gap: 6px; flex: 1; justify-content: center; }
-  .dm-dot { width: 8px; height: 8px; border-radius: 50%;
-    background: #D3D1C7; cursor: pointer; }
-  .dm-dot.on { background: #2E6F8E; }
-  [data-ei] { opacity: 0; }
-  [data-ei].dm-on { opacity: 1; transition: opacity .5s ease; }
-  .dm-hl { filter: drop-shadow(0 0 5px rgba(46, 111, 142, .65)); }
-  [data-mv] { transition: transform .9s ease; }
-  [data-mv].dm-pre { transform: translateY(var(--mvdy, 0px)); }
-  .dm-lnk { stroke: #C98A2D; stroke-width: 2.2; fill: none;
-    stroke-dasharray: 220; stroke-dashoffset: 220;
-    animation: dmDraw .9s ease forwards; }
-  .dm-bigarr { stroke: #5F5E5A; stroke-width: 3; fill: none;
-    stroke-linecap: round; }
-  .dm-hd { font-size: 14px; font-weight: 700; fill: #24303B; }
-  .dm-lb2 { font-size: 12px; fill: #24303B; font-weight: 600; }
-  .dm-ct2 { font-size: 10px; fill: #fff; opacity: .85; }
-  .dm-vs { font-size: 13px; font-weight: 700; fill: #5F5E5A; }
-  .dm-pp { animation: dmPipe 3.2s linear infinite; opacity: .8; }
-  @keyframes dmPipe { from { transform: translateX(0); }
-    to { transform: translateX(392px); } }
-  .dm-ticks { display: flex; gap: 8px; justify-content: center; margin: 8px 0 0; }
-  .dm-tick { width: 26px; height: 5px; border-radius: 3px;
-    background: #D8DFE4; cursor: pointer; }
-  .dm-tick.on { background: #C98A2D; }
-  /* ---- v0.17 动效层：转场 / 打字 / 持续运动 / 镜头 ---- */
-  .dm-stage { transition: transform .65s cubic-bezier(.22, .9, .34, 1);
-    background-image: radial-gradient(#E6EBEF 1px, transparent 1px);
-    background-size: 20px 20px; }
-  .dm-stage.dm-zoom { transform: scale(1.035); }
-  .dm-stage .dm-svg { animation: dmSceneIn .6s cubic-bezier(.22, .9, .34, 1) backwards; }
-  @keyframes dmSceneIn { from { opacity: 0; transform: translateY(16px) scale(.982); }
-    to { opacity: 1; transform: none; } }
-  [data-ei] { transform: translateY(9px); transition: opacity .5s ease,
-    transform .6s cubic-bezier(.22, .9, .34, 1); }
-  [data-ei].dm-on { transform: none; }
-  .dm-svg circle { transform-box: fill-box; transform-origin: center;
-    animation: dmPulse 3.4s ease-in-out infinite; }
-  @keyframes dmPulse { 0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.09); } }
-  .dm-bar { transform-box: fill-box; transform-origin: bottom;
-    animation: dmGrow .75s cubic-bezier(.22, .9, .34, 1) backwards; }
-  @keyframes dmGrow { from { transform: scaleY(0); } }
-  .dm-seg { stroke-dasharray: 420; stroke-dashoffset: 420;
-    animation: dmDraw .85s ease forwards; }
-  .dm-narr { border-left: 3px solid #C98A2D; padding-left: 12px;
-    animation: dmSceneIn .5s ease backwards; }
-  /* ---- v0.17 动效层：转场 / 打字 / 持续运动 / 镜头 ---- */
-  .dm-stage { transition: transform .65s cubic-bezier(.22, .9, .34, 1);
-    background-image: radial-gradient(#E6EBEF 1px, transparent 1px);
-    background-size: 20px 20px; }
-  .dm-stage.dm-zoom { transform: scale(1.035); }
-  .dm-stage .dm-svg { animation: dmSceneIn .6s cubic-bezier(.22, .9, .34, 1) backwards; }
-  @keyframes dmSceneIn { from { opacity: 0; transform: translateY(16px) scale(.982); }
-    to { opacity: 1; transform: none; } }
-  [data-ei] { transform: translateY(9px); transition: opacity .5s ease,
-    transform .6s cubic-bezier(.22, .9, .34, 1); }
-  [data-ei].dm-on { transform: none; }
-  .dm-svg circle { transform-box: fill-box; transform-origin: center;
-    animation: dmPulse 3.4s ease-in-out infinite; }
-  @keyframes dmPulse { 0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.09); } }
-  .dm-bar { transform-box: fill-box; transform-origin: bottom;
-    animation: dmGrow .75s cubic-bezier(.22, .9, .34, 1) backwards; }
-  @keyframes dmGrow { from { transform: scaleY(0); } }
-  .dm-seg { stroke-dasharray: 420; stroke-dashoffset: 420;
-    animation: dmDraw .85s ease forwards; }
-  .dm-narr { border-left: 3px solid #C98A2D; padding-left: 12px;
-    animation: dmSceneIn .5s ease backwards; }
-  .dm-num { font-size: 12px; color: var(--ink3, #8A94A2); }
-  .dm-pop { animation: dmPop .5s ease backwards; }
-  @keyframes dmPop { from { opacity: 0; } }
-  .dm-bar { transform-box: fill-box; transform-origin: left center;
-    animation: dmGrow .8s ease backwards; }
-  @keyframes dmGrow { from { transform: scaleX(0); } }
-  .dm-flow { fill: #E9F1F5; stroke: #2E6F8E;
-    animation: dmFade .5s ease backwards; }
-  .dm-arrow { stroke: #5F5E5A; stroke-width: 1.5;
-    animation: dmFade .3s ease backwards; }
-  .dm-line { stroke-dasharray: 600; stroke-dashoffset: 600;
-    animation: dmDraw 1.6s ease forwards; }
-  @keyframes dmDraw { to { stroke-dashoffset: 0; } }
-  @keyframes dmFade { from { opacity: 0; } }
-  .dm-lb { font-size: 11px; fill: #2C2C2A; animation: dmFade .4s ease backwards; }
-  .dm-val { font-size: 11px; fill: #2E6F8E; font-weight: 600;
-    animation: dmFade .4s ease .3s backwards; }
-  .dm-mm-c { fill: #2E6F8E; }
-  .dm-mm-ct { fill: #fff; font-size: 12px; font-weight: 600;
-    animation: dmPop .5s ease backwards; }
-  .dm-mm-line { stroke: #B9C6CF; fill: none; stroke-width: 1.5;
-    stroke-dasharray: 220; stroke-dashoffset: 220;
-    animation: dmDraw 1s ease forwards; }
-  .dm-mm-b { fill: #fff; stroke: #E7E2D8; animation: dmFade .5s ease backwards; }
-  .dm-mm-bt { font-size: 12.5px; font-weight: 700; }
-  .dm-nd { font-size: 12px; fill: #24303B;
-    animation: dmFade .35s ease backwards; }
-  .dm-mm-c { fill: #2E6F8E; }
-  .dm-mm-ct { fill: #fff; font-size: 12px; font-weight: 600;
-    animation: dmPop .5s ease backwards; }
-  .dm-mm-line { stroke: #B9C6CF; fill: none; stroke-width: 1.5;
-    stroke-dasharray: 220; stroke-dashoffset: 220;
-    animation: dmDraw 1s ease forwards; }
-  .dm-mm-b { fill: #fff; stroke: #E7E2D8; animation: dmFade .5s ease backwards; }
-  .dm-mm-bt { font-size: 11.5px; font-weight: 600; fill: #2C2C2A;
-    animation: dmFade .4s ease backwards; }
-  .dm-cmp-l { fill: #FBEDEA; stroke: #C0483B; stroke-width: 1.2; }
-  .dm-cmp-r { fill: #E8F2EF; stroke: #3E8E7E; stroke-width: 1.2; }
-  .dm-tt { font-size: 12px; font-weight: 600; fill: #2C2C2A;
-    animation: dmFade .4s ease backwards; }
-  .dm-vs { font-size: 13px; font-weight: 700; fill: #888780;
-    animation: dmPop .5s ease .5s backwards; }
-  .dm-cmp-l { fill: #FBEDEA; stroke: #C0483B; stroke-width: 1.2; }
-  .dm-cmp-r { fill: #E8F2EF; stroke: #3E8E7E; stroke-width: 1.2; }
-  .dm-tt { font-size: 12px; font-weight: 600; fill: #2C2C2A;
-    animation: dmFade .4s ease backwards; }
-  .dm-vs { font-size: 13px; font-weight: 700; fill: #888780;
-    animation: dmPop .5s ease .5s backwards; }
 </style>
 <script>
   window.__PA_ERR = "";
@@ -1544,480 +1406,6 @@
         }
       })
       .catch(function () { });
-  }
-
-  // ---- 动态讲解（v0.14.0）：分镜播放器 ----
-  var DEMO = {idx: 0, beat: 0, playing: false, timer: null, script: null};
-
-  function demoColor(name) {
-    return {red: "#C0483B", teal: "#2E6F8E", amber: "#C98A2D",
-      gray: "#8FA5B1"}[name] || "#8FA5B1";
-  }
-
-  function demoSvg(sc) {
-    var v = sc.viz || {};
-    var t = v.type || "";
-    function G(ei, inner) {
-      return '<g data-ei="' + ei + '">' + inner + "</g>";
-    }
-    // ---- mindmap：全文导图，分支逐拍出现 ----
-    if (t === "mindmap") {
-      var brs = v.branches || [];
-      var nb = Math.max(brs.length, 1);
-      var head = '<defs><radialGradient id="dmgc" cx="35%" cy="30%">' +
-        '<stop offset="0" stop-color="#4A93BC"/><stop offset="1" stop-color="#2E6F8E"/>' +
-        "</radialGradient>" +
-        '<filter id="dmsh" x="-25%" y="-25%" width="150%" height="150%">' +
-        '<feDropShadow dx="0" dy="2.5" stdDeviation="3.2" flood-color="#24303B" flood-opacity=".14"/>' +
-        "</filter></defs>" +
-        '<circle cx="230" cy="62" r="30" fill="url(#dmgc)" filter="url(#dmsh)"></circle>' +
-        '<text x="230" y="59" text-anchor="middle" class="dm-ct">' +
-        esc((v.center || "").slice(0, 8)) + "</text>" +
-        '<text x="230" y="73" text-anchor="middle" class="dm-ct2">' +
-        esc((v.center || "").slice(8, 16)) + "</text>";
-      var tints = [["#FBEDEA", "#C0483B"], ["#E8F2EF", "#2E6F8E"],
-        ["#FBF1E6", "#C98A2D"], ["#EAF0EA", "#4E9A72"],
-        ["#F0EDE5", "#5F5E5A"]];
-      var o1 = "";
-      brs.forEach(function (b, i) {
-        var cx = (460 / nb) * (i + 0.5);
-        var tint = tints[i % tints.length];
-        var s1 = '<path class="dm-mm-line" d="M230 92 C 230 106, ' + cx +
-          ' 106, ' + cx + ' 120"></path>' +
-          '<rect x="' + (cx - 46) + '" y="120" width="92" height="116" rx="12" fill="' +
-          tint[0] + '" stroke="' + tint[1] + '" stroke-width="1.4" filter="url(#dmsh)"></rect>' +
-          '<rect x="' + (cx - 46) + '" y="120" width="92" height="5" rx="2.5" fill="' +
-          tint[1] + '"></rect>' +
-          '<text x="' + cx + '" y="141" text-anchor="middle" class="dm-mm-bt" fill="' +
-          tint[1] + '">' + esc((b.label || "").slice(0, 6)) + "</text>";
-        (b.nodes || []).slice(0, 4).forEach(function (nd, k) {
-          s1 += '<text x="' + cx + '" y="' + (163 + k * 18) +
-            '" text-anchor="middle" class="dm-nd">' +
-            esc(String(nd).slice(0, 7)) + "</text>";
-        });
-        o1 += G(i, s1);
-      });
-      return '<svg viewBox="0 0 460 248" class="dm-svg">' + head + o1 + "</svg>";
-    }
-    // ---- tokens：元素堆；move 拍时目标组的点从来源组滑过来 ----
-    if (t === "tokens") {
-      var o2 = "", yy = 46;
-      var mvs = {};
-      (sc.beats || []).forEach(function (b, bi) {
-        var a = b.act || {};
-        if (a.kind === "move" && isFinite(a.from) && isFinite(a.to) &&
-            a.from !== a.to) {
-          mvs[a.to | 0] = {dy: ((a.from | 0) - (a.to | 0)) * 34,
-            bi: bi, n: Math.min(a.n | 0 || 3, 9)};
-        }
-      });
-      (v.groups || []).forEach(function (g, gi) {
-        var s2 = "";
-        for (var i = 0; i < (g.count || 1); i++) {
-          var mv = mvs[gi];
-          var attr = "";
-          if (mv && i < mv.n) {
-            attr = ' data-mv="' + mv.bi + '" style="--mvdy:' + mv.dy + 'px"';
-          }
-          s2 += '<circle' + attr + ' cx="' + (34 + i * 26) + '" cy="' + yy +
-            '" r="9" fill="' + demoColor(g.color) + '" opacity=".85"></circle>';
-        }
-        s2 += '<text class="dm-lb" x="' + (34 + (g.count || 1) * 26 + 12) +
-          '" y="' + (yy + 4) + '">' + esc(g.label) + "</text>";
-        o2 += G(gi, s2);
-        yy += 34;
-      });
-      return '<svg viewBox="0 0 460 ' + (yy + 6) + '" class="dm-svg">' + o2 + "</svg>";
-    }
-    // ---- flow：流程逐步点亮 ----
-    if (t === "flow") {
-      var steps = v.steps || [];
-      var nn = Math.max(steps.length, 1);
-      var gap = 12, m2 = 14;
-      var bw = (460 - m2 * 2 - gap * (nn - 1)) / nn;
-      var h2 = "";
-      steps.forEach(function (st, i) {
-        var x = m2 + i * (bw + gap);
-        var lines = [];
-        for (var pp = 0; pp < st.length && lines.length < 3; pp += 6) {
-          lines.push(st.slice(pp, pp + 6));
-        }
-        var y0 = 74 - (lines.length - 1) * 13;
-        var s3 = "";
-        if (i > 0) {
-          s3 += '<path class="dm-arr" d="M' + (x - gap + 1) + ' 72 L' +
-            (x - 2) + ' 72"></path>';
-        }
-        s3 += '<rect class="dm-flow" x="' + x.toFixed(1) + '" y="36" width="' +
-          bw.toFixed(1) + '" height="72" rx="10"></rect>';
-        lines.forEach(function (ln, li) {
-          s3 += '<text class="dm-lb" x="' + (x + bw / 2).toFixed(1) +
-            '" y="' + (y0 + li * 26) + '" text-anchor="middle">' +
-            esc(ln) + "</text>";
-        });
-        h2 += G(i, s3);
-      });
-      return '<svg viewBox="0 0 460 150" class="dm-svg">' + h2 + "</svg>";
-    }
-    // ---- bars：柱状生长 ----
-    if (t === "bars") {
-      var its = v.items || [];
-      var mx = 0;
-      its.forEach(function (it) {
-        if (Math.abs(Number(it.value)) > mx) { mx = Math.abs(Number(it.value)); }
-      });
-      if (!mx) { mx = 1; }
-      var o4 = '<line x1="30" y1="216" x2="440" y2="216" stroke="#C9CFCF" stroke-width="1.5"></line>' +
-        (v.unit ? '<text x="440" y="24" text-anchor="end" class="dm-lb2">单位:' +
-          esc(v.unit) + "</text>" : "");
-      its.forEach(function (it, i) {
-        var bw2 = 380 / its.length - 16;
-        var x = 40 + i * (380 / its.length);
-        var hh = Math.max(8, (Math.abs(Number(it.value)) / mx) * 150);
-        var col = it.tag === "before" ? "#C0483B" :
-          (it.tag === "after" ? "#4E9A72" : "#8FA5B1");
-        var gid = "dmgb" + i;
-        o4 += '<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="0" y2="1">' +
-          '<stop offset="0" stop-color="' + col + '"/><stop offset="1" stop-color="' +
-          col + '" stop-opacity=".72"/></linearGradient></defs>';
-        o4 += G(i, '<rect class="dm-bar" x="' + x.toFixed(1) + '" y="' + (216 - hh).toFixed(1) +
-          '" width="' + bw2.toFixed(1) + '" height="' + hh.toFixed(1) +
-          '" rx="7" fill="url(#' + gid + ')" filter="url(#dmsh)"></rect>' +
-          '<text x="' + (x + bw2 / 2).toFixed(1) + '" y="' + (206 - hh).toFixed(1) +
-          '" text-anchor="middle" class="dm-lb2">' + it.value + "</text>" +
-          '<text x="' + (x + bw2 / 2).toFixed(1) + '" y="234" text-anchor="middle" class="dm-lb">' +
-          esc(String(it.label).slice(0, 8)) + "</text>");
-      });
-      return '<svg viewBox="0 0 460 246" class="dm-svg">' + o4 + "</svg>";
-    }
-    // ---- line：趋势折线，逐点画入 ----
-    if (t === "line") {
-      var xs = v.x || [], ys = v.y || [];
-      var mx2 = 0, mn2 = Infinity;
-      ys.forEach(function (yv) {
-        if (yv > mx2) { mx2 = yv; }
-        if (yv < mn2) { mn2 = yv; }
-      });
-      if (!isFinite(mn2)) { mn2 = 0; }
-      var span = (mx2 - mn2) || 1;
-      function px(i) { return 40 + i * (400 / Math.max(xs.length - 1, 1)); }
-      function py(yv) { return 200 - ((yv - mn2) / span) * 150; }
-      var o5 = '<line x1="30" y1="216" x2="440" y2="216" stroke="#C9CFCF"></line>';
-      xs.forEach(function (xl, i) {
-        var s5 = "";
-        if (i > 0) {
-          s5 += '<line class="dm-seg" x1="' + px(i - 1).toFixed(1) + '" y1="' +
-            py(ys[i - 1]).toFixed(1) + '" x2="' + px(i).toFixed(1) + '" y2="' +
-            py(ys[i]).toFixed(1) + '" stroke="#2E6F8E" stroke-width="2.4"></line>';
-        }
-        s5 += '<circle cx="' + px(i).toFixed(1) + '" cy="' + py(ys[i]).toFixed(1) +
-          '" r="4.5" fill="#2E6F8E"></circle>';
-        if (i === 0 || i === xs.length - 1 || i === Math.floor(xs.length / 2)) {
-          s5 += '<text x="' + px(i).toFixed(1) + '" y="' +
-            (py(ys[i]) - 12).toFixed(1) + '" text-anchor="middle" class="dm-lb2">' +
-            ys[i] + "</text>";
-        }
-        s5 += '<text x="' + px(i).toFixed(1) + '" y="234" text-anchor="middle" class="dm-lb">' +
-          esc(String(xl).slice(0, 6)) + "</text>";
-        o5 += G(i, s5);
-      });
-      return '<svg viewBox="0 0 460 246" class="dm-svg">' + o5 + "</svg>";
-    }
-    // ---- compare：左右对比卡 ----
-    if (t === "compare") {
-      function card(d, x, tint, ei) {
-        var s6 = '<rect x="' + x + '" y="30" width="200" height="176" rx="12" fill="' +
-          tint[0] + '" stroke="' + tint[1] + '" stroke-width="1.4" filter="url(#dmsh)"></rect>' +
-          '<text x="' + (x + 100) + '" y="56" text-anchor="middle" class="dm-hd" fill="' +
-          tint[1] + '">' + esc((d.title || "").slice(0, 8)) + "</text>";
-        (d.items || []).slice(0, 3).forEach(function (it, k) {
-          s6 += '<text x="' + (x + 14) + '" y="' + (90 + k * 38) +
-            '" class="dm-lb2">' + esc(String(it).slice(0, 11)) + "</text>";
-        });
-        return G(ei, s6);
-      }
-      return '<svg viewBox="0 0 460 220" class="dm-svg">' +
-        card(v.left || {}, 16, ["#FBEDEA", "#C0483B"], 0) +
-        card(v.right || {}, 244, ["#E8F2EF", "#2E6F8E"], 1) +
-        '<circle cx="230" cy="118" r="20" fill="#fff" stroke="#C9CFCF"></circle>' +
-        '<text x="230" y="124" text-anchor="middle" class="dm-vs">VS</text></svg>';
-    }
-    // ---- mapping：映射连线，逐条画入 ----
-    if (t === "mapping") {
-      var L = v.left || [], R = v.right || [], LK = v.links || [];
-      var o6 = "", ly = [], ry = [];
-      L.forEach(function (lb, i) {
-        var y = 36 + i * 44;
-        ly.push(y);
-        o6 += G(0, '<rect x="30" y="' + y + '" width="120" height="32" rx="8" fill="#E8F2EF" stroke="#2E6F8E" stroke-width="1.2"></rect>' +
-          '<text x="90" y="' + (y + 21) + '" text-anchor="middle" class="dm-lb2">' +
-          esc(String(lb).slice(0, 10)) + "</text>");
-      });
-      R.forEach(function (rb, i) {
-        var y = 36 + i * 44;
-        ry.push(y);
-        o6 += G(1, '<rect x="310" y="' + y + '" width="120" height="32" rx="8" fill="#EAF0EA" stroke="#4E9A72" stroke-width="1.2"></rect>' +
-          '<text x="370" y="' + (y + 21) + '" text-anchor="middle" class="dm-lb2">' +
-          esc(String(rb).slice(0, 10)) + "</text>");
-      });
-      LK.forEach(function (lk, k) {
-        var a = lk[0] | 0, b2 = lk[1] | 0;
-        if (a >= ly.length || b2 >= ry.length) { return; }
-        o6 += G(2 + k, '<path class="dm-lnk" d="M150 ' + (ly[a] + 16) +
-          ' C 225 ' + (ly[a] + 16) + ', 235 ' + (ry[b2] + 16) + ', 310 ' +
-          (ry[b2] + 16) + '"></path>');
-      });
-      return '<svg viewBox="0 0 460 ' +
-        (Math.max(ly.length, ry.length) * 44 + 44) +
-        '" class="dm-svg">' + o6 + "</svg>";
-    }
-    // ---- transform：结构替换（前 → 箭头 → 后） ----
-    if (t === "transform") {
-      var bf = (v.before || {}).blocks || [];
-      var af = (v.after || {}).blocks || [];
-      var o7 = '<text x="230" y="26" text-anchor="middle" class="dm-lb">改动前</text>';
-      bf.forEach(function (bk, i) {
-        var w = 380 / Math.max(bf.length, 1) - 12;
-        var x = 40 + i * (380 / Math.max(bf.length, 1));
-        o7 += G(0, '<rect x="' + x.toFixed(1) + '" y="36" width="' + w.toFixed(1) +
-          '" height="56" rx="9" fill="#FBEDEA" stroke="#C0483B" stroke-width="1.3" filter="url(#dmsh)"></rect>' +
-          '<text x="' + (x + w / 2).toFixed(1) + '" y="70" text-anchor="middle" class="dm-lb2">' +
-          esc(String(bk).slice(0, 12)) + "</text>");
-      });
-      o7 += G(1, '<path class="dm-bigarr" d="M230 100 L230 130 M221 122 L230 132 L239 122"></path>');
-      o7 += '<text x="230" y="164" text-anchor="middle" class="dm-lb">改动后</text>';
-      af.forEach(function (bk, i) {
-        var w = 380 / Math.max(af.length, 1) - 12;
-        var x = 40 + i * (380 / Math.max(af.length, 1));
-        o7 += G(2, '<rect x="' + x.toFixed(1) + '" y="172" width="' + w.toFixed(1) +
-          '" height="56" rx="9" fill="#E8F2EF" stroke="#2E6F8E" stroke-width="1.3" filter="url(#dmsh)"></rect>' +
-          '<text x="' + (x + w / 2).toFixed(1) + '" y="206" text-anchor="middle" class="dm-lb2">' +
-          esc(String(bk).slice(0, 12)) + "</text>");
-      });
-      var nt = v.note ? '<text x="230" y="252" text-anchor="middle" class="dm-lb">' +
-        esc(String(v.note).slice(0, 16)) + "</text>" : "";
-      return '<svg viewBox="0 0 460 260" class="dm-svg">' + o7 + nt + "</svg>";
-    }
-    // ---- pipeline：端到端流水线，粒子流动 ----
-    if (t === "pipeline") {
-      var st = v.stages || [];
-      var n9 = Math.max(st.length, 1);
-      var w9 = 420 / n9 - 12;
-      var o9 = '<line x1="20" y1="122" x2="440" y2="122" stroke="#C9CFCF" stroke-width="3" stroke-linecap="round"></line>';
-      for (var pi = 0; pi < 3; pi++) {
-        o9 += '<g class="dm-pp" style="animation-delay:' + (pi * 1.1) +
-          's"><circle r="5" fill="#2E6F8E" cy="122" cx="24"></circle></g>';
-      }
-      st.forEach(function (sg, i) {
-        var x = 20 + i * (420 / n9);
-        var last = i === st.length - 1;
-        o9 += G(i, '<rect x="' + x.toFixed(1) + '" y="90" width="' + w9.toFixed(1) +
-          '" height="64" rx="10" fill="' + (last ? "#EAF0EA" : "#E8F2EF") +
-          '" stroke="' + (last ? "#4E9A72" : "#2E6F8E") +
-          '" stroke-width="1.3"></rect>' +
-          '<text x="' + (x + w9 / 2).toFixed(1) + '" y="118" text-anchor="middle" class="dm-hd">' +
-          esc(String(sg.name || "").slice(0, 6)) + "</text>" +
-          '<text x="' + (x + w9 / 2).toFixed(1) + '" y="140" text-anchor="middle" class="dm-lb">' +
-          esc(String(sg.note || "").slice(0, 9)) + "</text>");
-      });
-      return '<svg viewBox="0 0 460 180" class="dm-svg">' + o9 + "</svg>";
-    }
-    return '<svg viewBox="0 0 460 120" class="dm-svg"></svg>';
-  }
-
-  function dmBeats(sc) {
-    return (sc.beats && sc.beats.length) ? sc.beats : null;
-  }
-
-  function applyBeat() {
-    var sc = DEMO.script.scenes[DEMO.idx];
-    var beats = dmBeats(sc);
-    var els = document.querySelectorAll("#spBody [data-ei]");
-    if (!beats) {
-      els.forEach(function (el) {
-        el.classList.add("dm-on");
-        el.classList.remove("dm-hl", "dm-pre");
-      });
-      return;
-    }
-    DEMO.beat = Math.max(0, Math.min(DEMO.beat, beats.length - 1));
-    var shown = [], hl = -1;
-    for (var i = 0; i <= DEMO.beat; i++) {
-      var a = (beats[i].act || {});
-      if (a.kind === "highlight") { hl = a.target | 0; }
-      else if (a.kind === "reveal") { shown.push(a.target | 0); }
-    }
-    els.forEach(function (el) {
-      var ei = Number(el.getAttribute("data-ei"));
-      var on = shown.indexOf(ei) >= 0;
-      el.classList.toggle("dm-on", on);
-      el.classList.toggle("dm-hl", ei === hl && on);
-    });
-    document.querySelectorAll("#spBody [data-mv]").forEach(function (d) {
-      d.classList.toggle("dm-pre",
-        DEMO.beat < Number(d.getAttribute("data-mv")));
-    });
-    var stage2 = document.querySelector("#spBody .dm-stage");
-    if (stage2) { stage2.classList.toggle("dm-zoom", hl >= 0); }
-    typeNarr(beats[DEMO.beat].say);
-    document.querySelectorAll(".dm-tick").forEach(function (tk, i) {
-      tk.classList.toggle("on", i <= DEMO.beat);
-    });
-  }
-
-  function dmBeatMs(sc, i) {
-    var beats = dmBeats(sc);
-    if (!beats) { return 4600; }
-    var say = beats[i].say || "";
-    return Math.max(3200, Math.min(8600, 2400 + say.length * 95));
-  }
-
-  function typeNarr(text) {
-    var narr = document.getElementById("dmNarr");
-    if (!narr) { return; }
-    if (DEMO.twTimer) { clearInterval(DEMO.twTimer); DEMO.twTimer = null; }
-    narr.textContent = "";
-    var i = 0;
-    DEMO.twTimer = setInterval(function () {
-      i += 1;
-      narr.textContent = text.slice(0, i);
-      if (i >= text.length && DEMO.twTimer) {
-        clearInterval(DEMO.twTimer);
-        DEMO.twTimer = null;
-      }
-    }, 52);
-  }
-
-  function demoAuto() {
-    if (DEMO.timer) { clearTimeout(DEMO.timer); DEMO.timer = null; }
-    if (!DEMO.playing || !DEMO.script) { return; }
-    var step = function () {
-      var sc = DEMO.script.scenes[DEMO.idx];
-      var beats = dmBeats(sc);
-      if (beats && DEMO.beat < beats.length - 1) {
-        DEMO.beat++;
-        applyBeat();
-        DEMO.timer = setTimeout(step, dmBeatMs(sc, DEMO.beat));
-      } else {
-        DEMO.idx = (DEMO.idx + 1) % DEMO.script.scenes.length;
-        DEMO.beat = 0;
-        renderDemoScene();
-      }
-    };
-    DEMO.timer = setTimeout(step,
-      dmBeatMs(DEMO.script.scenes[DEMO.idx], DEMO.beat));
-  }
-
-  function renderDemoScene() {
-    if (DEMO.twTimer) { clearInterval(DEMO.twTimer); DEMO.twTimer = null; }
-    var sc = DEMO.script.scenes[DEMO.idx];
-    var v = sc.viz || {};
-    var beats = dmBeats(sc);
-    var narr0 = beats ? beats[0].say : sc.narration;
-    var cap = v.caption ? '<div class="dm-cap">' + esc(v.caption) + "</div>"
-      : "";
-    var ticks = "";
-    if (beats) {
-      ticks = '<div class="dm-ticks">' + beats.map(function (_, i) {
-        return '<span class="dm-tick' + (i === 0 ? " on" : "") +
-          '" data-ti="' + i + '"></span>';
-      }).join("") + "</div>";
-    }
-    document.getElementById("spBody").innerHTML =
-      '<div class="dm-wrap"><div class="dm-title">' +
-      esc(DEMO.script.title) + "</div>" + cap +
-      '<div class="dm-stage">' + demoSvg(sc) + "</div>" +
-      '<div class="dm-narr" id="dmNarr"></div>' + ticks +
-      '<div class="dm-ctl">' +
-      '<button id="dmPrev" title="上一镜">‹</button>' +
-      '<button id="dmPlay">' + (DEMO.playing ? "暂停" : "播放") + "</button>" +
-      '<button id="dmNext" title="下一镜">›</button>' +
-      '<span class="dm-dots">' +
-      DEMO.script.scenes.map(function (_, i) {
-        return '<span class="dm-dot' + (i === DEMO.idx ? " on" : "") +
-          '" data-di="' + i + '"></span>';
-      }).join("") + "</span>" +
-      '<span class="dm-num">' + (DEMO.idx + 1) + "/" +
-      DEMO.script.scenes.length + "</span></div></div>";
-    document.getElementById("dmPrev").addEventListener("click", function () {
-      DEMO.idx = (DEMO.idx - 1 + DEMO.script.scenes.length) %
-        DEMO.script.scenes.length;
-      DEMO.beat = 0;
-      renderDemoScene();
-    });
-    document.getElementById("dmNext").addEventListener("click", function () {
-      DEMO.idx = (DEMO.idx + 1) % DEMO.script.scenes.length;
-      DEMO.beat = 0;
-      renderDemoScene();
-    });
-    document.getElementById("dmPlay").addEventListener("click", function () {
-      DEMO.playing = !DEMO.playing;
-      demoAuto();
-      renderDemoScene();
-    });
-    document.querySelectorAll("#spBody .dm-dot").forEach(function (d3) {
-      d3.addEventListener("click", function () {
-        DEMO.idx = Number(d3.getAttribute("data-di"));
-        DEMO.beat = 0;
-        renderDemoScene();
-      });
-    });
-    document.querySelectorAll("#spBody .dm-tick").forEach(function (tk) {
-      tk.addEventListener("click", function () {
-        DEMO.beat = Number(tk.getAttribute("data-ti"));
-        applyBeat();
-      });
-    });
-    typeNarr(narr0);
-    typeNarr(narr0);
-    applyBeat();
-    demoAuto();
-  }
-
-  function initDemo(body) {
-    body.innerHTML = '<p class="empty">正在准备动态讲解…</p>';
-    fetch("/api/demo?file=" + encodeURIComponent(__PA_SERVE__.report))
-      .then(function (r) { return r.json(); })
-      .then(function (d) {
-        if (d.script && d.script.scenes && d.script.scenes.length) {
-          DEMO.script = d.script;
-          DEMO.idx = 0;
-          DEMO.beat = 0;
-          DEMO.playing = true;
-          renderDemoScene();
-          return;
-        }
-        if (d.state === "running" || d.state === "none") {
-          body.innerHTML = '<p class="empty">模型正在为这篇论文生成分镜脚本…' +
-            "<br>约半分钟，生成后自动播放。</p>";
-          if (d.state === "none") {
-            requestDemo(body);
-          } else {
-            setTimeout(function () { initDemo(body); }, 5000);
-          }
-          return;
-        }
-        demoFailure(body, d.error || "未知错误");
-      })
-      .catch(function () { demoFailure(body, "无法连接本地工作台"); });
-  }
-
-  function demoFailure(body, error) {
-    body.innerHTML = '<p class="empty">' + esc(error) +
-      '</p><button type="button">重新生成分镜</button>';
-    body.querySelector("button").addEventListener("click", function () {
-      requestDemo(body);
-    });
-  }
-
-  function requestDemo(body) {
-    body.textContent = "正在提交分镜生成请求…";
-    fetch("/api/demo?file=" + encodeURIComponent(__PA_SERVE__.report), {method: "POST"})
-      .then(function (response) { return response.json(); })
-      .then(function (data) {
-        if (!data.ok) { demoFailure(body, data.error || "无法开始生成"); return; }
-        initDemo(body);
-      }).catch(function () { demoFailure(body, "无法连接本地工作台"); });
   }
 
   if (window.__PA_SERVE__) { initModFigs(); }
@@ -3090,8 +2478,7 @@
     if (PDF) {
       var btns = document.createElement("div");
       btns.className = "side-btns";
-      btns.innerHTML = '<button id="btnOrig">对照原文</button>' +
-        '<button id="btnDemo">动态讲解</button>';
+      btns.innerHTML = '<button id="btnOrig">对照原文</button><button id="btnTranslate">全文对照翻译</button>';
       document.body.appendChild(btns);
       btns.classList.add("show");
 
@@ -3105,8 +2492,9 @@
       // 按钮绑定（v0.9.6 图表 v3 拼接时被误删，导致面板点不开——回归测试已锁）
       document.getElementById("btnOrig").addEventListener("click",
         function () { toggle("orig"); });
-      document.getElementById("btnDemo").addEventListener("click",
-        function () { toggle("demo"); });
+      document.getElementById("btnTranslate").addEventListener("click", function () {
+        location.href = "/translation?file=" + encodeURIComponent(__PA_SERVE__.report);
+      });
       document.getElementById("spClose").addEventListener("click",
         function () { closePanel(); });
       panel.dataset.bound = "3";   // 诊断用：3 个按钮绑定完成
@@ -3120,12 +2508,6 @@
           if (a) { a.open = true; a.scrollIntoView({behavior: "smooth"}); }
         }, 1500);
       }
-      if (location.hash === "#demo") {
-        setTimeout(function () {
-          var b = document.getElementById("btnDemo");
-          if (b) { b.click(); }
-        }, 300);
-      }
       if (location.hash === "#orig") {
         setTimeout(function () {
           var b = document.getElementById("btnOrig");
@@ -3134,27 +2516,17 @@
       }
       function closePanel() {
         panel.classList.remove("open");
-        panel.classList.remove("wide");
-        panel.classList.remove("wide");
         document.body.classList.remove("with-side");
         document.getElementById("btnOrig").classList.remove("on");
-        document.getElementById("btnDemo").classList.remove("on");
-        DEMO.playing = false;
-        if (DEMO.timer) { clearInterval(DEMO.timer); DEMO.timer = null; }
         cur = "";
       }
-      function toggle(which) {  // orig | demo
-        if (which !== "orig" && which !== "demo") { return; }
-        panel.classList.toggle("wide", which === "demo");
-        panel.classList.toggle("wide", which === "demo");
+      function toggle(which) {
         if (cur === which) { closePanel(); return; }
         cur = which;
         panel.classList.add("open");
         document.body.classList.add("with-side");
         document.getElementById("btnOrig").classList.toggle("on",
           which === "orig");
-        document.getElementById("btnDemo").classList.toggle("on",
-          which === "demo");
         var body = document.getElementById("spBody");
         var cap = document.getElementById("spCap");
         if (which === "orig") {
@@ -3173,9 +2545,6 @@
               body.innerHTML = h.join("");
             })
             .catch(function (e) { body.textContent = "加载失败：" + e; });
-        } else {
-          cap.textContent = "动态讲解（模型生成分镜）";
-          initDemo(body);
         }
       }
     }

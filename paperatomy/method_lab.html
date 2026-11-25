@@ -44,23 +44,6 @@
   .report-link, .evidence-links { display: flex; flex-wrap: wrap; gap: 8px; margin: 7px 0 0; font-size: .9rem; }
   figure { margin: 16px 0 0; }
   figure img { width: min(100%, 550px); border: 1px solid var(--line); border-radius: 8px; }
-  .lane-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(360px,100%),1fr)); gap: 14px; }
-  .lane { border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
-  .tasks { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
-  .task-pill { border: 1px solid #c5d4df; border-radius: 7px; color: #385167; padding: 4px 8px; }
-  .task-pill.ready { background: #edf4ff; border-color: #759dce; }
-  .task-pill.done { background: #e4f4ee; border-color: #6ba791; }
-  .task-pill.current { background: #f8eaca; border-color: #ad781f; color: #663a08; }
-  .tracks { margin: 14px 0; }
-  .track { display: grid; grid-template-columns: 36px minmax(0, 1fr); align-items: center; gap: 7px; margin-bottom: 6px; }
-  .time-track { position: relative; min-height: 34px; background: #edf2f7; border-radius: 5px; overflow: hidden; }
-  .ticks { display: flex; justify-content: space-between; margin-left: 43px; font-size: 12px; color: var(--sub); }
-  .slot, .green { position: absolute; inset-block: 1px; }
-  .green { background: #caeadb; }
-  .slot { inset-block: 4px; background: #2d647b; color: white; text-align: center; border-radius: 5px; white-space: nowrap; }
-  .slot.current { background: #82561b; animation: place .32s ease-out both; }
-  @keyframes place { from { opacity: .45; transform: translateY(-7px); } to { opacity: 1; transform: none; } }
-  @media (prefers-reduced-motion: reduce) { .slot.current { animation: none; } }
   .label, .status { margin-top: 10px; }
   .code-result { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 12px; }
   code { overflow-wrap: anywhere; }
@@ -83,7 +66,6 @@
     <div class="controls">
       <button class="primary" id="load" type="button">打开方法材料</button>
       <button id="compare" type="button" disabled>生成 AI 方法对比</button>
-      <a href="#playback">看调度演示</a>
     </div>
     <p class="status muted" id="status" role="status"></p>
   </section>
@@ -92,21 +74,6 @@
     <h2>方法与实验</h2>
     <div class="comparison" id="matrix"></div>
     <figure id="source" hidden><figcaption id="sourceCaption"></figcaption><img id="sourceImage" alt="论文原文页"></figure>
-  </section>
-
-  <section class="card" id="playback">
-    <h2>调度过程回放</h2>
-    <p class="muted" id="playSource"></p>
-    <p class="report-link" id="playPapers"></p>
-    <p class="muted">两路使用同一任务依赖、处理器映射和截止时间。时间线的绿色背景表示绿电时段。</p>
-    <div class="controls">
-      <button id="prev" type="button" disabled>上一步</button>
-      <button id="next" type="button" disabled>下一步</button>
-      <button id="play" type="button" disabled>播放</button>
-      <button id="diverge" type="button" disabled>跳到第一次分叉</button>
-      <output id="round" aria-live="polite"></output>
-    </div>
-    <div id="lanes" class="lane-grid label"></div>
   </section>
 
   <section class="card" id="artifacts" hidden>
@@ -125,9 +92,6 @@
   const params = new URLSearchParams(location.search);
   let selected = [];
   let loadGeneration = 0;
-  let demo;
-  let round = 0;
-  let timer = null;
 
   function element(tag, content, className) {
     const node = document.createElement(tag);
@@ -190,12 +154,7 @@
     byId("source").hidden = true;
     byId("matrix").replaceChildren(table);
     byId("methods").hidden = false;
-    byId("playPapers").replaceChildren(...papers.filter(paper => paper.asap_page).map(paper => {
-      const button = element("button", paper.title + " · 查看 ASAP 基线的原文规则");
-      button.type = "button";
-      button.addEventListener("click", () => showSource(paper.pdf, paper.asap_page, paper.title));
-      return button;
-    }));
+
   }
 
   function artifactControls(paper, index) {
@@ -268,10 +227,9 @@
     const files = [...new Set(select.map(input => input.value).filter(Boolean))];
     byId("compare").disabled = true;
     selected = [];
-    byId("playPapers").replaceChildren();
     byId("methods").hidden = byId("artifacts").hidden = true;
     if (!files.length) {
-      status.textContent = "请先选择论文。报告库为空时，可返回上传 PDF 或先体验下方演示。";
+      status.textContent = "请先选择论文。报告库为空时，可返回上传 PDF。";
       return;
     }
     status.textContent = "正在读取报告中的方法和实验材料…";
@@ -322,98 +280,15 @@
     }
   }
 
-  function addTimeline(article, slots, current) {
-    const tracks = element("div", "", "tracks");
-    for (const machine of [...new Set(demo.tasks.map(task => task.machine))]) {
-      const row = element("div", "", "track");
-      const line = element("div", "", "time-track");
-      const green = element("div", "", "green");
-      green.style.left = (100 * demo.green[0] / demo.deadline) + "%";
-      green.style.width = (100 * (demo.green[1] - demo.green[0]) / demo.deadline) + "%";
-      line.append(green);
-      for (const slot of slots.filter(item => item.machine === machine)) {
-        const block = element("div", slot.task, "slot" + (slot.task === current ? " current" : ""));
-        block.style.left = (100 * slot.start / demo.deadline) + "%";
-        block.style.width = (100 * (slot.end - slot.start) / demo.deadline) + "%";
-        block.title = slot.task + " · " + slot.start + "–" + slot.end;
-        line.append(block);
-      }
-      row.append(element("span", machine), line);
-      tracks.append(row);
-    }
-    const ticks = element("div", "", "ticks");
-    for (let t = 0; t <= demo.deadline; t += demo.deadline / 4) ticks.append(element("span", String(t)));
-    tracks.append(ticks);
-    article.append(tracks);
-  }
-
-  function draw() {
-    const max = demo.lanes[0].rounds.length;
-    byId("round").textContent = round === 0 ? "初始状态" : "第 " + round + " / " + max + " 轮";
-    byId("prev").disabled = round === 0;
-    byId("next").disabled = round === max;
-    byId("diverge").disabled = !demo.first_difference;
-    const lanes = demo.lanes.map(lane => {
-      const step = lane.rounds[round - 1];
-      const slots = step ? step.slots : [];
-      const ready = step ? step.ready : demo.tasks.filter(task => !task.predecessors.length).map(task => task.name);
-      const article = element("article", "", "lane");
-      article.append(element("h3", lane.name), element("p", "本轮待安排队列 · " + (ready.join("、") || "无"), "muted"));
-      const taskList = element("div", "", "tasks");
-      for (const task of demo.tasks) {
-        const state = task.name === step?.task ? " current" : slots.some(slot => slot.task === task.name)
-          ? " done" : ready.includes(task.name) ? " ready" : "";
-        const dependency = task.predecessors.length ? "（等 " + task.predecessors.join("、") + "）" : "";
-        taskList.append(element("span", task.name + dependency, "task-pill" + state));
-      }
-      article.append(taskList);
-      addTimeline(article, slots, step?.task);
-      if (step) {
-        const slot = slots[slots.length - 1];
-        article.append(element("p", slot.task + " → " + slot.machine + " · " + slot.start + "–" + slot.end +
-          "（可行开始范围 " + step.earliest + "–" + step.latest + "）"));
-        article.append(element("p", step.reason, "muted"));
-        article.append(element("p", "已安排 " + slots.length + " 项 · 与绿电时段重叠 " +
-          slots.reduce((sum, item) => sum + item.green, 0) + " 个任务时间单位", "muted"));
-      }
-      return article;
-    });
-    byId("lanes").replaceChildren(...lanes);
-  }
-
-  function stop() {
-    clearInterval(timer);
-    timer = null;
-    byId("play").textContent = "播放";
-  }
-
-  byId("prev").onclick = () => { stop(); round--; draw(); };
-  byId("next").onclick = () => { stop(); round++; draw(); };
-  byId("diverge").onclick = () => { stop(); round = demo.first_difference; draw(); };
-  byId("play").onclick = () => {
-    if (timer) { stop(); return; }
-    const max = demo.lanes[0].rounds.length;
-    if (round === max) { round = 0; draw(); }
-    byId("play").textContent = "暂停";
-    timer = setInterval(() => {
-      round++;
-      draw();
-      if (round === max) stop();
-    }, 950);
-  };
   byId("load").addEventListener("click", loadMethods);
   byId("compare").addEventListener("click", compareMethods);
   api("/api/lab").then(data => {
-    demo = data.demo;
-    byId("playSource").textContent = demo.source;
-    byId("play").disabled = false;
-    draw();
     for (const [index, input] of select.entries()) {
       for (const paper of data.reports) input.add(new Option(paper.title, paper.file));
       input.value = params.getAll("file")[index] || "";
     }
     if (select[0].value || select[1].value) loadMethods();
-    else if (!data.reports.length) status.textContent = "报告库为空。下方的教学演示可直接体验。";
+    else if (!data.reports.length) status.textContent = "报告库为空，请先返回工作台分析一篇论文。";
   }).catch(error => { status.textContent = "无法加载方法工作台 · " + error.message; });
 })();
 </script>

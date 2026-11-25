@@ -1,7 +1,5 @@
 """Shared method reading dimensions for the lab and model comparison."""
 
-import re
-
 DIMENSIONS = (
     ("研究目标", ("problem", "question", "gap")),
     ("输入、输出与约束", ("method_overview", "method", "setup")),
@@ -47,22 +45,3 @@ def method_digest(data: dict) -> str:
         if label:
             lines.append(f"论证链 · {label} {detail}"[:300])
     return "\n".join(lines)
-
-
-def asap_source(pdf) -> int | None:
-    """Locate an explicit fixed-mapping ASAP rule before linking the teaching case."""
-    if pdf is None:
-        return None
-    import pymupdf
-
-    try:
-        with pymupdf.open(pdf) as document:
-            for page in document:
-                text = re.sub(r"(?<=\w)-\s+(?=\w)", "", page.get_text())
-                text = " ".join(text.lower().split())
-                if re.search(r"asap baseline algorithm starts? each task.{0,50}"
-                             r"earliest possible start time", text):
-                    return page.number + 1
-    except (OSError, RuntimeError, ValueError):
-        return None
-    return None

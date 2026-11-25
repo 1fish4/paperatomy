@@ -180,6 +180,8 @@ class _State:
 
     def __init__(self, root: Path):
         self.root = root
+        from .translation import TranslationStore
+        self.translations = TranslationStore(root / OUT_DIRNAME / ".translations")
         self.tasks: dict[str, Task] = {}
         self.state_file = self.root / "tasks.state.json"
         self.compare_jobs: dict = {}
@@ -567,353 +569,6 @@ class _State:
             job["error"] = str(exc)
             _LOG.exception("compare failed: %s", key)
 
-    def _start_demo(self, file: str) -> None:
-        """动态讲解：模型按论文核心生成分镜脚本，缓存进报告 JSON。"""
-        key = "demo:" + file
-        job = self.compare_jobs.get(key)
-        if job and job.get("state") == "running":
-            return
-        self.compare_jobs[key] = {"state": "running"}
-        threading.Thread(target=self._run_demo, args=(file,),
-                         daemon=True).start()
-
-    def _run_demo(self, file: str) -> None:
-        key = "demo:" + file
-        job = self.compare_jobs[key]
-        try:
-            rp = self.report_path(file)
-            if rp is None or not rp.is_file():
-                raise ValueError("没有这份报告")
-            data = json.loads(rp.read_text(encoding="utf-8"))
-            if data.get("demo_script"):
-                job["state"] = "done"
-                return
-            blocks = {b.get("block_id"): str(b.get("content") or "")
-                      for b in (data.get("findings") or [])}
-            struct_ids = [b.get("block_id") for b in
-                          (data.get("findings") or []) if b.get("block_id")]
-            struct_line = " → ".join(str(x) for x in struct_ids)
-            chain_lines = []
-            for n in ((data.get("chain") or {}).get("nodes") or [])[:10]:
-                if not isinstance(n, dict):
-                    continue
-                ch = n.get("change") or {}
-                bef = ch.get("before") if isinstance(ch, dict) else None
-                aft = ch.get("after") if isinstance(ch, dict) else None
-                bef = bef.get("label") if isinstance(bef, dict) else bef
-                aft = aft.get("label") if isinstance(aft, dict) else aft
-                mtc = n.get("metric") or {}
-                parts = [str(n.get("label") or n.get("title") or "")[:20]]
-                if bef:
-                    parts.append("改动前:%s" % str(bef)[:18])
-                if aft:
-                    parts.append("改动后:%s" % str(aft)[:18])
-                if mtc.get("value") is not None:
-                    parts.append("指标:%s%s" % (mtc.get("value"),
-                                               mtc.get("unit") or ""))
-                ln = " ".join(x for x in parts if x)
-                if ln.strip():
-                    chain_lines.append(ln[:110])
-            material = (
-                "标题：%s\n一句话：%s\n全文结构（板块顺序）：%s\n"
-                "问题：%s\n背景与已有做法：%s\n"
-                "已有做法的不足：%s\n方法概述：%s\n方法步骤：%s\n"
-                "方法细节/机制：%s\n"
-                "与已有方法的对比：%s\n结果：%s\n局限：%s\n"
-                "论证链：%s"
-                % (data.get("paper_title"), blocks.get("tl_dr", "")[:200],
-                   struct_line,
-                   blocks.get("problem", "")[:420],
-                   blocks.get("background", "")[:300],
-                   blocks.get("gap", "")[:300],
-                   blocks.get("method_overview", "")[:340],
-                   blocks.get("method_steps", "")[:420],
-                   (blocks.get("mechanism")
-                    or blocks.get("method_details") or "")[:360],
-                   blocks.get("comparison", "")[:300],
-                   blocks.get("result", "")[:340],
-                   blocks.get("limits", "")[:200],
-                   "；".join(chain_lines)))
-            prompt = (
-                "根据这篇论文的核心内容，设计一个『动态讲解』分镜脚本："
-                "像动画演示一样把论文讲透。画面要求："
-                "①第一镜必须是 mindmap：以研究主题为中心，"
-                "按『全文结构（板块顺序）』展开分支——每个分支是一篇论文的一个部分"
-                "（如研究问题/方法模块/实验/结论），节点写该部分的关键词；"
-                "这一镜是全文导图，让观众先看到整篇论文的骨架和研究问题所在。"
-                "②接着用一个贯穿后续镜头的具体场景解释研究问题与约束，"
-                "保持对象名称一致；材料没有例子时直接讲机制，不虚构数据。"
-                "③讲已有方法实际怎么做、哪个环节受限"
-                "（优先用 compare：左列=已有方法要点，右列=本文对应改进）；"
-                "④把本文方法逐步拆开，说明每步的输入、操作、输出，以及为什么有效；"
-                "⑤说明效果的基线、指标单位和实验条件，最后指出材料支持的局限。"
-                "综述按分类依据、各路线的取舍和开放问题组织，避免虚构作者提出的方法。"
-                "输出 JSON：{\"title\": \"讲解标题\", \"scenes\": ["
-                '{"narration": "本镜旁白（80字内，口语化，讲清楚这一镜在说什么）", '
-                '"viz": {"type": '
-                '"tokens|flow|bars|line|compare|mapping|transform|pipeline '
-                '之一", '
-                '"caption": "画面标题（12字内）", '
-                "// tokens: 元素分组堆放，groups:[{label,color(red|teal|amber|gray),count}] 2~5组"
-                "// flow: 流程逐步点亮，steps:[3~5步短句]"
-                "// bars: 柱状生长对比，items:[{label,value,tag(before|after|none)}] 2~4项, unit:数字单位"
-                "// line: 趋势折线，x:[3~10个标签], y:[对应数值], unit:数字单位"
-                "// compare: 左右对比，left:{title,items:[2~3条]}, right:{title,items:[2~3条]}"
-                "// mindmap: 全文导图，center:研究主题(16字内), "
-                "branches:[{label:分支名(8字内),nodes:[2~4个关键词]}] 2~5个分支"
-                "// mapping: 映射连线，left:[左列实体3~5个(10字内)], "
-                "right:[右列实体3~5个], links:[[左序号,右序号]]3~8条 —— "
-                "演谁被映射/匹配到谁（调度、检索、匹配类论文的核心画面）"
-                "// transform: 结构替换，before:{blocks:[2~3个符号串(12字内)]}, "
-                "after:{blocks:[2~3个]}, note:一句话 —— 演什么被换成了什么"
-                "// pipeline: 端到端流水线，stages:[{name(6字内),note(14字内)}] "
-                "3~5站 —— 数据从左流到右逐站加工"
-                "}, …] 。"
-                "所有实体名/符号串必须逐字来自材料，禁止编造——程序会回查，"
-                "查不到的元素直接丢弃、整镜可能作废。\n"
-                "重点镜用 beats 分拍（2~4 拍），一镜讲一个『过程』：\n"
-                'beats: [{"say": "本拍旁白(45字内)", '
-                '"act": {"kind": "reveal|highlight|move", '
-                '"target": 组或元素序号(0起)}} …]\n'
-                "reveal=第 target 个元素（组/步骤/分支/柱/连线）这拍才出现；"
-                "highlight=高亮第 target 个；"
-                "move=仅 tokens，{\"from\":组序号,\"to\":组序号,"
-                "\"n\":个数} 演元素从一组挪到另一组。\n"
-                "问题镜、方法过程镜、效果镜至少各有一镜带 beats——"
-                "比如方法镜：第1拍出现第1步，第2拍出现第2步，第3拍高亮关键一步；"
-                "没有分拍的镜保留 narration+viz 即可。'"
-                "旁白是整个讲解的灵魂，必须像科普讲解员对着一屋子人讲话："
-                "①用短句，一句一个意思，禁止一句套一句的学术长句；"
-                "②禁止堆术语——必须出现的方法名/指标名可以保留，"
-                "但前后全是大白话，比如不说『针对给定映射与顺序的调度』，"
-                "说『任务在哪台机器上跑早就定死了』；"
-                "③每镜之间要有承接，像讲故事一样推进："
-                "『现在你看到的…』『问题就出在这』『于是作者想到…』『结果呢？』『更妙的是』；"
-                "④用直白的因果解释和准确的对比。材料不足时注明，勿补编结论；"
-                "⑤长度 50~90 字，宁短勿长。"
-                "旁白好坏示例（差=学术腔，好=讲解员）：\n"
-                "差：针对给定映射与顺序的工作流调度，本文提出碳感知方法优化碳排放。\n"
-                "好：任务在哪台机器上跑、什么时候跑，早就定死了——想躲开高碳电？门都没有。\n"
-                "差：实验结果表明该方法相较于基线有显著提升。\n"
-                "好：1088 个实例跑下来，碳排放中位数直接砍到基线的六成。\n"
-                "镜头数量由论文内容决定：讲到观众能看明白"
-                "问题、已有方法、本文方法、效果为止——内容多就多几镜"
-                "（最多 14 镜），内容简单就少几镜；不要为凑数拆碎，"
-                "也不要压掉关键步骤。"
-                "数字必须来自摘要材料，不要编造。\n\n" + material)
-            blob = json.dumps({k: v for k, v in data.items()
-                               if k != "demo_script"},
-                              ensure_ascii=False).lower()
-            from .llm import chat, load_config
-            cfg = load_config()
-
-            def _gen(extra=""):
-                raw = chat([{"role": "user", "content": prompt + extra}],
-                           cfg, json_mode=True)
-                m = re.search(r"\{.*\}", raw, re.S)
-                return self._norm_demo(
-                    json.loads(m.group()) if m else {}, blob)
-
-            script = _gen()
-            scs = script.get("scenes") or []
-            good = sum(1 for s2 in scs
-                       if (s2.get("viz") or {}).get("type"))
-            if len(scs) < 4 or good < max(3, (len(scs) + 1) // 2):
-                _LOG.info("demo retry: %s (%d/%d scenes with viz)",
-                          file, good, len(scs))
-                try:
-                    script2 = _gen(
-                        "\n\n注意：上一版 %d 镜里只有 %d 镜画面合规。"
-                        "重写完整脚本：实体名/符号必须逐字来自材料"
-                        "（程序会逐个回查），beats 的 act 只能用"
-                        " reveal|highlight|move 三种且字段名一字不差。"
-                        % (len(scs), good))
-                    g2 = sum(1 for s2 in (script2.get("scenes") or [])
-                             if (s2.get("viz") or {}).get("type"))
-                    if g2 > good:
-                        script = script2
-                except Exception:  # noqa: BLE001
-                    pass
-            if not script.get("scenes"):
-                raise ValueError("分镜脚本解析失败")
-            data["demo_script"] = script
-            rp.write_text(json.dumps(data, ensure_ascii=False, indent=2),
-                          encoding="utf-8")
-            job["state"] = "done"
-            _LOG.info("demo generated: %s (%d scenes)",
-                      file, len(script["scenes"]))
-        except Exception as exc:  # noqa: BLE001
-            job["state"] = "error"
-            job["error"] = str(exc)
-            _LOG.exception("demo failed: %s", file)
-
-    @staticmethod
-    def _norm_demo(script, blob=""):
-        """分镜规范化：9 种画面原语 + 镜内节拍；实体逐个回查材料，
-        查不到就丢弃；坏镜降级为纯旁白，播放器永不空屏。"""
-
-        def _in(x):
-            return (not blob) or (str(x).lower() in blob)
-
-        def _acts(raw_beats):
-            bts = []
-            for b in (raw_beats or [])[:5]:
-                if not isinstance(b, dict):
-                    continue
-                say = str(b.get("say") or "").strip()[:120]
-                if not say:
-                    continue
-                a = b.get("act") or {}
-                kind = str(a.get("kind") or "")
-                na = {}
-                if kind in ("reveal", "highlight"):
-                    try:
-                        tg = max(0, min(9, int(a.get("target") or 0)))
-                    except (TypeError, ValueError):
-                        tg = 0
-                    na = {"kind": kind, "target": tg}
-                elif kind == "move":
-                    try:
-                        f, to = int(a.get("from")), int(a.get("to"))
-                        n = int(a.get("n") or 3)
-                    except (TypeError, ValueError):
-                        continue
-                    if f == to or not (0 <= f <= 4) or not (0 <= to <= 4):
-                        continue
-                    na = {"kind": "move", "from": f, "to": to,
-                          "n": max(1, min(9, n))}
-                elif kind:
-                    continue
-                nb = {"say": say}
-                if na:
-                    nb["act"] = na
-                bts.append(nb)
-            return bts
-
-        out = []
-        for sc in (script.get("scenes") or [])[:14]:
-            if not isinstance(sc, dict):
-                continue
-            bts = _acts(sc.get("beats")) \
-                if isinstance(sc.get("beats"), list) else []
-            narr = ""
-            if bts:
-                narr = " ".join(b["say"] for b in bts)[:160]
-            if not narr:
-                narr = str(sc.get("narration") or "").strip()[:160]
-            if not narr:
-                continue
-            v = sc.get("viz") or {}
-            t = str(v.get("type") or "")
-            nv = {"caption": str(v.get("caption") or "")[:20]}
-            try:
-                if t == "tokens" and isinstance(v.get("groups"), list):
-                    gs = [{"label": str(g.get("label"))[:12],
-                           "color": (str(g.get("color")) if g.get("color")
-                                     in ("red", "teal", "amber", "gray")
-                                     else "gray"),
-                           "count": max(1, min(9, int(g.get("count") or 1)))}
-                          for g in v["groups"][:5] if isinstance(g, dict)]
-                    if len(gs) >= 2:
-                        nv.update({"type": "tokens", "groups": gs})
-                elif t == "flow" and isinstance(v.get("steps"), list):
-                    ss = [str(x)[:18] for x in v["steps"][:5]
-                          if str(x).strip()]
-                    if len(ss) >= 2:
-                        nv.update({"type": "flow", "steps": ss})
-                elif t == "bars" and isinstance(v.get("items"), list):
-                    its = [{"label": str(x.get("label"))[:12],
-                            "value": round(float(x.get("value")), 3),
-                            "tag": (str(x.get("tag")) if x.get("tag")
-                                    in ("before", "after") else "none")}
-                           for x in v["items"][:4] if isinstance(x, dict)]
-                    if len(its) >= 2:
-                        nv.update({"type": "bars", "items": its,
-                                   "unit": str(v.get("unit") or "")[:12]})
-                elif t == "mindmap" and isinstance(v.get("branches"), list):
-                    brs = []
-                    for b in v["branches"][:5]:
-                        if isinstance(b, dict):
-                            nodes = [str(x)[:14] for x in
-                                     (b.get("nodes") or [])[:4]
-                                     if str(x).strip()]
-                            if nodes:
-                                brs.append({"label": str(b.get("label"))[:8],
-                                            "nodes": nodes})
-                    if len(brs) >= 2:
-                        nv.update({"type": "mindmap",
-                                   "center": str(v.get("center"))[:16],
-                                   "branches": brs})
-                elif t == "compare" and isinstance(v.get("left"), dict) \
-                        and isinstance(v.get("right"), dict):
-                    lv, rv = v["left"], v["right"]
-                    nv.update({"type": "compare",
-                               "left": {"title": str(lv.get("title"))[:14],
-                                        "items": [str(x)[:18] for x in
-                                                  (lv.get("items") or [])[:3]
-                                                  if str(x).strip()]},
-                               "right": {"title": str(rv.get("title"))[:14],
-                                         "items": [str(x)[:18] for x in
-                                                   (rv.get("items") or [])[:3]
-                                                   if str(x).strip()]}})
-                    if len(nv["left"][
-                            "items"]) < 1 or \
-                            len(nv["right"]["items"]) < 1:
-                        nv = {"caption": nv["caption"]}
-                elif t == "line" and isinstance(v.get("x"), list) \
-                        and isinstance(v.get("y"), list):
-                    xs = [str(x)[:10] for x in v["x"][:10]]
-                    ys = [round(float(y), 3) for y in v["y"][:10]]
-                    if len(xs) >= 3 and len(ys) == len(xs):
-                        nv.update({"type": "line", "x": xs, "y": ys,
-                                   "unit": str(v.get("unit") or "")[:12]})
-                elif t == "mapping" and isinstance(v.get("left"), list) \
-                        and isinstance(v.get("right"), list):
-                    ls = [str(x)[:10] for x in v["left"][:5]
-                          if str(x).strip() and _in(x)]
-                    rs = [str(x)[:10] for x in v["right"][:5]
-                          if str(x).strip() and _in(x)]
-                    lks = []
-                    for lk in (v.get("links") or [])[:8]:
-                        if (isinstance(lk, (list, tuple)) and len(lk) == 2
-                                and all(isinstance(x, int) for x in lk)
-                                and 0 <= lk[0] < len(ls)
-                                and 0 <= lk[1] < len(rs)):
-                            lks.append([lk[0], lk[1]])
-                    if len(ls) >= 2 and len(rs) >= 2 and len(lks) >= 1:
-                        nv.update({"type": "mapping", "left": ls,
-                                   "right": rs, "links": lks})
-                elif t == "transform" and isinstance(v.get("before"), dict) \
-                        and isinstance(v.get("after"), dict):
-                    bfr = [str(x)[:12] for x in
-                           (v["before"].get("blocks") or [])[:3]
-                           if str(x).strip() and _in(x)]
-                    aft = [str(x)[:12] for x in
-                           (v["after"].get("blocks") or [])[:3]
-                           if str(x).strip() and _in(x)]
-                    if len(bfr) >= 2 and len(aft) >= 2:
-                        nv.update({"type": "transform",
-                                   "before": {"blocks": bfr},
-                                   "after": {"blocks": aft},
-                                   "note": str(v.get("note") or "")[:20]})
-                elif t == "pipeline" and isinstance(v.get("stages"), list):
-                    sts = [{"name": str(x.get("name"))[:8],
-                            "note": str(x.get("note") or "")[:16]}
-                           for x in v["stages"][:5]
-                           if isinstance(x, dict)
-                           and str(x.get("name") or "").strip()
-                           and _in(x.get("name"))]
-                    if len(sts) >= 3:
-                        nv.update({"type": "pipeline", "stages": sts})
-            except Exception:  # noqa: BLE001 —— 数据坏就丢弃画面
-                pass
-            sc_out = {"narration": narr, "viz": nv}
-            if bts:
-                sc_out["beats"] = bts
-            out.append(sc_out)
-        return {"title": str(script.get("title") or "动态讲解")[:30],
-                "scenes": out}
-
     def _save_task_state(self, task: Task) -> None:
         """任务状态落盘：重启后能告诉用户上次跑到哪。"""
         try:
@@ -1200,6 +855,34 @@ class _Handler(BaseHTTPRequestHandler):
             raise ValueError("报告数据格式无效")
         return path, data
 
+    def _translation_request(self, params: dict, *, start: bool = False) -> None:
+        report = self.state.report_path(params.get("file", ""))
+        if report is None:
+            self._json({"ok": False, "error": "找不到这份报告"}, 404)
+            return
+        pdf_dir = self.state.pdf_dir.resolve()
+        pdf = (pdf_dir / (report.stem + ".pdf")).resolve()
+        if pdf.parent != pdf_dir or not pdf.is_file():
+            self._json({"ok": False, "error": "找不到报告对应的原文 PDF，请从工作台上传论文"}, 404)
+            return
+        store = self.state.translations
+        try:
+            if start:
+                cfg = load_config()
+                if not cfg.api_key and not cfg.is_local():
+                    self._json({"ok": False, "error": "请先在工作台的「模型设置」中启用模型"}, 400)
+                    return
+                if not store.start(pdf, cfg):
+                    self._json({"ok": False, "error": "另一篇论文正在翻译，请等待它完成"}, 409)
+                    return
+            data = (store.page(pdf, int(params["page"])) if "page" in params and not start
+                    else store.status(pdf))
+            self._json({"ok": True, "pdf": report.stem, **data})
+        except ValueError as exc:
+            self._json({"ok": False, "error": str(exc)}, 400)
+        except (OSError, RuntimeError):
+            self._json({"ok": False, "error": "无法读取 PDF 或译文，请检查文件后重试"}, 400)
+
     def _compare_request(self, query: str, params: dict, *, retry: bool = False) -> None:
         repeated = urllib.parse.parse_qs(query).get("file")
         values = repeated or (params.get("files") or "").split(",")
@@ -1233,27 +916,34 @@ class _Handler(BaseHTTPRequestHandler):
                        "text/html; charset=utf-8; cache-control: no-cache")
             return
 
+        if path == "/translation" and self.workbench:
+            html = Path(__file__).with_name("translation.html").read_bytes()
+            self._send(200, html, "text/html; charset=utf-8")
+            return
+
+        if path == "/api/translation" and self.workbench:
+            self._translation_request(params)
+            return
+
         if path == "/lab" and self.workbench:
             html = Path(__file__).with_name("method_lab.html").read_bytes()
             self._send(200, html, "text/html; charset=utf-8")
             return
 
         if path == "/api/lab" and self.workbench:
-            from .method_lab import asap_source, method_profile
-            from .scheduling import teaching_case
+            from .method_lab import method_profile
 
             if not params.get("file"):
                 reports = [{"file": r["file"], "title": r["title"]}
                            for r in self.state.reports()]
-                self._json({"ok": True, "reports": reports, "demo": teaching_case()})
+                self._json({"ok": True, "reports": reports})
                 return
             try:
                 rp, data = self._lab_profile(params["file"])
                 pdf = self.state.pdf_dir / (rp.stem + ".pdf")
                 self._json({"ok": True, "title": data.get("paper_title") or rp.stem,
                             "sections": method_profile(data),
-                            "pdf": rp.stem if pdf.is_file() else None,
-                            "asap_page": asap_source(pdf) if pdf.is_file() else None})
+                            "pdf": rp.stem if pdf.is_file() else None})
             except (OSError, ValueError) as exc:
                 self._json({"ok": False, "error": str(exc)}, 400)
             return
@@ -1323,7 +1013,7 @@ class _Handler(BaseHTTPRequestHandler):
 
         if path.startswith("/pageimg/") and self.workbench:
             # /pageimg/<stem>/<n>.png —— 懒渲染 + 磁盘缓存
-            m = re.match(r'^/pageimg/([^<>:"/\\|?*\x00-\x1f]+)/([0-9]{1,3})\.png$',
+            m = re.fullmatch(r'/pageimg/([^<>:"/\\|?*\x00-\x1f]+)/([0-9]{1,6})\.png',
                          urllib.parse.unquote(path))
             if not m or not m.group(1).strip(" ."):
                 self._json({"ok": False, "error": "路径不合法"}, 404)
@@ -1358,21 +1048,6 @@ class _Handler(BaseHTTPRequestHandler):
                 self._json({"ok": False, "error": str(exc)}, 500)
                 return
             self._json(self._figures_payload(file, out))
-            return
-
-        if path == "/api/demo" and self.workbench:
-            file = str(params.get("file") or "")
-            rp = self.state.report_path(file)
-            script = None
-            if rp and rp.is_file():
-                try:
-                    script = json.loads(
-                        rp.read_text(encoding="utf-8")).get("demo_script")
-                except Exception:  # noqa: BLE001
-                    script = None
-            job = self.state.compare_jobs.get("demo:" + file) or {}
-            self._json({"ok": True, "state": job.get("state", "none"),
-                        "script": script, "error": job.get("error")})
             return
 
         if path == "/api/lasttask" and self.workbench:
@@ -1507,6 +1182,13 @@ class _Handler(BaseHTTPRequestHandler):
                   for k, v in (kv.split("=", 1) for kv in query.split("&")
                                if "=" in kv)}
 
+        if path == "/api/translation" and self.workbench:
+            if not self._same_origin() or not self.headers.get("Origin"):
+                self._json({"ok": False, "error": "请从本机工作台发起翻译"}, 403)
+                return
+            self._translation_request(params, start=True)
+            return
+
         if path == "/api/artifacts" and self.workbench:
             if not self._same_origin():
                 self._json({"ok": False, "error": "拒绝跨站请求"}, 403)
@@ -1553,21 +1235,6 @@ class _Handler(BaseHTTPRequestHandler):
                 self._json({"ok": False, "error": "拒绝跨站请求"}, 403)
                 return
             self._compare_request(query, params, retry=True)
-            return
-
-        if path == "/api/demo" and self.workbench:
-            if not self._same_origin():
-                self._json({"ok": False, "error": "拒绝跨站请求"}, 403)
-                return
-            if not self._model_settings()["ready"]:
-                self._json({"ok": False, "error": "请先在工作台的「模型设置」中测试并保存配置"}, 400)
-                return
-            file = str(params.get("file") or "")
-            if not self.state.report_path(file):
-                self._json({"ok": False, "error": "没有这份报告"}, 404)
-                return
-            self.state._start_demo(file)
-            self._json({"ok": True, "state": "running"})
             return
 
         if path == "/api/restore" and self.workbench:

@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>全文对照翻译 · Paperatomy</title>
+<style>
+  :root { color-scheme: light; --ink: #1b2c38; --sub: #526477; --brand: #195d70; --line: #d8e3e6;
+    font: 15px/1.65 "Segoe UI", "Microsoft YaHei", sans-serif; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #eef3f5; color: var(--ink); }
+  header { padding: 12px max(18px, calc((100vw - 1340px) / 2)); background: #183046; }
+  header a { color: #d1edf1; margin-right: 20px; }
+  main { max-width: 1380px; margin: auto; padding: 24px 18px 48px; }
+  h1 { margin: 0; font-size: clamp(26px, 4vw, 38px); }
+  h2 { margin: 0 0 12px; font-size: 1.1rem; }
+  p { margin: 6px 0 12px; }
+  .muted { color: var(--sub); }
+  .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  button, select { font: inherit; border: 1px solid #a9bec7; border-radius: 8px;
+    background: white; color: var(--ink); padding: 6px 11px; }
+  button { cursor: pointer; }
+  button.primary { background: var(--brand); color: white; border-color: var(--brand); }
+  button:disabled { opacity: .55; cursor: default; }
+  :focus-visible { outline: 3px solid #3487a0; outline-offset: 2px; }
+  progress { width: min(240px, 100%); accent-color: var(--brand); }
+  .sheet { background: white; padding: 16px 20px; border: 1px solid var(--line); border-radius: 12px; min-width: 0; }
+  .columns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+  #image { width: 100%; display: block; border: 1px solid var(--line); }
+  #image[hidden] { display: none; }
+  .text { overflow-wrap: anywhere; white-space: pre-wrap; }
+  details { margin-top: 12px; }
+  summary { cursor: pointer; }
+  #status[data-error] { color: #a14628; }
+  @media (max-width: 760px) { .columns { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header><a href="/">← 工作台</a><a id="report" href="/">返回报告</a></header>
+<main>
+  <h1>全文对照翻译</h1>
+  <p class="muted">按 PDF 页码对照原页和简体中文译文。翻译会将可提取的文字发给当前模型服务商。图像和扫描页仍可查看原图。</p>
+  <nav class="controls" aria-label="翻译与翻页">
+    <button class="primary" id="start" type="button" disabled>开始全文翻译</button>
+    <button id="prev" type="button" disabled>上一页</button>
+    <label>页码 <select id="page" disabled></select></label>
+    <button id="next" type="button" disabled>下一页</button>
+    <progress id="progress" aria-label="已处理页数" value="0" max="1"></progress>
+  </nav>
+  <p id="status" role="status">正在读取原文…</p>
+  <div class="columns">
+    <section class="sheet" aria-labelledby="originalTitle">
+      <h2 id="originalTitle">PDF 原页</h2>
+      <img id="image" hidden alt="">
+      <details><summary>查看原页的可复制文字</summary><p class="text" id="original"></p></details>
+    </section>
+    <section class="sheet" aria-labelledby="translationTitle">
+      <h2 id="translationTitle">中文译文</h2>
+      <p id="model" class="muted"></p>
+      <div id="translated" class="text"></div>
+    </section>
+  </div>
+</main>
+<script>
+(function () {
+  const byId = id => document.getElementById(id);
+  const file = new URLSearchParams(location.search).get("file") || "";
+  const query = "?file=" + encodeURIComponent(file);
+  const start = byId("start");
+  const picker = byId("page");
+  const image = byId("image");
+  let current = 1;
+  let state;
+  let pageRequest = 0;
+  let timer;
+  byId("report").href = "/report" + query;
+
+  async function api(extra = "", method = "GET") {
+    const response = await fetch("/api/translation" + query + extra, {method});
+    const data = await response.json();
+    if (!response.ok || !data.ok) throw new Error(data.error || "无法请求翻译服务");
+    return data;
+  }
+
+  function writeStatus(text, error = false) {
+    const status = byId("status");
+    status.textContent = text;
+    status.toggleAttribute("data-error", error);
+  }
+
+  async function openPage(number) {
+    const request = ++pageRequest;
+    current = number;
+    picker.value = number;
+    byId("prev").disabled = number <= 1;
+    byId("next").disabled = number >= state.total;
+    image.src = "/pageimg/" + encodeURIComponent(state.pdf) + "/" + number + ".png";
+    image.alt = "原文第 " + number + " 页";
+    image.hidden = false;
+    byId("original").textContent = "";
+    byId("model").textContent = "";
+    byId("translated").textContent = "正在读取本页…";
+    try {
+      const page = await api("&page=" + number);
+      if (request !== pageRequest) return;
+      byId("original").textContent = page.original || "本页没有可提取的文字。";
+      byId("translated").textContent = page.no_text ? "本页没有可提取的文字，请查看左侧原页。"
+        : page.text ?? "这一页的中文译文尚未生成。";
+      byId("model").textContent = page.text && page.model ? "翻译模型 · " + page.model : "";
+    } catch (error) {
+      if (request === pageRequest) byId("translated").textContent = error.message;
+    }
+  }
+
+  function display(next) {
+    const previous = state;
+    state = next;
+    if (!previous || previous.total !== next.total) {
+      picker.replaceChildren(...Array.from({length: next.total}, (_, i) =>
+        new Option("第 " + (i + 1) + " 页", i + 1)));
+      picker.disabled = next.total === 0;
+    }
+    const progress = byId("progress");
+    progress.max = next.total || 1;
+    progress.value = next.pages.length;
+    const done = "已处理 " + next.pages.length + " / " + next.total + " 页";
+    start.disabled = next.state === "running" || next.state === "done";
+    start.textContent = {
+      idle: "开始全文翻译", partial: "继续翻译", running: "翻译中", done: "已完成", error: "继续翻译"
+    }[next.state];
+    writeStatus(next.error ? done + " · " + next.error : done, Boolean(next.error));
+    if (!previous || (!previous.pages.includes(current) && next.pages.includes(current))) {
+      openPage(Math.min(current, next.total));
+    }
+    if (next.state === "running") timer = setTimeout(refresh, 1600);
+  }
+
+  async function refresh() {
+    clearTimeout(timer);
+    try {
+      display(await api());
+    } catch (error) {
+      writeStatus(error.message, true);
+      if (state) timer = setTimeout(refresh, 3200);
+    }
+  }
+
+  start.addEventListener("click", async () => {
+    start.disabled = true;
+    writeStatus("正在提交翻译任务…");
+    try {
+      display(await api("", "POST"));
+    } catch (error) {
+      writeStatus(error.message, true);
+      start.disabled = false;
+    }
+  });
+  byId("prev").addEventListener("click", () => openPage(current - 1));
+  byId("next").addEventListener("click", () => openPage(current + 1));
+  picker.addEventListener("change", () => openPage(Number(picker.value)));
+  refresh();
+})();
+</script>
+</body>
+</html>

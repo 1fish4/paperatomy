@@ -20,6 +20,8 @@ def test_side_panel_buttons_bound():
     assert ('getElementById("btnOrig").addEventListener("click"') in t, (
         "对照原文按钮的 click 绑定丢失——面板将点不开")
     assert "btnFigs" not in t, "图表速览已取消，模板里不应再引用 btnFigs"
+    assert 'id="btnTranslate"' in t
+    assert 'btnDemo' not in t
     assert 'getElementById("spClose").addEventListener' in t, "关闭按钮绑定丢失"
 
 
