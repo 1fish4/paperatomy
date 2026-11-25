@@ -137,6 +137,11 @@
   }
   .ev-item { display: flex; gap: 10px; margin-bottom: 9px; font-size: 13px; line-height: 1.65; }
   .ev-item:last-child { margin-bottom: 0; }
+  .note-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 7px;
+    font-size: 12px; }
+  .note-capture { color: #195d70; background: #fff; border: 1px solid #b5cbd2;
+    border-radius: 7px; padding: 3px 8px; font: inherit; cursor: pointer; }
+  .note-capture:disabled { cursor: default; }
   .ev-page {
     flex: none; font-family: var(--mono); font-size: 11px;
     color: var(--accent); background: var(--soft);
@@ -1022,7 +1027,7 @@
     var hh = ['<div class="hero"><div class="label">' + esc(hero.title) + "</div>"];
     hh.push("<p>" + esc(hero.content || "论文未提及。") + "</p>");
     if (hero.evidence && hero.evidence.length) {
-      hh.push(evHTML(hero.evidence));
+      hh.push(evHTML(hero.evidence, hero.id));
     }
     hh.push("</div>");
     main.push(hh.join(""));
@@ -1077,7 +1082,7 @@
         main.push('<div class="txt">' + formatText(b.content) + "</div>");
       }
       if (b.evidence && b.evidence.length) {
-        main.push(evHTML(b.evidence));
+        main.push(evHTML(b.evidence, b.id));
       }
       main.push('<div class="mod-figs" data-bid="' + esc(b.id || "") +
         '"></div>');
@@ -1588,6 +1593,7 @@
       if (ev.quote_zh && ev.quote_zh !== ev.quote) {
         h.push('<span class="zh">' + esc(trunc(ev.quote_zh, 170)) + "</span>");
       }
+      if (ev.quote) { h.push(noteControl("chain", n.id, 0, ev.quote)); }
       h.push("</div>");
     }
     return h.join("");
@@ -2127,7 +2133,45 @@
     return parts.join(" · ") || "出处未标注";
   }
 
-  function evHTML(list) {
+  function noteControl(kind, block, index, quote) {
+    var server = window.__PA_SERVE__;
+    if (!server || server.mode !== "workbench" || !server.report || !block) return "";
+    var query = "file=" + encodeURIComponent(server.report) + "&kind=" + kind +
+      "&block=" + encodeURIComponent(block) + "&index=" + index;
+    return '<span class="note-actions"><button class="note-capture" type="button" data-note-query="' +
+      esc(query) + '" data-note-quote="' + esc(quote) +
+      '">收藏证据</button> <a hidden target="_blank" rel="noopener">编辑笔记</a>' +
+      '<span aria-live="polite"></span></span>';
+  }
+
+  document.addEventListener("click", async function (event) {
+    var button = event.target.closest("[data-note-query]");
+    if (!button) return;
+    var params = new URLSearchParams(button.dataset.noteQuery);
+    var result = button.parentElement.querySelector("[aria-live]");
+    button.disabled = true;
+    result.textContent = "";
+    try {
+      var response = await fetch("/api/notes", {
+        method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({file: params.get("file"), kind: params.get("kind"),
+          block: params.get("block"), index: Number(params.get("index")),
+          expected_quote: button.dataset.noteQuote, capture: true})
+      });
+      var data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.error || "无法保存笔记");
+      button.textContent = "已收藏";
+      result.textContent = "笔记已保存";
+      var edit = button.parentElement.querySelector("a");
+      edit.href = "/notes?note=" + encodeURIComponent(data.note.id);
+      edit.hidden = false;
+    } catch (error) {
+      result.textContent = error.message;
+      button.disabled = false;
+    }
+  });
+
+  function evHTML(list, block) {
     var ok = list.filter(function (e) { return e.verified !== false; });
     var bad = list.filter(function (e) { return e.verified === false; });
     var h = ['<div class="ev"><div class="ev-title">原文依据</div>'];
@@ -2145,6 +2189,7 @@
       if (e.quote_zh && e.quote_zh !== e.quote) {
         h.push('<div class="ev-zh">' + esc(e.quote_zh) + "</div>");
       }
+      if (e.quote) { h.push(noteControl("block", block, list.indexOf(e), e.quote)); }
       h.push("</div>");
     });
     if (bad.length) {
@@ -2159,6 +2204,7 @@
         if (e.quote_zh && e.quote_zh !== e.quote) {
           h.push('<div class="ev-zh" style="opacity:.75">' + esc(e.quote_zh) + "</div>");
         }
+        if (e.quote) { h.push(noteControl("block", block, list.indexOf(e), e.quote)); }
         h.push("</div>");
       });
     }

@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import json
 import re
+import sqlite3
 
 _RE_SURVEY_HINT = __import__("re").compile(
     r"\b(a\s+)?(survey|systematic\s+review|literature\s+review)\b",
@@ -198,6 +199,8 @@ class _State:
         except Exception:  # noqa: BLE001 —— 状态文件损坏就当没有
             self.last_task = None
         self.db_path = self.root / "reports.db"
+        from .notes import NoteStore
+        self.notes = NoteStore(self.db_path)
         self._sync_db()
         self._refresh_stale_html()
         # report 文件名 -> (标题, 材料, 错误)；解析一次，之后提问直接用
@@ -855,6 +858,67 @@ class _Handler(BaseHTTPRequestHandler):
             raise ValueError("报告数据格式无效")
         return path, data
 
+    def _note_source(self, params: dict) -> dict:
+        from .notes import evidence_snapshot
+
+        file = str(params.get("file") or "")
+        _, data = self._lab_profile(file)
+        snapshot = evidence_snapshot(file, data, str(params.get("kind") or ""),
+                                     str(params.get("block") or ""), int(params.get("index", -1)))
+        expected = params.get("expected_quote")
+        if expected is not None:
+            quote = snapshot["quote"].replace("\r\n", "\n").replace("\r", "\n")
+            if not isinstance(expected, str) or expected.strip() != quote:
+                raise ValueError("原报告中的证据已变更")
+        return snapshot
+
+    def _note_links(self, note: dict) -> dict:
+        file = note["file"]
+        return {**note, "report_available": self.state.report_path(file) is not None,
+                "pdf_available": (self.state.pdf_dir / (Path(file).stem + ".pdf")).is_file()}
+
+    def _get_notes(self) -> None:
+        try:
+            self._json({"ok": True, "notes": [self._note_links(note) for note in self.state.notes.list()]})
+        except (OSError, sqlite3.Error):
+            self._json({"ok": False, "error": "无法读取本地证据笔记"}, 500)
+
+    def _save_note(self) -> None:
+        origin = self.headers.get("Origin")
+        if not origin or not self._same_origin() or origin != f"http://{self.headers.get('Host')}":
+            self._json({"ok": False, "error": "请从本机工作台保存笔记"}, 403)
+            return
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+            if not 0 < length <= 65536 or self.headers.get_content_type() != "application/json":
+                raise ValueError
+            data = json.loads(self.rfile.read(length))
+            if not isinstance(data, dict):
+                raise ValueError
+            topic = data.get("topic", "")
+            comment = data.get("comment", "")
+            if not isinstance(topic, str) or not isinstance(comment, str):
+                raise ValueError
+            topic, comment = topic.strip(), comment.strip()
+            if len(topic) > 80 or len(comment) > 8000:
+                self._json({"ok": False, "error": "主题最多 80 字，批注最多 8000 字"}, 400)
+                return
+            store = self.state.notes
+            note_id = data.get("id")
+            if note_id:
+                snapshot = store.get(str(note_id))
+                if snapshot is None:
+                    self._json({"ok": False, "error": "找不到这条笔记"}, 404)
+                    return
+            else:
+                snapshot = self._note_source(data)
+            note = store.save(snapshot, topic, comment, capture=data.get("capture") is True)
+            self._json({"ok": True, "note": self._note_links(note)})
+        except (ValueError, TypeError):
+            self._json({"ok": False, "error": "笔记内容无效，或原报告中的证据已变化"}, 400)
+        except (OSError, sqlite3.Error):
+            self._json({"ok": False, "error": "无法保存本地证据笔记，请检查磁盘和目录权限"}, 500)
+
     def _translation_request(self, params: dict, *, start: bool = False) -> None:
         report = self.state.report_path(params.get("file", ""))
         if report is None:
@@ -914,6 +978,15 @@ class _Handler(BaseHTTPRequestHandler):
             page = self.workbench_html if self.workbench else self.html
             self._send(200, self._inject(page).encode("utf-8"),
                        "text/html; charset=utf-8; cache-control: no-cache")
+            return
+
+        if path == "/notes" and self.workbench:
+            html = Path(__file__).with_name("notes.html").read_bytes()
+            self._send(200, html, "text/html; charset=utf-8")
+            return
+
+        if path == "/api/notes" and self.workbench:
+            self._get_notes()
             return
 
         if path == "/translation" and self.workbench:
@@ -1181,6 +1254,10 @@ class _Handler(BaseHTTPRequestHandler):
         params = {urllib.parse.unquote(k): urllib.parse.unquote(v)
                   for k, v in (kv.split("=", 1) for kv in query.split("&")
                                if "=" in kv)}
+
+        if path == "/api/notes" and self.workbench:
+            self._save_note()
+            return
 
         if path == "/api/translation" and self.workbench:
             if not self._same_origin() or not self.headers.get("Origin"):

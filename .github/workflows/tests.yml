@@ -46,6 +46,7 @@ jobs:
           paperatomy config show
           python -c "from paperatomy.serve import _read_workbench; from paperatomy.refnet import ccf_lookup; assert 'modelForm' in _read_workbench(); assert ccf_lookup('ICPP')"
           python -c "from pathlib import Path; from paperatomy import method_lab, translation; assert 'paperA' in Path(method_lab.__file__).with_suffix('.html').read_text(encoding='utf-8'); assert '/api/translation' in Path(translation.__file__).with_suffix('.html').read_text(encoding='utf-8')"
+          python -c "from pathlib import Path; from paperatomy import notes; assert '/api/notes' in Path(notes.__file__).with_suffix('.html').read_text(encoding='utf-8')"
 
       - name: 校验内置模板可加载
         run: python -c "from paperatomy import list_templates; ts=list_templates(); assert len(ts)>=3; print([t.id for t in ts])"

@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>证据笔记 · Paperatomy</title>
+<style>
+  :root { color-scheme: light; --ink: #172d3b; --sub: #4a6273; --brand: #195d70;
+    --line: #d5e2e6; font: 15px/1.6 "Segoe UI", "Microsoft YaHei", sans-serif; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #eef3f5; color: var(--ink); }
+  header { background: #183046; padding: 13px max(18px, calc((100vw - 1100px) / 2)); }
+  header a { color: #d1edf1; }
+  main { max-width: 1140px; margin: auto; padding: 24px 18px 64px; }
+  h1 { font-size: clamp(28px, 5vw, 42px); margin: 0; }
+  h2, h3 { margin: 0 0 8px; }
+  h2 { font-size: 1.2rem; }
+  h3 { font-size: 1rem; }
+  p { margin: 4px 0 10px; }
+  a { color: var(--brand); }
+  .muted { color: var(--sub); }
+  .box { background: white; border: 1px solid var(--line); padding: 17px; border-radius: 13px; margin: 15px 0; }
+  #editor { border-color: #83a9b6; }
+  .controls { display: flex; flex-wrap: wrap; align-items: end; gap: 9px; }
+  .filters label { flex: 1 1 200px; }
+  button, input, textarea, select { font: inherit; color: var(--ink); background: white;
+    border: 1px solid #a9bec7; border-radius: 8px; padding: 7px 10px; }
+  input, textarea, select { display: block; width: 100%; margin-top: 4px; }
+  textarea { min-height: 96px; resize: vertical; }
+  button { cursor: pointer; }
+  button:disabled { opacity: .65; cursor: default; }
+  button.primary { background: var(--brand); color: white; border-color: var(--brand); }
+  label, .group { display: block; margin-bottom: 10px; }
+  :focus-visible { outline: 3px solid #328da2; outline-offset: 2px; }
+  .text { white-space: pre-wrap; overflow-wrap: anywhere; }
+  blockquote { margin: 8px 0; border-left: 3px solid #aac9d0; padding: 7px 10px; background: #f1f6f7; }
+  .source { color: #855026; }
+  .source.verified { color: #246057; }
+  .links { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; }
+  .note { margin: 10px 0; }
+  #status[data-error], #listStatus[data-error] { color: #a14628; }
+</style>
+</head>
+<body>
+<header><a href="/">← 返回论文工作台</a></header>
+<main>
+  <h1>证据笔记</h1>
+  <p class="muted">从报告收藏证据后，可在这里补充批注，并把不同论文的材料归入同一个研究主题。</p>
+  <section class="box" id="editor" hidden>
+    <h2>编辑笔记</h2>
+    <div id="preview"></div>
+    <form id="form">
+      <label>研究主题
+        <input type="text" id="topic" list="topics" maxlength="80" placeholder="例如 低碳调度，也可留空">
+        <datalist id="topics"></datalist>
+      </label>
+      <label>我的批注
+        <textarea id="comment" maxlength="8000" placeholder="这条证据支持什么？还需要核对什么？"></textarea>
+      </label>
+      <div class="controls">
+        <button class="primary" id="save" type="submit">保存笔记</button>
+        <button id="close" type="button">关闭编辑</button>
+      </div>
+    </form>
+    <p id="status" role="status"></p>
+  </section>
+  <section class="box">
+    <h2>研究主题与笔记</h2>
+    <div class="controls filters">
+      <label>筛选主题<select id="filter"><option value="">全部主题</option></select></label>
+      <label>搜索笔记<input id="search" type="search" placeholder="论文标题、摘录或批注"></label>
+    </div>
+    <p id="listStatus" role="status">正在加载笔记…</p>
+    <div id="notes"></div>
+  </section>
+</main>
+<script>
+(function () {
+  const byId = id => document.getElementById(id);
+  const filter = byId("filter");
+  const search = byId("search");
+  let notes = [];
+  let editing = null;
+  let ready = false;
+
+  function element(tag, text, css) {
+    const node = document.createElement(tag);
+    if (text) node.textContent = text;
+    if (css) node.className = css;
+    return node;
+  }
+
+  function link(text, href) {
+    const node = element("a", text);
+    node.href = href;
+    node.target = "_blank";
+    node.rel = "noopener";
+    return node;
+  }
+
+  async function request(path = "/api/notes", options) {
+    const response = await fetch(path, options);
+    const data = await response.json();
+    if (!response.ok || !data.ok) throw new Error(data.error || "笔记操作失败");
+    return data;
+  }
+
+  function status(id, text, error = false) {
+    const target = byId(id);
+    target.textContent = text;
+    target.toggleAttribute("data-error", error);
+  }
+
+  function evidence(note) {
+    const content = element("div");
+    const verification = note.verified === true ? "原文已核实"
+      : note.verified === false ? "模型转述 · 未核实" : "原文核实状态未知";
+    const descriptor = [verification, note.page ? "第 " + note.page + " 页" : "",
+      note.section, note.para ? "第 " + note.para + " 段" : ""].filter(Boolean);
+    content.append(element("h3", note.title), element("p", note.block, "muted"),
+      element("p", descriptor.join(" · "), note.verified ? "source verified" : "source"),
+      element("blockquote", note.quote, "text"));
+    if (note.quote_zh && note.quote_zh !== note.quote) {
+      content.append(element("p", note.quote_zh, "text"));
+    }
+    const links = element("div", "", "links");
+    if (note.report_available) {
+      links.append(link("打开报告", "/report?file=" + encodeURIComponent(note.file)));
+    }
+    if (note.pdf_available && note.page && note.verified === true) {
+      links.append(link("查看原文页", "/pageimg/" +
+        encodeURIComponent(note.file.replace(/\.json$/, "")) + "/" + note.page + ".png"));
+    }
+    if (links.childNodes.length) content.append(links);
+    return content;
+  }
+
+  function openEditor(note, focus = true) {
+    editing = note;
+    byId("preview").replaceChildren(evidence(note));
+    byId("topic").value = note.topic || "";
+    byId("comment").value = note.comment || "";
+    byId("editor").hidden = false;
+    status("status", "");
+    if (focus) {
+      byId("editor").scrollIntoView({block: "start"});
+      byId("topic").focus({preventScroll: true});
+    }
+  }
+
+  function render() {
+    if (!ready) return;
+    const query = search.value.trim().toLowerCase();
+    const selected = filter.value;
+    const matches = notes.filter(note =>
+      (!selected || (selected === "unassigned" ? !note.topic : "topic:" + note.topic === selected)) &&
+      (!query || [note.title, note.block, note.quote, note.quote_zh, note.topic, note.comment]
+        .some(value => (value || "").toLowerCase().includes(query))));
+    const groups = new Map();
+    for (const note of matches) {
+      if (!groups.has(note.topic)) groups.set(note.topic, []);
+      groups.get(note.topic).push(note);
+    }
+    const sections = [];
+    for (const [topic, entries] of groups) {
+      const section = element("section", "", "group");
+      section.append(element("h3", (topic || "未分类") + " · " + entries.length + " 条"));
+      for (const note of entries) {
+        const card = element("article", "", "box note");
+        card.append(evidence(note));
+        if (note.comment) card.append(element("p", "我的批注", "muted"), element("p", note.comment, "text"));
+        const edit = element("button", "编辑笔记");
+        edit.type = "button";
+        edit.addEventListener("click", () => openEditor(note));
+        card.append(edit);
+        section.append(card);
+      }
+      sections.push(section);
+    }
+    byId("notes").replaceChildren(...sections);
+    status("listStatus", matches.length ? matches.length + " 条笔记"
+      : notes.length ? "没有符合条件的笔记。" : "还没有收藏。请到论文报告的「原文依据」下点击「收藏证据」。");
+  }
+
+  function setNotes(items) {
+    notes = items;
+    ready = true;
+    const current = filter.value;
+    const topics = [...new Set(notes.map(note => note.topic).filter(Boolean))].sort();
+    filter.replaceChildren(new Option("全部主题", ""));
+    if (notes.some(note => !note.topic)) filter.add(new Option("未分类", "unassigned"));
+    for (const topic of topics) filter.add(new Option(topic, "topic:" + topic));
+    filter.value = [...filter.options].some(option => option.value === current) ? current : "";
+    byId("topics").replaceChildren(...topics.map(topic => new Option(topic, topic)));
+    render();
+  }
+
+  byId("form").addEventListener("submit", async event => {
+    event.preventDefault();
+    if (!editing) return;
+    const controls = [byId("save"), byId("close"), byId("topic"), byId("comment")];
+    controls.forEach(control => { control.disabled = true; });
+    const id = editing.id;
+    try {
+      const data = await request("/api/notes", {
+        method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({id, topic: byId("topic").value, comment: byId("comment").value})
+      });
+      setNotes([data.note, ...notes.filter(note => note.id !== id)]);
+      if (editing && editing.id === id) {
+        openEditor(data.note, false);
+        status("status", "已保存");
+      }
+    } catch (error) {
+      if (editing && editing.id === id) status("status", error.message, true);
+    } finally {
+      controls.forEach(control => { control.disabled = false; });
+    }
+  });
+
+  byId("close").addEventListener("click", () => {
+    editing = null;
+    byId("editor").hidden = true;
+  });
+  filter.addEventListener("change", render);
+  search.addEventListener("input", render);
+  request().then(data => {
+    setNotes(data.notes);
+    const id = new URLSearchParams(location.search).get("note");
+    if (id) {
+      const selected = notes.find(note => note.id === id);
+      if (selected) openEditor(selected);
+      else status("listStatus", "找不到指定笔记。", true);
+    }
+  }).catch(error => status("listStatus", error.message, true));
+})();
+</script>
+</body>
+</html>
