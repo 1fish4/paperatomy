@@ -213,6 +213,10 @@ class OpenAlex:
                     urllib.request.build_opener()
                 req = urllib.request.Request(url, headers={
                     "User-Agent": "paperatomy/0.6 (open-source paper reader)"})
+                from os import getenv
+                key = getenv("OPENALEX_API_KEY")
+                if key and urllib.parse.urlsplit(url).hostname == "api.openalex.org":
+                    req.add_unredirected_header("Authorization", "Bearer " + key)
                 with opener.open(req, timeout=20) as resp:
                     self.ok = True
                     return json.loads(resp.read().decode("utf-8"))
@@ -768,6 +772,7 @@ def build_network(
     return {
         "center": {
             "title": center_title,
+            "openalex_id": (center or {}).get("openalex_id", ""),
             "year": (center or {}).get("year", 0) if center else 0,
             "doi": (center or {}).get("doi", "") if center else "",
             "matched": bool(center),

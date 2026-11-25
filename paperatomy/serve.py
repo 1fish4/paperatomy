@@ -202,7 +202,9 @@ class _State:
             self.last_task = None
         self.db_path = self.root / "reports.db"
         from .notes import NoteStore
+        from .discovery import ReadingCandidates
         self.notes = NoteStore(self.db_path)
+        self.reading = ReadingCandidates(self.db_path)
         self._sync_db()
         self._refresh_stale_html()
         # report 文件名 -> (标题, 材料, 错误)；解析一次，之后提问直接用
@@ -385,11 +387,34 @@ class _State:
             "SELECT collection, COUNT(*) FROM reports WHERE collection<>'' "
             "GROUP BY collection ORDER BY COUNT(*) DESC").fetchall()
         conn.close()
+        candidates = self.reading.list()
+        collections = dict(cols)
+        for item in candidates:
+            collections.setdefault(item["collection"], 0)
+        candidates = [item for item in candidates if (not col or col == item["collection"])
+                      and (not q or q.casefold() in item["title"].casefold())]
+        self.link_reading_reports(candidates)
         return {"reports": [dict(r) for r in rows], "total": total,
                 "page": page, "pages": pages,
-                "collections": [{"name": n, "count": c} for n, c in cols],
+                "collections": [{"name": name, "count": c} for name, c in collections.items()],
+                "reading": candidates,
                 "stats": {"total": total, "week": week,
                           "by_tpl": by_tpl, "collections": ncol}}
+
+    def link_reading_reports(self, candidates: list[dict]) -> None:
+        if not candidates:
+            return
+        titles: dict[str, list[str]] = {}
+        conn = self._db()
+        try:
+            for title, file in conn.execute("SELECT title, file FROM reports"):
+                titles.setdefault(" ".join(title.casefold().split()), []).append(file)
+        finally:
+            conn.close()
+        for item in candidates:
+            matches = titles.get(" ".join(item["title"].casefold().split()), [])
+            if len(matches) == 1 and self.report_path(matches[0]):
+                item["matching_report"] = matches[0]
 
     def delete_report(self, file: str) -> int:
         """删除 = 移入回收站（out/.trash/，可在诊断面板恢复）。"""
@@ -1011,6 +1036,69 @@ class _Handler(BaseHTTPRequestHandler):
         except RuntimeError:
             self._json({"ok": False, "error": "无法启动后台任务，请稍后重试"}, 500)
 
+    def _save_reading_candidate(self) -> None:
+        origin = self.headers.get("Origin")
+        if not origin or not self._same_origin() or origin != f"http://{self.headers.get('Host')}":
+            self._json({"ok": False, "error": "请从本机工作台保存待读论文"}, 403)
+            return
+        from .discovery import _summary, fetch_work
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+            if not 0 < length <= 8192 or self.headers.get_content_type() != "application/json":
+                raise ValueError("请求格式无效")
+            data = json.loads(self.rfile.read(length))
+            if not isinstance(data, dict):
+                raise ValueError("请求格式无效")
+            collection = str(data.get("collection") or "").strip()
+            if not collection or len(collection) > 40 or collection == "__none__":
+                raise ValueError("请填写有效的合集名称")
+            self.state.reading.save(_summary(fetch_work(data.get("work"))), collection)
+            self._json({"ok": True})
+        except ValueError as exc:
+            self._json({"ok": False, "error": str(exc)}, 400)
+        except LookupError as exc:
+            self._json({"ok": False, "error": str(exc)}, 502)
+        except sqlite3.Error:
+            self._json({"ok": False, "error": "无法写入待读列表"}, 500)
+
+    def _compare_conclusions(self) -> None:
+        origin = self.headers.get("Origin")
+        if not origin or not self._same_origin() or origin != f"http://{self.headers.get('Host')}":
+            self._json({"ok": False, "error": "请从本机方法工作台发起对比"}, 403)
+            return
+        from .conclusions import compare_conclusions, direct_citations
+        cfg = self.cfg or load_config()
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+            if not 0 < length <= 16384 or self.headers.get_content_type() != "application/json":
+                raise ValueError("请求格式无效")
+            payload = json.loads(self.rfile.read(length))
+            if not isinstance(payload, dict):
+                raise ValueError("请求格式无效")
+            files = payload.get("files")
+            question = payload.get("question")
+            if (not isinstance(files, list) or not 2 <= len(files) <= 4
+                    or not all(isinstance(file, str) and file for file in files)
+                    or len(set(files)) != len(files)):
+                raise ValueError("请选择两到四份不同的论文报告")
+            if not isinstance(question, str) or not 1 <= len(question.strip()) <= 400:
+                raise ValueError("请输入 1–400 字的具体比较问题")
+            items = []
+            for file in files:
+                path, data = self._lab_profile(file)
+                pdf = path.stem if (self.state.pdf_dir / (path.stem + ".pdf")).is_file() else None
+                items.append((file, pdf, data))
+            result = compare_conclusions(question.strip(), items, cfg)
+            result["citations"] = direct_citations(items, self.state.pdf_dir)
+            self._json({"ok": True, **result})
+        except (ValueError, OSError) as exc:
+            self._json({"ok": False, "error": str(exc)}, 400)
+        except LLMError as exc:
+            detail = str(exc).splitlines()[0]
+            if cfg.api_key:
+                detail = detail.replace(cfg.api_key, "[已隐藏]")
+            self._json({"ok": False, "error": detail[:240]}, 502)
+
     def _note_source(self, params: dict) -> dict:
         from .notes import evidence_snapshot
 
@@ -1144,6 +1232,21 @@ class _Handler(BaseHTTPRequestHandler):
 
         if path == "/api/network" and self.workbench:
             self._network_request(params.get("file", ""))
+            return
+
+        if path == "/api/discovery" and self.workbench:
+            from .discovery import expand_work
+            try:
+                expansion = expand_work(params.get("work", ""))
+                names = [row["name"] for row in self.state.query_reports(size=1)["collections"]]
+                self.state.link_reading_reports(
+                    [item for group in ("references", "cited_by", "similar")
+                     for item in expansion[group]])
+                self._json({"ok": True, **expansion, "collections": names})
+            except ValueError as exc:
+                self._json({"ok": False, "error": str(exc)}, 400)
+            except LookupError as exc:
+                self._json({"ok": False, "error": str(exc)}, 502)
             return
 
         if path == "/translation" and self.workbench:
@@ -1412,6 +1515,14 @@ class _Handler(BaseHTTPRequestHandler):
         params = {urllib.parse.unquote(k): urllib.parse.unquote(v)
                   for k, v in (kv.split("=", 1) for kv in query.split("&")
                                if "=" in kv)}
+
+        if path == "/api/conclusions" and self.workbench:
+            self._compare_conclusions()
+            return
+
+        if path == "/api/reading" and self.workbench:
+            self._save_reading_candidate()
+            return
 
         if path == "/api/network" and self.workbench:
             if not self._same_origin() or not self.headers.get("Origin"):

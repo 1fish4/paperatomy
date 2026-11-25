@@ -2118,6 +2118,9 @@
         "相关度为基于共引与关键词的计算值，依据如上。</div>");
       d.innerHTML = h.join("");
       d.classList.add("show");
+      if (window.__PA_SERVE__ && window.__PA_SERVE__.mode === "workbench") {
+        attachDiscovery(d, n.openalex_id);
+      }
     }
 
     var svg = box.querySelector("svg");
@@ -2167,6 +2170,119 @@
         }
       });
     }
+  }
+
+  function attachDiscovery(host, id) {
+    if (!/^W[0-9]+$/i.test(id || "")) return;
+    var panel = document.createElement("div");
+    panel.className = "net-d-note";
+    var launch = document.createElement("button");
+    launch.type = "button";
+    launch.textContent = "以此篇继续找";
+    host.append(launch, panel);
+    var history = [];
+    var serial = 0;
+
+    function el(tag, text) {
+      var node = document.createElement(tag);
+      node.textContent = text || "";
+      return node;
+    }
+    function control(text, click) {
+      var button = el("button", text);
+      button.type = "button";
+      button.onclick = click;
+      return button;
+    }
+    async function request(path, options) {
+      var response = await fetch(path, options);
+      var data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.error || "OpenAlex 请求失败");
+      return data;
+    }
+    function display(data) {
+      var title = el("h3", "从这篇继续找 · " + data.seed.title);
+      var results = [];
+      if (history.length > 1) {
+        results.push(control("返回上一轮", function () {
+          serial++;
+          history.pop();
+          display(history[history.length - 1]);
+        }));
+      }
+      results.push(title);
+      var collections = el("select");
+      collections.setAttribute("aria-label", "保存候选的论文合集");
+      Array.from(new Set(["待读"].concat(data.collections || []))).forEach(function (name) {
+        collections.add(new Option(name, name));
+      });
+      var collectionLabel = el("label", "保存到合集 ");
+      collectionLabel.append(collections);
+      results.push(collectionLabel);
+      if (data.unavailable.length) {
+        results.push(el("p", "暂未取得：" + data.unavailable.join("、")));
+      }
+      [["references", "它引用的论文", "该论文在种子论文的参考文献中"],
+       ["cited_by", "引用它的论文", "该论文的参考文献包含种子论文"],
+       ["similar", "共享参考文献的相似论文", ""]].forEach(function (group) {
+        var section = el("section");
+        section.append(el("h4", group[1]));
+        if (!data[group[0]].length) section.append(el("p", "当前没有返回候选。"));
+        data[group[0]].forEach(function (candidate) {
+          var disclosure = el("details");
+          var name = [candidate.title, candidate.year, candidate.venue].filter(Boolean).join(" · ");
+          disclosure.append(el("summary", name), el("p", candidate.shared
+            ? "与种子论文共享 " + candidate.shared + " 条已索引参考文献" : group[2]));
+          disclosure.append(el("p", candidate.abstract || "OpenAlex 暂未提供摘要。"));
+          var source = el("a", "查看 OpenAlex 条目");
+          source.href = "https://openalex.org/" + candidate.id;
+          source.target = "_blank";
+          source.rel = "noopener";
+          var more = control("以此篇继续找", function () { expand(candidate.id); });
+          var save = control("加入待读", async function () {
+            save.disabled = true;
+            try {
+              await request("/api/reading", {
+                method: "POST", headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({work: candidate.id, collection: collections.value})
+              });
+              save.textContent = "已加入 " + collections.value;
+            } catch (error) {
+              save.textContent = error.message;
+            } finally {
+              save.disabled = false;
+            }
+          });
+          disclosure.append(source, " ", more, " ", save);
+          if (candidate.matching_report) {
+            var local = el("a", "打开同名本地报告");
+            local.href = "/report?file=" + encodeURIComponent(candidate.matching_report);
+            disclosure.append(" ", local);
+          }
+          section.append(disclosure);
+        });
+        results.push(section);
+      });
+      panel.replaceChildren.apply(panel, results);
+    }
+    async function expand(work) {
+      var token = ++serial;
+      launch.disabled = true;
+      panel.textContent = "正在查询 OpenAlex…";
+      try {
+        var data = await request("/api/discovery?work=" + encodeURIComponent(work));
+        if (token !== serial) return;
+        history.push(data);
+        display(data);
+      } catch (error) {
+        if (token !== serial) return;
+        if (history.length) display(history[history.length - 1]);
+        panel.prepend(el("p", error.message));
+      } finally {
+        launch.disabled = false;
+      }
+    }
+    launch.onclick = function () { expand(id); };
   }
 
   // ======================= 追问这篇论文 =======================

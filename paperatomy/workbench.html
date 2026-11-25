@@ -1145,8 +1145,40 @@
         renderColFilter(data.collections || []);
         renderStats(data.stats || {});
         renderReports(data);
+        renderReading(data.reading || []);
       })
       .catch(function () {});
+  }
+
+  function renderReading(items) {
+    var box = document.getElementById("readingCandidates");
+    if (!box) {
+      box = document.createElement("section");
+      box.id = "readingCandidates";
+      grid.before(box);
+    }
+    box.hidden = !items.length;
+    if (!items.length) { box.replaceChildren(); return; }
+    var title = document.createElement("h2");
+    title.textContent = "待读论文";
+    var list = document.createElement("ul");
+    items.forEach(function (item) {
+      var row = document.createElement("li");
+      var link = document.createElement("a");
+      link.href = "https://openalex.org/" + item.id;
+      link.target = "_blank";
+      link.rel = "noopener";
+      link.textContent = item.title;
+      row.append(link, " · " + [item.year, item.collection].filter(Boolean).join(" · "));
+      if (item.matching_report) {
+        var local = document.createElement("a");
+        local.href = "/report?file=" + encodeURIComponent(item.matching_report);
+        local.textContent = "打开同名本地报告";
+        row.append(" · ", local);
+      }
+      list.append(row);
+    });
+    box.replaceChildren(title, list);
   }
 
   function renderReports(data) {

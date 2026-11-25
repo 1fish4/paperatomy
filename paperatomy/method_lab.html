@@ -46,6 +46,12 @@
   figure img { width: min(100%, 550px); border: 1px solid var(--line); border-radius: 8px; }
   .label, .status { margin-top: 10px; }
   .code-result { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 12px; }
+  #conclusionForm { margin-top: 22px; }
+  #conclusionForm label { display: block; }
+  #question { display: block; width: min(100%, 700px); margin: 7px 0; padding: 8px;
+    border: 1px solid #afc3cf; border-radius: 8px; font: inherit; }
+  #conclusionResult table { min-width: 640px; }
+  #conclusionResult blockquote { margin: 6px 0; color: var(--sub); }
   code { overflow-wrap: anywhere; }
   @media (max-width: 650px) {
     main { padding: 14px 10px; }
@@ -63,6 +69,13 @@
       <label>论文 A<select id="paperA"><option value="">选择已分析的论文</option></select></label>
       <label>论文 B（可选）<select id="paperB"><option value="">选择第二篇做对比</option></select></label>
     </div>
+    <details>
+      <summary>再选论文（最多四篇）</summary>
+      <div class="choices">
+        <label>论文 C<select id="paperC"><option value="">未选择</option></select></label>
+        <label>论文 D<select id="paperD"><option value="">未选择</option></select></label>
+      </div>
+    </details>
     <div class="controls">
       <button class="primary" id="load" type="button">打开方法材料</button>
       <button id="compare" type="button" disabled>生成 AI 方法对比</button>
@@ -74,6 +87,14 @@
     <h2>方法与实验</h2>
     <div class="comparison" id="matrix"></div>
     <figure id="source" hidden><figcaption id="sourceCaption"></figcaption><img id="sourceImage" alt="论文原文页"></figure>
+    <form id="conclusionForm" hidden>
+      <label for="question"><strong>按问题比较结论</strong></label>
+      <textarea id="question" rows="2" maxlength="400" required
+        placeholder="例如，这些方法在截止时间收紧时，怎样影响碳排放？"></textarea>
+      <button id="conclude" class="primary" type="submit">比较结论和适用条件</button>
+      <p id="conclusionStatus" role="status" class="status muted"></p>
+    </form>
+    <div id="conclusionResult" class="comparison"></div>
   </section>
 
   <section class="card" id="artifacts" hidden>
@@ -87,7 +108,7 @@
 (function () {
   "use strict";
   const byId = id => document.getElementById(id);
-  const select = [byId("paperA"), byId("paperB")];
+  const select = ["paperA", "paperB", "paperC", "paperD"].map(byId);
   const status = byId("status");
   const params = new URLSearchParams(location.search);
   let selected = [];
@@ -127,7 +148,7 @@
     for (const paper of papers) {
       const cell = element("th", paper.title);
       const row = element("div", "", "report-link");
-      row.append(link("打开原报告", "/report?" + new URLSearchParams({file: paper.file})));
+      row.append(link("打开原报告", "/report?file=" + encodeURIComponent(paper.file)));
       cell.append(row);
       header.append(cell);
     }
@@ -171,7 +192,7 @@
         for (const b of buttons.children) b.disabled = true;
         result.textContent = "正在核对公开仓库及 README…";
         try {
-          const query = new URLSearchParams({file: paper.file, search: search ? "1" : "0"});
+          const query = "file=" + encodeURIComponent(paper.file) + "&search=" + (search ? "1" : "0");
           const data = await api("/api/artifacts?" + query, {method: "POST"});
           renderArtifacts(result, data, search);
         } catch (error) {
@@ -226,6 +247,9 @@
     const generation = ++loadGeneration;
     const files = [...new Set(select.map(input => input.value).filter(Boolean))];
     byId("compare").disabled = true;
+    byId("conclusionForm").hidden = true;
+    byId("conclusionStatus").textContent = "";
+    byId("conclusionResult").replaceChildren();
     selected = [];
     byId("methods").hidden = byId("artifacts").hidden = true;
     if (!files.length) {
@@ -235,7 +259,7 @@
     status.textContent = "正在读取报告中的方法和实验材料…";
     try {
       const papers = await Promise.all(files.map(async file =>
-        ({...(await api("/api/lab?" + new URLSearchParams({file}))), file})));
+        ({...(await api("/api/lab?file=" + encodeURIComponent(file))), file})));
       if (generation !== loadGeneration) return;
       selected = files;
       const query = new URLSearchParams();
@@ -246,7 +270,9 @@
       byId("artifacts").hidden = false;
       if (location.hash === "#artifacts") byId("artifacts").scrollIntoView();
       byId("compare").disabled = files.length < 2;
-      status.textContent = files.length === 2 ? "两篇论文已对齐。可进一步生成 AI 方法对比。"
+      byId("conclude").disabled = false;
+      byId("conclusionForm").hidden = files.length < 2;
+      status.textContent = files.length >= 2 ? files.length + " 篇论文已对齐，可以比较方法或回答一个具体问题。"
         : "已打开单篇方法材料。需要对比时再选择论文 B。";
     } catch (error) {
       if (generation === loadGeneration) status.textContent = error.message;
@@ -279,6 +305,85 @@
       if (loadGeneration === generation) button.disabled = false;
     }
   }
+
+  function renderConclusions(data) {
+    const table = element("table");
+    const head = table.createTHead().insertRow();
+    head.append(element("th", "对比维度"));
+    data.papers.forEach(paper => head.append(element("th", paper.title)));
+    const body = table.createTBody();
+    for (const [key, label] of Object.entries(data.fields)) {
+      const row = body.insertRow();
+      row.append(element("th", label));
+      for (const paper of data.papers) {
+        const cell = row.insertCell();
+        const field = paper.cells[key];
+        cell.append(element("p", field.text || "当前报告缺少可核实证据。",
+                            field.text ? "" : "muted"));
+        if (!field.text) continue;
+        for (const evidence of field.evidence) {
+          const detail = element("details");
+          detail.append(element("summary", "证据 · 第 " + evidence.page + " 页"),
+            element("blockquote", evidence.quote),
+            element("p", evidence.quote_zh));
+          const href = paper.pdf ? "/pageimg/" + encodeURIComponent(paper.pdf) + "/" + evidence.page + ".png"
+                                : "/report?file=" + encodeURIComponent(paper.file);
+          const original = link(paper.pdf ? "打开原文页" : "打开报告", href);
+          original.target = "_blank";
+          original.rel = "noopener";
+          detail.append(original);
+          cell.append(detail);
+        }
+      }
+    }
+    const relations = element("ul");
+    for (const item of data.relations) {
+      const row = element("li");
+      row.append(element("strong", data.papers[item.a - 1].title + " ↔ " +
+        data.papers[item.b - 1].title + " · " + item.status), element("p", item.reason));
+      relations.append(row);
+    }
+    const result = byId("conclusionResult");
+    result.replaceChildren(element("h3", data.question), table, element("h3", "两两关系"), relations);
+    if (data.citations && data.citations.length) {
+      const names = Object.fromEntries(data.papers.map(paper => [paper.file, paper.title]));
+      result.append(element("h3", "直接引用的原文语境"));
+      for (const item of data.citations) {
+        const detail = element("details");
+        detail.append(element("summary", names[item.from] + " → " + names[item.to]),
+          element("blockquote", item.context),
+          link("查看引用所在原文页 " + item.page,
+               "/pageimg/" + encodeURIComponent(item.pdf) + "/" + item.page + ".png"));
+        result.append(detail);
+      }
+    }
+  }
+
+  byId("conclusionForm").addEventListener("submit", async event => {
+    event.preventDefault();
+    const generation = loadGeneration;
+    const question = byId("question").value.trim();
+    if (!question) {
+      byId("conclusionStatus").textContent = "请先填写比较问题。";
+      return;
+    }
+    byId("conclude").disabled = true;
+    byId("conclusionResult").replaceChildren();
+    byId("conclusionStatus").textContent = "正在核对各篇报告中已定位的原文证据…";
+    try {
+      const data = await api("/api/conclusions", {
+        method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({files: selected, question})
+      });
+      if (generation !== loadGeneration) return;
+      renderConclusions(data);
+      byId("conclusionStatus").textContent = "已生成对照表，展开每格证据可核对模型归纳。";
+    } catch (error) {
+      if (generation === loadGeneration) byId("conclusionStatus").textContent = error.message;
+    } finally {
+      if (generation === loadGeneration) byId("conclude").disabled = false;
+    }
+  });
 
   byId("load").addEventListener("click", loadMethods);
   byId("compare").addEventListener("click", compareMethods);
