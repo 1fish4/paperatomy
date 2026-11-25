@@ -14,11 +14,15 @@ def test_workbench_model_setup(tmp_path, monkeypatch):
     for name in ("API_KEY", "BASE_URL", "MODEL"):
         monkeypatch.delenv("PAPERATOMY_" + name, raising=False)
 
+    rejected = {"bad-key"}
+    probes = []
+
     def probe(messages, cfg, *, json_mode):
         assert messages == [{"role": "user", "content": "Reply with OK."}]
         assert not json_mode
-        if cfg.api_key == "bad-key":
-            raise llm.LLMError("HTTP 401 — 无效 Key\n服务端返回：bad-key")
+        probes.append((cfg.base_url, cfg.api_key))
+        if cfg.api_key in rejected:
+            raise llm.LLMError("HTTP 401 — 无效 Key\n服务端返回：" + cfg.api_key)
         return "OK"
 
     monkeypatch.setattr(serve, "chat", probe)
@@ -66,9 +70,53 @@ def test_workbench_model_setup(tmp_path, monkeypatch):
             candidate["base_url"] = "https://other.example/v1"
             assert request("POST", "/api/model", body=candidate, source=origin)[0] == 400
             assert llm.load_config().base_url == "https://model.example/v1"
+
+            original = {"profile": "默认配置", "profile_name": "默认配置",
+                        "base_url": "https://model.example/v1", "model": "test"}
+            second = {"profile": "", "profile_name": "服务商 B",
+                      "base_url": "https://other.example/v1", "model": "b",
+                      "api_key": "second-key"}
+            assert request("POST", "/api/model", body=second, source=origin)[0] == 200
+            status, listing = request("GET", "/api/model")
+            settings = json.loads(listing)
+            assert status == 200 and settings["active_profile"] == "服务商 B"
+            assert [item["name"] for item in settings["profiles"]] == ["默认配置", "服务商 B"]
+            assert "test-key" not in listing and "second-key" not in listing
+
+            rejected.add("test-key")
+            assert request("POST", "/api/model", body=original, source=origin)[0] == 502
+            assert probes[-1] == ("https://model.example/v1", "test-key")
+            assert llm.load_config().api_key == "second-key"
+            rejected.remove("test-key")
+            assert request("POST", "/api/model", body=original, source=origin)[0] == 200
+            assert llm.load_config().api_key == "test-key"
+
+            wrong_address = {**original, "base_url": second["base_url"]}
+            assert request("POST", "/api/model", body=wrong_address, source=origin)[0] == 400
+            duplicate = {**original, "profile_name": "服务商 B"}
+            assert request("POST", "/api/model", body=duplicate, source=origin)[0] == 409
+            assert request("POST", "/api/model", body={**original, "profile": "",
+                           "profile_name": "另一账号"}, source=origin)[0] == 400
+            assert request("POST", "/api/model", body={**original, "profile_name": "服务商 A"},
+                           source=origin)[0] == 200
+            active, profiles = llm.load_model_profiles()
+            assert active == "服务商 A" and set(profiles) == {"服务商 A", "服务商 B"}
         finally:
             server.shutdown()
             thread.join(timeout=5)
+
+
+def test_legacy_config_is_preserved_when_saving_a_second_named_profile(tmp_path, monkeypatch):
+    path = tmp_path / "config.yaml"
+    monkeypatch.setattr(llm, "CONFIG_PATH", path)
+    path.write_text("api_key: legacy-test\nbase_url: https://old.example/v1\nmodel: old\n",
+                    encoding="utf-8")
+    assert llm.load_model_profiles()[0] == "默认配置"
+    llm.save_config(llm.LLMConfig(api_key="other-test", model="new"), profile_name="新服务商")
+    active, profiles = llm.load_model_profiles()
+    assert active == "新服务商"
+    assert profiles["默认配置"].api_key == "legacy-test"
+    assert profiles["新服务商"].api_key == "other-test"
 
 
 @pytest.mark.parametrize("url, expected", [

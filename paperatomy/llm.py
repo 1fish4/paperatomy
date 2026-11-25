@@ -76,24 +76,55 @@ class LLMConfig:
             return False
 
 
+def _read_saved_config() -> dict:
+    import yaml
+
+    try:
+        raw = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
+        return raw if isinstance(raw, dict) else {}
+    except (OSError, ValueError, yaml.YAMLError):
+        return {}
+
+
+def _config_from_mapping(raw: dict) -> LLMConfig:
+    cfg = LLMConfig()
+    cfg.api_key = str(raw.get("api_key") or "")
+    cfg.base_url = str(raw.get("base_url") or cfg.base_url)
+    cfg.model = str(raw.get("model") or cfg.model)
+    try:
+        cfg.temperature = float(raw.get("temperature", cfg.temperature))
+    except (TypeError, ValueError):
+        pass
+    return cfg
+
+
+def _saved_profiles(raw: dict) -> tuple[str, dict]:
+    entries = raw.get("profiles")
+    profiles = {name: value for name, value in entries.items()
+                if isinstance(name, str) and name and isinstance(value, dict)} \
+        if isinstance(entries, dict) else {}
+    active = raw.get("active_profile")
+    if isinstance(active, str) and active in profiles:
+        return active, profiles
+    if any(field in raw for field in ("api_key", "base_url", "model")):
+        name = "默认配置"
+        while name in profiles:
+            name += "（旧）"
+        profiles[name] = _saved_values(_config_from_mapping(raw))
+        return name, profiles
+    return "", profiles
+
+
+def load_model_profiles() -> tuple[str, dict[str, LLMConfig]]:
+    active, profiles = _saved_profiles(_read_saved_config())
+    return active, {name: _config_from_mapping(value) for name, value in profiles.items()}
+
+
 def load_config(**overrides) -> LLMConfig:
     """按优先级合并配置：显式参数 > 环境变量 > 配置文件 > 默认值。"""
-    cfg = LLMConfig()
-
-    # 配置文件
-    if CONFIG_PATH.is_file():
-        try:
-            import yaml
-            raw = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8")) or {}
-            if isinstance(raw, dict):
-                cfg.api_key = str(raw.get("api_key", "") or "")
-                cfg.base_url = str(raw.get("base_url", "") or cfg.base_url)
-                cfg.model = str(raw.get("model", "") or cfg.model)
-                if raw.get("temperature") is not None:
-                    cfg.temperature = float(raw["temperature"])
-        except Exception:
-            # 配置损坏不应该让主流程崩掉，退化为默认值
-            pass
+    raw = _read_saved_config()
+    active, profiles = _saved_profiles(raw)
+    cfg = _config_from_mapping(profiles.get(active, raw))
 
     # 环境变量
     cfg.api_key = os.environ.get("PAPERATOMY_API_KEY", cfg.api_key)
@@ -110,10 +141,24 @@ def load_config(**overrides) -> LLMConfig:
     return cfg
 
 
-def save_config(cfg: LLMConfig) -> Path:
+def _saved_values(cfg: LLMConfig) -> dict:
+    return {"api_key": cfg.api_key, "base_url": cfg.base_url, "model": cfg.model,
+            "temperature": cfg.temperature}
+
+
+def save_config(cfg: LLMConfig, *, profile_name: str | None = None,
+                previous_name: str = "") -> Path:
     """把配置写入用户目录，权限设为仅本人可读。"""
     import yaml
 
+    active, profiles = _saved_profiles(_read_saved_config())
+    name = active if profile_name is None else profile_name
+    raw = _saved_values(cfg)
+    if name:
+        if previous_name and previous_name != name:
+            profiles.pop(previous_name, None)
+        profiles[name] = _saved_values(cfg)
+        raw.update(active_profile=name, profiles=profiles)
     CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
     stream = tempfile.NamedTemporaryFile(
         mode="w", encoding="utf-8", dir=CONFIG_PATH.parent, delete=False
@@ -122,12 +167,7 @@ def save_config(cfg: LLMConfig) -> Path:
     try:
         with stream:
             yaml.safe_dump(
-                {
-                    "api_key": cfg.api_key,
-                    "base_url": cfg.base_url,
-                    "model": cfg.model,
-                    "temperature": cfg.temperature,
-                },
+                raw,
                 stream,
                 allow_unicode=True,
                 sort_keys=False,

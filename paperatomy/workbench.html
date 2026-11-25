@@ -323,7 +323,7 @@
   #modelDialog::backdrop { background: #172b3b80; }
   #modelDialog h2 { margin-top: 0; font-size: 20px; }
   #modelDialog label { display: block; margin: 12px 0; font-weight: 600; }
-  #modelDialog input {
+  #modelDialog input, #modelDialog select {
     display: block; width: 100%; margin-top: 4px; border: 1px solid #adc3c6;
     padding: 8px 10px; border-radius: 8px; font: inherit;
   }
@@ -364,13 +364,15 @@
   <form id="modelForm">
     <h2 id="modelTitle">模型设置</h2>
     <p class="hint">填写服务商提供的 OpenAI 兼容 API 地址和模型名称。测试只发送一条短消息，分析时会将论文摘录发送给该服务商。</p>
+    <label>已保存的配置<select id="modelProfile"><option value="">新建配置</option></select></label>
+    <label>配置名称<input id="modelProfileName" type="text" placeholder="例如 DeepSeek 论文分析" maxlength="60" required></label>
     <label>基础地址<input id="modelBase" type="url" placeholder="https://api.deepseek.com/v1" required></label>
     <label>模型名称<input id="modelName" type="text" placeholder="deepseek-chat" required></label>
     <label>API Key<input id="modelKey" type="password" autocomplete="off" spellcheck="false"></label>
     <p id="modelKeyHint" class="hint"></p>
     <p id="modelResult" role="status"></p>
     <div class="model-actions">
-      <button id="modelSave" class="action primary" type="submit">测试并保存</button>
+      <button id="modelSave" class="action primary" type="submit">测试并启用</button>
       <button id="modelClose" class="action" type="button">关闭</button>
     </div>
   </form>
@@ -511,28 +513,51 @@
 (function () {
   var CFG = window.__PA_SERVE__ || {port: location.port};
   var modelDialog = document.getElementById("modelDialog");
+  var modelProfile = document.getElementById("modelProfile");
+  var modelProfileName = document.getElementById("modelProfileName");
   var modelBase = document.getElementById("modelBase");
   var modelName = document.getElementById("modelName");
   var modelKey = document.getElementById("modelKey");
   var modelSave = document.getElementById("modelSave");
+  var modelClose = document.getElementById("modelClose");
   var modelResult = document.getElementById("modelResult");
   var modelStatus = document.getElementById("modelStatus");
   var serviceStatus = document.getElementById("serviceStatus");
+  var modelSettings = null;
 
   function applyModelSettings(settings) {
+    modelSettings = settings;
     serviceStatus.textContent = "本地服务已连接";
     modelStatus.textContent = settings.ready
-      ? "当前模型  " + settings.model
+      ? "当前模型  " + [settings.active_profile, settings.model].filter(Boolean).join(" · ")
       : "先配置模型再分析新论文，也可以直接打开示例报告。";
-    modelBase.value = settings.base_url;
-    modelName.value = settings.model;
-    document.getElementById("modelKeyHint").textContent = settings.has_key
-      ? "同一地址可留空保留已保存的 Key。切换服务商时，请填写新 Key。"
-      : "云模型需要 API Key。本地 Ollama 等服务可留空。";
+    modelProfile.replaceChildren(new Option("新建配置", ""));
+    (settings.profiles || []).forEach(function (profile) {
+      modelProfile.add(new Option(profile.name, profile.name));
+    });
+    modelProfile.value = settings.active_profile || "";
+    fillModelForm();
+  }
+
+  function fillModelForm() {
+    var settings = modelSettings || {};
+    var profile = (settings.profiles || []).find(function (item) {
+      return item.name === modelProfile.value;
+    });
+    var firstSetup = !(settings.profiles || []).length;
+    modelProfileName.value = profile ? profile.name : "";
+    modelBase.value = profile ? profile.base_url : (firstSetup ? settings.base_url || "" : "");
+    modelName.value = profile ? profile.model : (firstSetup ? settings.model || "" : "");
+    modelKey.value = "";
+    modelResult.textContent = "";
+    document.getElementById("modelKeyHint").textContent = profile && profile.has_key
+      ? "保持基础地址时，Key 留空即可使用这份配置保存的 Key。"
+      : "新配置需要输入 Key。使用本机模型时可留空。";
   }
 
   function openModelSettings() {
-    modelResult.textContent = "";
+    modelProfile.value = (modelSettings && modelSettings.active_profile) || "";
+    fillModelForm();
     modelDialog.showModal();
   }
 
@@ -541,18 +566,24 @@
   document.getElementById("taskDiagnose").addEventListener("click", function () {
     document.getElementById("diagBtn").click();
   });
-  document.getElementById("modelClose").addEventListener("click", function () {
+  modelProfile.addEventListener("change", fillModelForm);
+  modelClose.addEventListener("click", function () {
     modelDialog.close();
+  });
+  modelDialog.addEventListener("cancel", function (event) {
+    if (modelSave.disabled) event.preventDefault();
   });
   modelDialog.addEventListener("close", function () { modelKey.value = ""; });
   document.getElementById("modelForm").addEventListener("submit", async function (event) {
     event.preventDefault();
-    modelSave.disabled = true;
+    var controls = [modelProfile, modelProfileName, modelBase, modelName, modelKey, modelSave, modelClose];
+    controls.forEach(function (control) { control.disabled = true; });
     modelResult.textContent = "正在测试模型连接…";
     try {
       var response = await fetch("/api/model", {
         method: "POST", headers: {"Content-Type": "application/json"},
         body: JSON.stringify({
+          profile: modelProfile.value, profile_name: modelProfileName.value,
           base_url: modelBase.value, model: modelName.value, api_key: modelKey.value
         })
       });
@@ -563,11 +594,11 @@
       }
       applyModelSettings(settings);
       modelDialog.close();
-      modelStatus.textContent = "模型已通过连接测试  " + settings.model;
+      modelStatus.textContent = "已启用  " + settings.active_profile + " · " + settings.model;
     } catch (error) {
       modelResult.textContent = "无法连接本地工作台。请确认启动窗口仍在运行。";
     } finally {
-      modelSave.disabled = false;
+      controls.forEach(function (control) { control.disabled = false; });
     }
   });
   fetch("/api/model").then(function (response) { return response.json(); })

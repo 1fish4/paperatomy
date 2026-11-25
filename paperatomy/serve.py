@@ -46,7 +46,7 @@ from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from .llm import LLMConfig, LLMError, chat, chat_stream, load_config, save_config
+from .llm import LLMConfig, LLMError, chat, chat_stream, load_config, load_model_profiles, save_config
 
 __all__ = ["serve", "build_messages", "SYSTEM_PROMPT", "Task"]
 
@@ -1078,8 +1078,16 @@ class _Handler(BaseHTTPRequestHandler):
 
     def _model_settings(self) -> dict:
         cfg = self.cfg or load_config()
+        active, profiles = load_model_profiles()
         return {"ok": True, "base_url": cfg.base_url, "model": cfg.model,
-                "has_key": bool(cfg.api_key), "ready": bool(cfg.api_key or cfg.is_local())}
+                "has_key": bool(cfg.api_key), "ready": bool(cfg.api_key or cfg.is_local()),
+                "active_profile": active, "profiles": [
+                    {"name": name, "base_url": profile.base_url, "model": profile.model,
+                     "has_key": bool(profile.api_key)}
+                    for name, profile in profiles.items()
+                ]}
+
+    _model_settings_lock = threading.Lock()
 
     def _configure_model(self) -> None:
         origin = self.headers.get("Origin")
@@ -1094,6 +1102,32 @@ class _Handler(BaseHTTPRequestHandler):
             payload = json.loads(self.rfile.read(length))
             if not isinstance(payload, dict):
                 raise ValueError("模型设置格式有误")
+        except ValueError:
+            self._json({"ok": False, "error": "模型设置格式有误"}, 400)
+            return
+        with self._model_settings_lock:
+            self._apply_model_settings(payload)
+
+    def _apply_model_settings(self, payload: dict) -> None:
+        active, profiles = load_model_profiles()
+        selected = payload.get("profile", active)
+        name = payload.get("profile_name", active or "默认配置")
+        if (not isinstance(name, str) or not name.strip() or len(name.strip()) > 60
+                or any(ord(char) < 32 for char in name)
+                or not isinstance(selected, str)):
+            self._json({"ok": False, "error": "请填写 1–60 字的配置名称"}, 400)
+            return
+        name = name.strip()
+        if selected and selected not in profiles:
+            self._json({"ok": False, "error": "该配置已变更，请刷新工作台后重试"}, 409)
+            return
+        if name in profiles and name != selected:
+            self._json({"ok": False, "error": "已存在同名配置，请换一个名称"}, 409)
+            return
+        previous = profiles.get(selected)
+        if previous is None and "profile" not in payload:
+            previous = self.cfg or load_config()
+        try:
             base = str(payload.get("base_url") or "").strip().rstrip("/")
             model = str(payload.get("model") or "").strip()
             key = str(payload.get("api_key") or "").strip()
@@ -1105,21 +1139,20 @@ class _Handler(BaseHTTPRequestHandler):
                 raise ValueError("云模型请填写 HTTPS 基础地址，本地模型可使用 HTTP")
             if not model:
                 raise ValueError("请填写服务商提供的模型名称")
-            previous = self.cfg or load_config()
-            if not key and base == previous.base_url.rstrip("/"):
+            if not key and previous and base == previous.base_url.rstrip("/"):
                 key = previous.api_key
             if not key and not local:
                 raise ValueError("请填写该服务商的 API Key")
-            for name, value in (("BASE_URL", base), ("MODEL", model), ("API_KEY", key)):
-                override = os.environ.get("PAPERATOMY_" + name)
+            for field, value in (("BASE_URL", base), ("MODEL", model), ("API_KEY", key)):
+                override = os.environ.get("PAPERATOMY_" + field)
                 if override is not None and override != value:
                     self._json({
                         "ok": False,
-                        "error": f"环境变量 PAPERATOMY_{name} 优先，请在启动终端修改或移除它",
+                        "error": f"环境变量 PAPERATOMY_{field} 优先，请在启动终端修改或移除它",
                     }, 409)
                     return
             candidate = LLMConfig(api_key=key, base_url=base, model=model,
-                                  temperature=previous.temperature)
+                                  temperature=previous.temperature if previous else LLMConfig().temperature)
         except (ValueError, UnicodeError):
             # JSON 解析错误可能包含用户输入，避免把请求内容回显。
             self._json({"ok": False, "error": "请检查基础地址、模型名称与 API Key，切换服务商时需填写新 Key"}, 400)
@@ -1128,7 +1161,7 @@ class _Handler(BaseHTTPRequestHandler):
             probe = LLMConfig(api_key=key, base_url=base, model=model,
                               max_tokens=32, timeout=15, retries=1)
             chat([{"role": "user", "content": "Reply with OK."}], probe, json_mode=False)
-            save_config(candidate)
+            save_config(candidate, profile_name=name, previous_name=selected)
         except LLMError as exc:
             message = str(exc).split("\n", 1)[0]
             if key:
