@@ -1099,6 +1099,43 @@ class _Handler(BaseHTTPRequestHandler):
                 detail = detail.replace(cfg.api_key, "[已隐藏]")
             self._json({"ok": False, "error": detail[:240]}, 502)
 
+    def _review_draft(self) -> None:
+        origin = self.headers.get("Origin")
+        if not origin or not self._same_origin() or origin != f"http://{self.headers.get('Host')}":
+            self._json({"ok": False, "error": "请从本机工作台生成综述"}, 403)
+            return
+        from .review_draft import MAX_PAPERS, MIN_PAPERS, draft_review
+
+        cfg = self.cfg or load_config()
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+            if not 0 < length <= 32768 or self.headers.get_content_type() != "application/json":
+                raise ValueError("请求格式无效")
+            payload = json.loads(self.rfile.read(length))
+            if not isinstance(payload, dict):
+                raise ValueError("请求格式无效")
+            files = payload.get("files")
+            question = payload.get("question")
+            if (not isinstance(files, list) or not MIN_PAPERS <= len(files) <= MAX_PAPERS
+                    or not all(isinstance(file, str) and file for file in files)
+                    or len(set(files)) != len(files)):
+                raise ValueError(f"请选择 {MIN_PAPERS}–{MAX_PAPERS} 篇不同的论文报告")
+            if not isinstance(question, str) or not 1 <= len(question.strip()) <= 400:
+                raise ValueError("请输入 1–400 字的研究问题")
+            items = []
+            for file in files:
+                path, data = self._lab_profile(file)
+                pdf = path.stem if (self.state.pdf_dir / (path.stem + ".pdf")).is_file() else None
+                items.append((file, pdf, data))
+            self._json({"ok": True, **draft_review(question.strip(), items, cfg)})
+        except (ValueError, OSError) as exc:
+            self._json({"ok": False, "error": str(exc)}, 400)
+        except LLMError as exc:
+            detail = str(exc).partition("\n")[0]
+            if cfg.api_key:
+                detail = detail.replace(cfg.api_key, "[已隐藏]")
+            self._json({"ok": False, "error": detail[:240]}, 502)
+
     def _note_source(self, params: dict) -> dict:
         from .notes import evidence_snapshot
 
@@ -1256,6 +1293,11 @@ class _Handler(BaseHTTPRequestHandler):
 
         if path == "/api/translation" and self.workbench:
             self._translation_request(params)
+            return
+
+        if path == "/review" and self.workbench:
+            html = Path(__file__).with_name("review_draft.html").read_bytes()
+            self._send(200, html, "text/html; charset=utf-8")
             return
 
         if path == "/lab" and self.workbench:
@@ -1515,6 +1557,10 @@ class _Handler(BaseHTTPRequestHandler):
         params = {urllib.parse.unquote(k): urllib.parse.unquote(v)
                   for k, v in (kv.split("=", 1) for kv in query.split("&")
                                if "=" in kv)}
+
+        if path == "/api/review" and self.workbench:
+            self._review_draft()
+            return
 
         if path == "/api/conclusions" and self.workbench:
             self._compare_conclusions()

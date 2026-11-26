@@ -356,6 +356,7 @@
   <div class="welcome-actions">
     <button id="modelOpen" class="action primary" type="button">模型设置</button>
     <a class="action" href="/lab">方法对比与复现</a>
+    <a class="action" href="/review">写文献综述</a>
     <a class="action" href="/notes">证据笔记</a>
     <a class="action" href="https://1fish4.github.io/paperatomy/" target="_blank" rel="noopener">打开免 Key 示例</a>
   </div>
@@ -395,6 +396,7 @@
      align-items:center; background:#24303B; color:#fff; border-radius:24px;
      padding:10px 14px 10px 20px; box-shadow:0 10px 30px rgba(0,0,0,.25);">
   <span id="cmpGo" style="font-size:13.5px">对比分析</span>
+  <a id="reviewSelected" href="/review" style="color:#fff;font-size:13.5px">写综述</a>
   <button id="cmpCancel" style="border:none; background:rgba(255,255,255,.15);
           color:#fff; border-radius:16px; padding:5px 12px; cursor:pointer;
           font-size:12px">取消选择</button>
@@ -762,6 +764,9 @@
     bar.style.display = n >= 2 ? "flex" : "none";
     var b = document.getElementById("cmpGo");
     if (b) { b.textContent = "对比分析（" + n + " 篇）"; }
+    var query = new URLSearchParams();
+    Object.keys(sel).forEach(function (file) { query.append("file", file); });
+    document.getElementById("reviewSelected").href = "/review?" + query;
   }
 
   function clearSel() {

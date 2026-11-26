@@ -92,6 +92,7 @@
       <textarea id="question" rows="2" maxlength="400" required
         placeholder="例如，这些方法在截止时间收紧时，怎样影响碳排放？"></textarea>
       <button id="conclude" class="primary" type="submit">比较结论和适用条件</button>
+      <a id="writeReview" href="/review">用所选论文写综述</a>
       <p id="conclusionStatus" role="status" class="status muted"></p>
     </form>
     <div id="conclusionResult" class="comparison"></div>
@@ -358,6 +359,12 @@
       }
     }
   }
+
+  byId("writeReview").addEventListener("click", function () {
+    const query = new URLSearchParams({question: byId("question").value.trim()});
+    selected.forEach(file => query.append("file", file));
+    this.href = "/review?" + query;
+  });
 
   byId("conclusionForm").addEventListener("submit", async event => {
     event.preventDefault();

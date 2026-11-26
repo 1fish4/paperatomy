@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>文献综述 · Paperatomy</title>
+<style>
+  :root { color-scheme: light; --ink: #172d3b; --sub: #4a6273; --accent: #195d70; --line: #d5e2e6;
+    font: 15px/1.65 "Segoe UI", "Microsoft YaHei", sans-serif; }
+  * { box-sizing: border-box; }
+  body { margin: 0; color: var(--ink); background: #eef3f5; }
+  header { background: #183046; padding: 13px max(18px, calc((100vw - 1050px) / 2)); }
+  header a { color: #d1edf1; }
+  main { max-width: 1090px; margin: auto; padding: 24px 18px 60px; }
+  h1 { margin: 0 0 10px; font-size: clamp(28px, 5vw, 42px); }
+  h2, h3 { margin: 0 0 8px; }
+  p { margin: 5px 0 11px; }
+  .muted { color: var(--sub); }
+  .box { background: white; border: 1px solid var(--line); border-radius: 14px; padding: 18px; margin: 15px 0; }
+  .controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+  input[type="search"], textarea, button { border: 1px solid #a9bec7; border-radius: 8px; padding: 7px 10px;
+    background: #fff; color: var(--ink); font: inherit; }
+  input[type="search"], textarea { display: block; margin: 5px 0 9px; width: 100%; }
+  textarea { resize: vertical; }
+  button { cursor: pointer; }
+  button.primary { background: var(--accent); color: white; border-color: var(--accent); }
+  button:disabled { opacity: .55; cursor: default; }
+  :focus-visible { outline: 3px solid #33899e; outline-offset: 2px; }
+  a { color: var(--accent); }
+  #papers { max-height: 230px; overflow-y: auto; margin: 8px 0; padding-inline: 2px; }
+  #papers label { display: flex; gap: 10px; align-items: flex-start; border-bottom: 1px solid #e3ecee; padding: 6px 0; }
+  #papers input { flex: 0 0 auto; margin-top: 6px; }
+  .draft p { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .draft section { margin-top: 20px; }
+  .draft blockquote { border-left: 3px solid #a1c2c9; margin: 7px 0; padding: 5px 10px; background: #f1f6f7; }
+  details { margin-bottom: 14px; }
+  summary { cursor: pointer; }
+  [data-error] { color: #a14628; }
+</style>
+</head>
+<body>
+<header><a href="/">← 返回论文工作台</a></header>
+<main>
+  <h1>文献综述</h1>
+  <p class="muted">选定已分析的论文，围绕一个研究问题生成相关工作草稿。</p>
+  <form class="box" id="form">
+    <div class="controls"><h2>选择论文</h2><p id="count" class="muted" role="status"></p></div>
+    <label>搜索已分析论文<input id="search" type="search" placeholder="按标题或文件名搜索"></label>
+    <div id="papers"></div>
+    <label>研究问题<textarea id="question" rows="2" maxlength="400" required
+      placeholder="例如，这些论文如何在截止时间约束下减少工作流的碳排放？"></textarea></label>
+    <button id="generate" class="primary" type="submit" disabled>生成综述草稿</button>
+    <p id="status" role="status">正在读取报告库…</p>
+  </form>
+  <article id="draft" class="box draft" hidden>
+    <div class="controls"><h2>相关工作草稿</h2><button id="export" type="button">导出 Markdown</button></div>
+    <p id="draftQuestion" class="muted"></p>
+    <div id="sections"></div>
+    <section aria-labelledby="sourceTitle"><h3 id="sourceTitle">论文使用情况</h3><ul id="sources"></ul></section>
+  </article>
+</main>
+<script>
+(function () {
+  const byId = id => document.getElementById(id);
+  const selected = new Set(new URLSearchParams(location.search).getAll("file"));
+  let reports = [];
+  let busy = false;
+  let markdown = "";
+
+  function element(tag, text) {
+    const node = document.createElement(tag);
+    if (text) node.textContent = text;
+    return node;
+  }
+
+  async function api(path, options) {
+    const response = await fetch(path, options);
+    const data = await response.json();
+    if (!response.ok || !data.ok) throw new Error(data.error || "请求失败");
+    return data;
+  }
+
+  function status(text, error = false) {
+    byId("status").textContent = text;
+    byId("status").toggleAttribute("data-error", error);
+  }
+
+  function updateSelection() {
+    byId("count").textContent = "已选 " + selected.size + " 篇 · 可选 2–12 篇";
+    byId("generate").disabled = busy || selected.size < 2 || selected.size > 12;
+    for (const input of byId("papers").querySelectorAll("input")) {
+      input.disabled = busy || (selected.size >= 12 && !input.checked);
+    }
+  }
+
+  function renderPapers() {
+    const q = byId("search").value.trim().toLowerCase();
+    const list = reports.filter(paper => !q || (paper.title + " " + paper.file).toLowerCase().includes(q));
+    const rows = list.map(paper => {
+      const row = element("label");
+      const check = element("input");
+      check.type = "checkbox";
+      check.checked = selected.has(paper.file);
+      check.addEventListener("change", () => {
+        if (check.checked) selected.add(paper.file);
+        else selected.delete(paper.file);
+        updateSelection();
+      });
+      row.append(check, element("span", paper.title));
+      return row;
+    });
+    byId("papers").replaceChildren(...(rows.length ? rows : [element("p", "没有符合条件的报告。")]));
+    updateSelection();
+  }
+
+  function renderDraft(data) {
+    byId("draftQuestion").textContent = "研究问题 · " + data.question;
+    const sections = data.sections.map(section => {
+      const node = element("section");
+      node.append(element("h3", section.heading));
+      for (const paragraph of section.paragraphs) {
+        node.append(element("p", paragraph.text));
+        const details = element("details");
+        details.append(element("summary", "核对本段证据 · " + paragraph.refs.length + " 条"));
+        for (const ref of paragraph.refs) {
+          const evidence = data.evidence[ref];
+          const paper = data.papers[evidence.paper - 1];
+          const label = paper.title + " · 第 " + evidence.page + " 页";
+          details.append(element("p", label), element("blockquote", evidence.quote));
+          if (evidence.quote_zh && evidence.quote_zh !== evidence.quote) {
+            details.append(element("p", evidence.quote_zh));
+          }
+          const source = element("a", paper.pdf ? "查看原文页" : "查看报告");
+          source.href = paper.pdf
+            ? "/pageimg/" + encodeURIComponent(paper.pdf) + "/" + evidence.page + ".png"
+            : "/report?file=" + encodeURIComponent(paper.file);
+          source.target = "_blank";
+          source.rel = "noopener";
+          details.append(source);
+        }
+        node.append(details);
+      }
+      return node;
+    });
+    const sources = data.papers.map(paper => element("li", paper.title + " · " +
+      (paper.used ? "已引用" : paper.evidence_count ? "本次未引用" : "缺少已核实证据")));
+    byId("sections").replaceChildren(...sections);
+    byId("sources").replaceChildren(...sources);
+    byId("draft").hidden = false;
+    markdown = data.markdown;
+  }
+
+  byId("search").addEventListener("input", renderPapers);
+  byId("form").addEventListener("submit", async event => {
+    event.preventDefault();
+    const question = byId("question").value.trim();
+    if (busy || !question || selected.size < 2 || selected.size > 12) return;
+    busy = true;
+    updateSelection();
+    try {
+      status("正在根据所选论文的原文证据组织草稿…");
+      const data = await api("/api/review", {
+        method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({files: [...selected], question})
+      });
+      renderDraft(data);
+      status("草稿已生成，可以展开每段证据核对。");
+    } catch (error) {
+      status(error.message, true);
+    } finally {
+      busy = false;
+      updateSelection();
+    }
+  });
+  byId("export").addEventListener("click", () => {
+    if (!markdown) return;
+    const url = URL.createObjectURL(new Blob([markdown], {type: "text/markdown;charset=utf-8"}));
+    const download = element("a");
+    download.href = url;
+    download.download = "相关工作草稿.md";
+    document.body.append(download);
+    download.click();
+    download.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
+  api("/api/lab").then(data => {
+    reports = data.reports;
+    const available = new Set(reports.map(paper => paper.file));
+    for (const file of selected) if (!available.has(file)) selected.delete(file);
+    byId("question").value = (new URLSearchParams(location.search).get("question") || "").slice(0, 400);
+    renderPapers();
+    status(reports.length >= 2 ? "" : "先在工作台分析至少两篇论文。");
+  }).catch(error => status(error.message, true));
+})();
+</script>
+</body>
+</html>
